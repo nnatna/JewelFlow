@@ -19,7 +19,7 @@ class RoleFactory extends Factory
     {
         return [
             'name' => fake()->unique()->jobTitle().' '.fake()->unique()->numberBetween(1, 9999),
-            'permissions' => ['view', 'create', 'update'],
+            'guard_name' => 'web',
             'description' => fake()->sentence(),
         ];
     }
