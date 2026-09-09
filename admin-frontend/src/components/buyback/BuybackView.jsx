@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import { Pagination } from '../common/Pagination';
 import { Repeat, Scale, FileText } from 'lucide-react';
 
 export const BuybackView = () => {
@@ -14,6 +15,8 @@ export const BuybackView = () => {
   const [payoutMethod, setPayoutMethod] = useState('Cash');
   const [notes, setNotes] = useState('Tested via XRF assay spectrometer. Good purity.');
   const [issuedVoucher, setIssuedVoucher] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const selectedRate = goldRates.find(r => r.metal_type_id === Number(selectedMetalId)) || goldRates[0];
   const buyRate = selectedRate?.buy_rate_per_gram || 80.0;
@@ -22,6 +25,8 @@ export const BuybackView = () => {
   const netWeight = Math.max(0, grossWeight * (1 - meltLossPct / 100));
   const rawValue = netWeight * buyRate;
   const totalPayout = Math.max(0, rawValue - Number(appraisalFee));
+
+  const paginatedBuybacks = buybacks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleProcess = (e) => {
     e.preventDefault();
@@ -55,7 +60,7 @@ export const BuybackView = () => {
           Scrap Gold Buyback & Trade-In Terminal
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          Appraise customer estate gold, weigh bullion scrap, and issue cash payouts or store trade-in credit.
+          Appraise customer estate gold, weigh bullion scrap, and issue cash payouts or store trade-in credit ({buybacks.length} vouchers on record).
         </p>
       </div>
 
@@ -220,7 +225,7 @@ export const BuybackView = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
-                {buybacks.map(bb => (
+                {paginatedBuybacks.map(bb => (
                   <tr key={bb.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="p-3 font-bold text-amber-800">
                       {bb.buyback_no}
@@ -250,6 +255,14 @@ export const BuybackView = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination Controls (10 per page) */}
+            <Pagination
+              currentPage={currentPage}
+              totalItems={buybacks.length}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+            />
           </div>
         </div>
       </div>

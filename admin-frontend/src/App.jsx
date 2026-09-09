@@ -39,15 +39,17 @@ const MainLayout = () => {
   };
 
   return (
-    <div className="flex min-h-screen w-full bg-slate-50 text-slate-900 font-sans selection:bg-amber-400 selection:text-slate-950">
-      {/* Sidebar Navigation */}
+    <div className="flex h-screen w-full overflow-hidden bg-slate-50 text-slate-900 font-sans selection:bg-amber-400 selection:text-slate-950">
+      {/* Pinned Sidebar Navigation */}
       <Sidebar />
 
       {/* Main App Canvas */}
-      <div className="flex-1 flex flex-col min-w-0 w-full">
+      <div className="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+        {/* Pinned Navbar */}
         <Navbar />
 
-        <main className="flex-1 p-6 lg:p-8 w-full">
+        {/* Scrollable Content View */}
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 w-full">
           {renderContent()}
         </main>
       </div>

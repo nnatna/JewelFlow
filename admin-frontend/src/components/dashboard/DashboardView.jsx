@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
+import { Pagination } from '../common/Pagination';
 import {
   DollarSign,
   Scale,
@@ -14,6 +16,7 @@ import {
 } from 'lucide-react';
 
 export const DashboardView = () => {
+  const { t } = useTranslation();
   const {
     sales,
     products,
@@ -26,6 +29,11 @@ export const DashboardView = () => {
   const [calcWeight, setCalcWeight] = useState(10);
   const [calcMetalId, setCalcMetalId] = useState(1);
   const [calcLabor, setCalcLabor] = useState(120);
+
+  // Live Metal Price Board Pagination (10 per page)
+  const [metalPage, setMetalPage] = useState(1);
+  const metalPageSize = 10;
+  const paginatedGoldRates = goldRates.slice((metalPage - 1) * metalPageSize, metalPage * metalPageSize);
 
   // Computed metrics
   const totalSalesRevenue = sales.reduce((acc, s) => acc + s.grand_total, 0);
@@ -49,10 +57,10 @@ export const DashboardView = () => {
             Jewelry Atelier & Point of Sale
           </div>
           <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-serif">
-            Welcome to JewelFlow Atelier
+            {t('dashboard.welcome', 'Welcome to JewelFlow Atelier')}
           </h1>
           <p className="text-slate-600 text-sm mt-1 max-w-xl">
-            Live gold rate re-pricing enabled. Track fine jewelry inventory, bullion weight, customer trade-ins, and high-value sales.
+            {t('dashboard.welcomeSubtitle', 'Live gold rate re-pricing enabled. Track fine jewelry inventory, bullion weight, customer trade-ins, and high-value sales.')}
           </p>
         </div>
 
@@ -62,14 +70,14 @@ export const DashboardView = () => {
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-95"
           >
             <ShoppingBag className="w-4 h-4" />
-            New POS Sale
+            {t('nav.openPos', 'Open POS Terminal')}
           </button>
           <button
             onClick={() => setActiveTab('buyback')}
             className="flex items-center gap-2 bg-white hover:bg-slate-50 text-amber-900 border border-amber-300 font-semibold px-4 py-2.5 rounded-xl text-sm shadow-xs cursor-pointer transition-all"
           >
             <Repeat className="w-4 h-4 text-amber-600" />
-            Gold Buyback
+            {t('nav.buybacks', 'Scrap Gold Buybacks')}
           </button>
         </div>
       </div>
@@ -79,7 +87,7 @@ export const DashboardView = () => {
         {/* Total Sales */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Total Sales Volume</span>
+            <span>{t('dashboard.totalRevenue', 'Total Revenue')}</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
               <DollarSign className="w-4 h-4" />
             </div>
@@ -96,48 +104,48 @@ export const DashboardView = () => {
         {/* Vault Metal Weight */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Gold Stock in Vault</span>
+            <span>{t('dashboard.goldInVault', 'Gold Stock in Vault')}</span>
             <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center">
               <Scale className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
-            {totalGoldGrams.toFixed(2)} <span className="text-sm font-sans text-slate-500 font-normal">g</span>
+            {totalGoldGrams.toFixed(1)}g
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-            <span>{products.length} catalog items in stock</span>
+          <div className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+            <span>{(totalGoldGrams / 3.75).toFixed(1)} ជី (Chi)</span>
           </div>
         </div>
 
-        {/* Average Order Value */}
+        {/* Average Ticket */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Avg. Transaction Size</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <span>{t('dashboard.avgTicket', 'Average Ticket')}</span>
+            <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
             ${avgTicket.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 font-medium">
-            <span>Fine luxury benchmark</span>
+          <div className="mt-2 text-xs text-slate-400">
+            {sales.length} completed transactions
           </div>
         </div>
 
-        {/* Total Buybacks */}
+        {/* Trade-ins / Buybacks */}
         <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
-            <span>Customer Buybacks / Trade-In</span>
-            <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <span>{t('dashboard.scrapBuybacks', 'Scrap Buybacks')}</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
               <Repeat className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
             ${totalBuybacksAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-            <span>{buybacks.length} transactions completed</span>
+          <div className="mt-2 text-xs text-slate-400">
+            {buybacks.length} client trade-in tickets
           </div>
         </div>
       </div>
@@ -176,7 +184,7 @@ export const DashboardView = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
-                {goldRates.map(rate => {
+                {paginatedGoldRates.map(rate => {
                   const spread = rate.rate_per_gram - rate.buy_rate_per_gram;
                   return (
                     <tr key={rate.id} className="hover:bg-slate-50/80 transition-colors">
@@ -204,6 +212,15 @@ export const DashboardView = () => {
                 })}
               </tbody>
             </table>
+          </div>
+
+          <div className="mt-3">
+            <Pagination
+              currentPage={metalPage}
+              totalItems={goldRates.length}
+              pageSize={metalPageSize}
+              onPageChange={setMetalPage}
+            />
           </div>
         </div>
 

@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
+import { Pagination } from '../common/Pagination';
 import { Users, UserPlus, Search, Crown, Phone, Mail, MapPin, ShoppingBag, X } from 'lucide-react';
 
 export const CustomersView = () => {
+  const { t } = useTranslation();
   const { customers, addCustomer, setSelectedCustomer, setActiveTab } = useApp();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
   const [newCust, setNewCust] = useState({
     name: '',
     phone: '',
@@ -21,6 +27,12 @@ export const CustomersView = () => {
     c.phone.includes(searchTerm) ||
     c.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const paginatedCustomers = filteredCustomers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleCreateCustomer = (e) => {
     e.preventDefault();
@@ -44,16 +56,16 @@ export const CustomersView = () => {
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
             <Users className="w-6 h-6 text-amber-600" />
-            Clientèle & VIP Privilege CRM Table
+            {t('customers.title', 'Clientèle & VIP Privilege CRM Table')}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Client register with VIP tier privileges, loyalty points accrual, and purchase history.
+            {t('customers.subtitle', 'Client register with VIP tier privileges, loyalty points accrual, and purchase history')} ({customers.length} {t('customers.totalClients', 'total clients')}).
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-right shadow-xs">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Total Client Portfolio</span>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">{t('customers.portfolio', 'Total Client Portfolio')}</span>
             <span className="text-base font-mono font-bold text-amber-700">
               ${totalClientsSpend.toLocaleString()}
             </span>
@@ -64,7 +76,7 @@ export const CustomersView = () => {
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-95"
           >
             <UserPlus className="w-4 h-4" />
-            Enroll Client
+            {t('customers.enrollClient', 'Enroll Client')}
           </button>
         </div>
       </div>
@@ -75,7 +87,7 @@ export const CustomersView = () => {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="Search client name, phone or email..."
+            placeholder={t('customers.searchPlaceholder', 'Search client name, phone or email...')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white"
@@ -89,18 +101,18 @@ export const CustomersView = () => {
           <table className="w-full min-w-[1050px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
               <tr>
-                <th className="p-4 whitespace-nowrap min-w-[200px]">Client Name</th>
-                <th className="p-4 whitespace-nowrap">VIP Tier & Privilege</th>
-                <th className="p-4 whitespace-nowrap">Phone Number</th>
+                <th className="p-4 whitespace-nowrap min-w-[200px]">{t('customers.clientName', 'Client Name')}</th>
+                <th className="p-4 whitespace-nowrap">{t('customers.tier', 'VIP Tier & Privilege')}</th>
+                <th className="p-4 whitespace-nowrap">{t('customers.contact', 'Phone Number')}</th>
                 <th className="p-4 whitespace-nowrap">Email Address</th>
                 <th className="p-4 whitespace-nowrap min-w-[220px]">Residence Address</th>
                 <th className="p-4 whitespace-nowrap text-center">Loyalty Points</th>
-                <th className="p-4 whitespace-nowrap text-right">Lifetime Spend</th>
-                <th className="p-4 whitespace-nowrap text-right">Actions</th>
+                <th className="p-4 whitespace-nowrap text-right">{t('customers.totalSpent', 'Lifetime Spend')}</th>
+                <th className="p-4 whitespace-nowrap text-right">{t('customers.actions', 'Actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredCustomers.map(customer => {
+              {paginatedCustomers.map(customer => {
                 const isDiamond = customer.tier === 'Diamond VIP';
                 const isPlatinum = customer.tier === 'Platinum';
 
@@ -171,6 +183,14 @@ export const CustomersView = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls (10 per page) */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredCustomers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Add Client Modal */}

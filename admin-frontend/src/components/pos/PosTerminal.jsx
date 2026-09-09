@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { InvoiceModal } from './InvoiceModal';
 import {
@@ -12,10 +13,15 @@ import {
   Banknote,
   QrCode,
   User,
-  Percent
+  Percent,
+  Pin,
+  PinOff,
+  Bookmark,
+  Clock
 } from 'lucide-react';
 
 export const PosTerminal = () => {
+  const { t } = useTranslation();
   const {
     products,
     categories,
@@ -41,6 +47,39 @@ export const PosTerminal = () => {
   const [paymentMethod, setPaymentMethod] = useState('Credit Card');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeInvoice, setActiveInvoice] = useState(null);
+
+  // Active POS Ticket Pin States
+  const [isPinned, setIsPinned] = useState(true);
+  const [pinnedTickets, setPinnedTickets] = useState([]);
+
+  // Pin / Hold current ticket to recall later
+  const handlePinTicket = () => {
+    if (cart.length === 0) return;
+    const newTicket = {
+      id: Date.now(),
+      cart: [...cart],
+      selectedCustomer,
+      discountPercent,
+      subtotal,
+      grandTotal,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+    setPinnedTickets(prev => [newTicket, ...prev]);
+    clearCart();
+  };
+
+  // Restore a pinned ticket back to active cart
+  const handleRestoreTicket = (ticket) => {
+    ticket.cart.forEach(item => addToCart(item));
+    setSelectedCustomer(ticket.selectedCustomer || null);
+    setDiscountPercent(ticket.discountPercent || 0);
+    setPinnedTickets(prev => prev.filter(t => t.id !== ticket.id));
+  };
+
+  // Delete a held ticket
+  const handleDeletePinnedTicket = (ticketId) => {
+    setPinnedTickets(prev => prev.filter(t => t.id !== ticketId));
+  };
 
   // Filter products
   const filteredProducts = products.filter(p => {
@@ -81,9 +120,9 @@ export const PosTerminal = () => {
   };
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 h-full items-start">
-      {/* Left Area: Product Browser (8 cols on XL) */}
-      <div className="xl:col-span-8 space-y-4">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* Left Area: Product Browser (7 cols on LG, 8 cols on XL) */}
+      <div className="lg:col-span-7 xl:col-span-8 space-y-4">
         {/* Header & Filter Bar */}
         <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -91,7 +130,7 @@ export const PosTerminal = () => {
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder="Scan Barcode or Search SKU / Name..."
+                placeholder={t('pos.searchPlaceholder', 'Scan Barcode or Search SKU / Name...')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white"
@@ -108,7 +147,7 @@ export const PosTerminal = () => {
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
-                All Metals
+                {t('catalog.allMetals', 'All Metals')}
               </button>
               {metalTypes.slice(0, 4).map(metal => (
                 <button
@@ -136,7 +175,7 @@ export const PosTerminal = () => {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              All Categories
+              {t('catalog.allCategories', 'All Categories')}
             </button>
             {categories.map(cat => (
               <button
@@ -155,7 +194,7 @@ export const PosTerminal = () => {
         </div>
 
         {/* Product Cards Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-4">
           {filteredProducts.map(product => {
             const currentPrice = calculateProductPrice(product);
             const metal = metalTypes.find(m => m.id === product.metal_type_id);
@@ -218,35 +257,121 @@ export const PosTerminal = () => {
         </div>
       </div>
 
-      {/* Right Area: Active POS Ticket / Cart (4 cols on XL) */}
-      <div className="xl:col-span-4 bg-white border border-slate-200 shadow-xs rounded-2xl p-5 space-y-4 sticky top-20">
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      {/* Right Area: Active POS Ticket / Cart (5 cols on LG, 4 cols on XL) */}
+      <div
+        id="active-pos-ticket"
+        className={`lg:col-span-5 xl:col-span-4 bg-white border rounded-2xl p-4 sm:p-5 flex flex-col transition-all max-h-[calc(100vh-6.5rem)] overflow-y-auto overflow-x-hidden ${
+          isPinned
+            ? 'sticky top-0 z-20 shadow-md border-amber-300 ring-1 ring-amber-400/20'
+            : 'border-slate-200 shadow-xs relative'
+        }`}
+        style={{ scrollbarWidth: 'thin' }}
+      >
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2 font-serif text-lg font-bold text-slate-900">
             <ShoppingBag className="w-5 h-5 text-amber-600" />
             <span>Active POS Ticket</span>
+            {isPinned && (
+              <span className="text-[10px] bg-amber-100 text-amber-900 font-sans font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 border border-amber-300">
+                <Pin className="w-2.5 h-2.5 fill-amber-600 text-amber-600" />
+                Pinned
+              </span>
+            )}
           </div>
-          {cart.length > 0 && (
+          <div className="flex items-center gap-1.5">
+            {/* Toggle Pin Sticky */}
             <button
-              onClick={clearCart}
-              className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold cursor-pointer"
+              onClick={() => setIsPinned(!isPinned)}
+              className={`px-2 py-1 rounded-lg border transition-all cursor-pointer flex items-center gap-1 text-xs ${
+                isPinned
+                  ? 'bg-amber-100 border-amber-300 text-amber-900 font-bold'
+                  : 'bg-slate-50 border-slate-200 text-slate-500 hover:text-slate-800'
+              }`}
+              title={isPinned ? 'Unpin ticket' : 'Pin ticket to stay fixed on screen'}
             >
-              Clear
+              {isPinned ? <Pin className="w-3.5 h-3.5 fill-amber-700 text-amber-700" /> : <PinOff className="w-3.5 h-3.5" />}
+              <span className="text-[11px]">{isPinned ? 'Pinned' : 'Pin'}</span>
             </button>
-          )}
+
+            {/* Hold / Pin Ticket to recall later */}
+            {cart.length > 0 && (
+              <button
+                onClick={handlePinTicket}
+                className="text-[11px] text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 font-semibold px-2 py-1 rounded-lg cursor-pointer flex items-center gap-1 transition-all"
+                title="Hold / Pin ticket to serve another guest"
+              >
+                <Bookmark className="w-3 h-3 text-amber-700" />
+                Hold
+              </button>
+            )}
+
+            {cart.length > 0 && (
+              <button
+                onClick={clearCart}
+                className="text-[11px] text-rose-600 hover:text-rose-700 font-semibold px-1.5 py-1 cursor-pointer"
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
+        {/* Pinned / Held Tickets Tray */}
+        {pinnedTickets.length > 0 && (
+          <div className="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2">
+            <div className="flex items-center justify-between text-xs font-bold text-amber-900">
+              <span className="flex items-center gap-1.5">
+                <Bookmark className="w-3.5 h-3.5 text-amber-600" />
+                Held / Pinned Tickets ({pinnedTickets.length})
+              </span>
+            </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {pinnedTickets.map(pt => (
+                <div
+                  key={pt.id}
+                  className="p-2 bg-white rounded-lg border border-amber-200 flex items-center justify-between text-xs shadow-2xs"
+                >
+                  <div>
+                    <div className="font-semibold text-slate-800">
+                      {pt.selectedCustomer ? pt.selectedCustomer.name : 'Walk-in Guest'} ({pt.cart.length} items)
+                    </div>
+                    <div className="text-[10px] text-slate-500 font-mono">
+                      {pt.time} • ${pt.grandTotal.toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleRestoreTicket(pt)}
+                      className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-semibold text-[11px] cursor-pointer"
+                    >
+                      Resume
+                    </button>
+                    <button
+                      onClick={() => handleDeletePinnedTicket(pt.id)}
+                      className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Customer Selector */}
-        <div>
+        <div className="shrink-0 my-2">
           <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
             <User className="w-3.5 h-3.5 text-amber-600" />
-            Client Account
+            {t('pos.selectClient', 'Client Account')}
           </label>
           <select
             value={selectedCustomer?.id || ''}
             onChange={(e) => handleCustomerChange(e.target.value)}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none font-medium"
           >
-            <option value="">Walk-in Boutique Guest (No Privilege Discount)</option>
+            <option value="">{t('pos.walkInGuest', 'Walk-in Boutique Guest (No Privilege Discount)')}</option>
             {customers.map(c => (
               <option key={c.id} value={c.id}>
                 {c.name} — {c.tier} ({c.discount_rate}% Privilege)
@@ -262,12 +387,11 @@ export const PosTerminal = () => {
         </div>
 
         {/* Cart Item List */}
-        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+        <div className="space-y-2 flex-1 min-h-[120px] max-h-72 overflow-y-auto pr-1 my-2" style={{ scrollbarWidth: 'thin' }}>
           {cart.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs flex flex-col items-center">
+            <div className="py-10 text-center text-slate-400 text-xs flex flex-col items-center">
               <ShoppingBag className="w-8 h-8 stroke-1 text-slate-300 mb-2" />
-              <span>Register is empty.</span>
-              <span className="text-[11px] text-slate-400">Click &apos;Add&apos; on jewelry items to build invoice.</span>
+              <span>{t('pos.emptyCart', 'Register is empty.')}</span>
             </div>
           ) : (
             cart.map(item => (
@@ -313,37 +437,39 @@ export const PosTerminal = () => {
         </div>
 
         {/* Financial Summary */}
-        <div className="pt-3 border-t border-slate-100 space-y-2 text-xs font-mono">
+        <div className="pt-3 border-t border-slate-100 space-y-2 text-xs font-mono shrink-0 mt-auto">
           <div className="flex justify-between text-slate-600">
-            <span>Subtotal:</span>
+            <span>{t('pos.subtotal', 'Subtotal')}:</span>
             <span>${subtotal.toFixed(2)}</span>
           </div>
           {discountPercent > 0 && (
             <div className="flex justify-between text-emerald-700 font-semibold">
               <span className="flex items-center gap-1">
-                <Percent className="w-3 h-3" /> VIP Privilege ({discountPercent}%):
+                <Percent className="w-3 h-3" /> {t('pos.vipDiscount', 'VIP Privilege')} ({discountPercent}%):
               </span>
               <span>-${discountAmount.toFixed(2)}</span>
             </div>
           )}
           <div className="flex justify-between text-slate-600">
-            <span>Sales Tax ({taxRate}%):</span>
+            <span>{t('pos.tax', 'Sales Tax')} ({taxRate}%):</span>
             <span>+${taxAmount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between text-lg font-bold text-slate-900 pt-2 border-t border-slate-200 font-mono">
-            <span>Payable Total:</span>
+            <span>{t('pos.grandTotal', 'Payable Total')}:</span>
             <span className="text-amber-700 font-extrabold">${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         </div>
 
         {/* Checkout Button */}
-        <button
-          disabled={cart.length === 0}
-          onClick={() => setShowPaymentModal(true)}
-          className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-98"
-        >
-          Collect Payment & Issue Invoice
-        </button>
+        <div className="shrink-0 mt-3">
+          <button
+            disabled={cart.length === 0}
+            onClick={() => setShowPaymentModal(true)}
+            className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-98"
+          >
+            {t('pos.processPayment', 'Collect Payment & Issue Invoice')}
+          </button>
+        </div>
       </div>
 
       {/* Payment Selection Modal */}

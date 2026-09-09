@@ -9,23 +9,44 @@
   --text-main: #0f172a;
   --text-muted: #64748b;
   --border-color: #e2e8f0;
-  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Kantumruy Pro', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-khmer: 'Kantumruy Pro', 'Inter', system-ui, sans-serif;
+}
+
+*, *::before, *::after {
+  font-family: 'Kantumruy Pro', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 html, body {
   margin: 0;
   padding: 0;
   width: 100%;
-  min-height: 100%;
+  height: 100%;
   background-color: #f8fafc;
   color: #0f172a;
-  font-family: var(--font-sans);
-  overflow-x: hidden;
+  font-family: 'Kantumruy Pro', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.6;
+  overflow: hidden;
+}
+
+/* Universal Kantumruy Pro font application */
+html, body, #root, button, input, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, p, span, div, a, label {
+  font-family: 'Kantumruy Pro', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Khmer Language Font Rules */
+html[lang="km"],
+html[lang="km"] body,
+html.lang-km,
+html.lang-km body,
+.font-khmer {
+  font-family: 'Kantumruy Pro', 'Inter', system-ui, sans-serif !important;
+  line-height: 1.6;
 }
 
 #root {
   width: 100%;
-  min-height: 100vh;
+  height: 100%;
   margin: 0;
   padding: 0;
 }
@@ -60,18 +81,12 @@ html, body {
   box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.18);
 }
 
-/* Table styling helpers */
-.table-container {
-  width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
 /* Print Invoice Styling */
 @media print {
   body {
     background: #ffffff !important;
     color: #000000 !important;
+    overflow: visible !important;
   }
 
   .no-print {

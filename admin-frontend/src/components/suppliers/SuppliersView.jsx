@@ -1,16 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { Pagination } from '../common/Pagination';
 import { Truck, Phone, Mail, ShieldCheck, Package, Search, FileText } from 'lucide-react';
 
 export const SuppliersView = () => {
   const { suppliers } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const filteredSuppliers = suppliers.filter(s =>
     s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.specialty.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.contact.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
+
+  const paginatedSuppliers = filteredSuppliers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 w-full">
@@ -22,7 +31,7 @@ export const SuppliersView = () => {
             Bullion Refineries & Gemstone Suppliers Table
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Authorized London Bullion Market (LBMA) precious metal refineries and Antwerp diamond exchanges.
+            Authorized London Bullion Market (LBMA) precious metal refineries and Antwerp diamond exchanges ({suppliers.length} vendors on record).
           </p>
         </div>
 
@@ -63,7 +72,7 @@ export const SuppliersView = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredSuppliers.map(sup => (
+              {paginatedSuppliers.map(sup => (
                 <tr key={sup.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="p-4 min-w-[220px]">
                     <span className="font-bold text-slate-900 text-sm font-serif block">{sup.name}</span>
@@ -112,6 +121,14 @@ export const SuppliersView = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls (10 per page) */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredSuppliers.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

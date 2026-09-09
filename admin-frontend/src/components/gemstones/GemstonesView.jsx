@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
+import { Pagination } from '../common/Pagination';
 import { Sparkles, ShieldCheck, Search } from 'lucide-react';
 
 export const GemstonesView = () => {
   const { gemstones } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const filteredGemstones = gemstones.filter(g => {
     const matchesSearch = g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -15,6 +18,12 @@ export const GemstonesView = () => {
     const matchesType = selectedType === 'all' || g.type.toLowerCase() === selectedType.toLowerCase();
     return matchesSearch && matchesType;
   });
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedType]);
+
+  const paginatedGemstones = filteredGemstones.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const totalVaultValue = gemstones.reduce((acc, g) => acc + (g.carat_weight * g.price_per_carat * g.stock_qty), 0);
   const totalCarats = gemstones.reduce((acc, g) => acc + (g.carat_weight * g.stock_qty), 0);
@@ -29,7 +38,7 @@ export const GemstonesView = () => {
             Gemstones & Certified Diamonds Vault Table
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Loose precious stones inventory with 4Cs appraisal (Carat, Cut, Clarity, Color) and laboratory certification.
+            Loose precious stones inventory with 4Cs appraisal ({gemstones.length} stones registered in vault).
           </p>
         </div>
 
@@ -100,7 +109,7 @@ export const GemstonesView = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 font-mono">
-              {filteredGemstones.map(gem => {
+              {paginatedGemstones.map(gem => {
                 const totalPieceValuation = gem.carat_weight * gem.price_per_carat;
 
                 return (
@@ -153,6 +162,14 @@ export const GemstonesView = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls (10 per page) */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filteredGemstones.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );
