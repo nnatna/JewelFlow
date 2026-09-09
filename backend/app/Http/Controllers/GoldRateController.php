@@ -12,7 +12,19 @@ class GoldRateController extends Controller
      */
     public function index()
     {
-        //
+        $search = request()->query('search');
+
+        $sort = request()->query('sort', 'created_at');
+        $direction = request()->query('direction', 'desc');
+
+        $goldRates = GoldRate::query()
+            ->when($search, function ($query, $search) {
+                $query->where('rate', 'like', "%{$search}%");
+            })
+            ->orderBy($sort, $direction)
+            ->paginate(10);
+
+        return view('gold_rates.index', compact('goldRates', 'search', 'sort', 'direction'));
     }
 
     /**
@@ -20,7 +32,7 @@ class GoldRateController extends Controller
      */
     public function create()
     {
-        //
+        return view('gold_rates.create');
     }
 
     /**
@@ -28,7 +40,15 @@ class GoldRateController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validatedData = $request->validate([
+            'rate' => 'required|numeric',
+        ]);
+
+        $goldRate = new GoldRate();
+        $goldRate->rate = $validatedData['rate'];
+        $goldRate->save();
+
+        return redirect()->route('gold_rates.index')->with('success', 'Gold rate created successfully.');
     }
 
     /**
@@ -36,7 +56,7 @@ class GoldRateController extends Controller
      */
     public function show(GoldRate $goldRate)
     {
-        //
+        return view('gold_rates.show', compact('goldRate'));
     }
 
     /**
@@ -44,7 +64,7 @@ class GoldRateController extends Controller
      */
     public function edit(GoldRate $goldRate)
     {
-        //
+        return view('gold_rates.edit', compact('goldRate'));
     }
 
     /**
@@ -52,7 +72,14 @@ class GoldRateController extends Controller
      */
     public function update(Request $request, GoldRate $goldRate)
     {
-        //
+        $validatedData = $request->validate([
+            'rate' => 'required|numeric',
+        ]);
+
+        $goldRate->rate = $validatedData['rate'];
+        $goldRate->save();
+
+        return redirect()->route('gold_rates.index')->with('success', 'Gold rate updated successfully.');
     }
 
     /**
@@ -60,6 +87,8 @@ class GoldRateController extends Controller
      */
     public function destroy(GoldRate $goldRate)
     {
-        //
+        $goldRate->delete();
+
+        return redirect()->route('gold_rates.index')->with('success', 'Gold rate deleted successfully.');
     }
 }

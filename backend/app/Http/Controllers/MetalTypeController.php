@@ -12,7 +12,19 @@ class MetalTypeController extends Controller
      */
     public function index()
     {
-        //
+        $search = request()->query('search');
+
+        $sort = request()->query('sort', 'created_at');
+        $direction = request()->query('direction', 'desc');
+
+        $metalTypes = MetalType::query()
+            ->when($search, function ($query, $search) {
+                $query->where('name', 'like', "%{$search}%");
+            })
+            ->orderBy($sort, $direction)
+            ->paginate(10);
+        
+        return view('metal_types.index', compact('metalTypes', 'search', 'sort', 'direction'));
     }
 
     /**
@@ -20,7 +32,7 @@ class MetalTypeController extends Controller
      */
     public function create()
     {
-        //
+        return view('metal_types.create');
     }
 
     /**
@@ -28,7 +40,15 @@ class MetalTypeController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $metalType = new MetalType();
+        $metalType->name = $validatedData['name'];
+        $metalType->save();
+
+        return redirect()->route('metal_types.index')->with('success', 'Metal type created successfully.');
     }
 
     /**
@@ -36,7 +56,7 @@ class MetalTypeController extends Controller
      */
     public function show(MetalType $metalType)
     {
-        //
+        return view('metal_types.show', compact('metalType'));
     }
 
     /**
@@ -44,7 +64,7 @@ class MetalTypeController extends Controller
      */
     public function edit(MetalType $metalType)
     {
-        //
+        return view('metal_types.edit', compact('metalType'));
     }
 
     /**
@@ -52,7 +72,14 @@ class MetalTypeController extends Controller
      */
     public function update(Request $request, MetalType $metalType)
     {
-        //
+        $validatedData = $request->validate([
+            'name' => 'required|string|max:255',
+        ]);
+
+        $metalType->name = $validatedData['name'];
+        $metalType->save();
+
+        return redirect()->route('metal_types.index')->with('success', 'Metal type updated successfully.');
     }
 
     /**
@@ -60,6 +87,8 @@ class MetalTypeController extends Controller
      */
     public function destroy(MetalType $metalType)
     {
-        //
+        $metalType->delete();
+
+        return redirect()->route('metal_types.index')->with('success', 'Metal type deleted successfully.');
     }
 }
