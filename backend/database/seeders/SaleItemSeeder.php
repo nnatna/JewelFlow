@@ -9,6 +9,6 @@ class SaleItemSeeder extends Seeder
 {
     public function run(): void
     {
-        SaleItem::factory()->count(20)->create();
+        SaleItem::factory()->count(10)->create();
     }
 }

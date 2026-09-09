@@ -9,6 +9,6 @@ class GemstoneSeeder extends Seeder
 {
     public function run(): void
     {
-        Gemstone::factory()->count(20)->create();
+        Gemstone::factory()->count(10)->create();
     }
 }

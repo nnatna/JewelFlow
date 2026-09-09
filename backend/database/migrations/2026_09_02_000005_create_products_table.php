@@ -21,6 +21,8 @@ return new class extends Migration
             $table->decimal('markup_rate', 8, 2)->default(0);
             $table->integer('stock_qty')->default(0);
             $table->enum('status', ['active', 'inactive', 'out_of_stock'])->default('active');
+
+            $table->foreignId('image_id')->nullable()->constrained()->cascadeOnDelete();
             $table->timestamps();
         });
     }

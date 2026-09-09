@@ -1,6 +1,16 @@
 <?php
 
+use App\Http\Controllers\Api\GoldPriceController;
 use App\Http\Controllers\Api\PostController;
+use App\Models\Buyback;
+use App\Models\Category;
+use App\Models\Customer;
+use App\Models\Gemstone;
+use App\Models\GoldRate;
+use App\Models\MetalType;
+use App\Models\Product;
+use App\Models\Sale;
+use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -8,8 +18,179 @@ Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
+// Posts
 Route::get('/posts', [PostController::class, 'index']);
 Route::post('/posts', [PostController::class, 'store']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::put('/posts/{id}', [PostController::class, 'update']);
 Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+
+// Products API
+Route::get('/products', function () {
+    return response()->json(
+        Product::with(['category', 'metalType', 'image', 'productGemstones'])->latest()->get()
+    );
+});
+
+Route::post('/products', function (Request $request) {
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'code_sku' => 'required|string|unique:products,code_sku',
+        'barcode' => 'nullable|string',
+        'category_id' => 'required|exists:categories,id',
+        'metal_type_id' => 'required|exists:metal_types,id',
+        'net_weight' => 'required|numeric',
+        'gross_weight' => 'nullable|numeric',
+        'labor_cost' => 'nullable|numeric',
+        'markup_rate' => 'nullable|numeric',
+        'stock_qty' => 'nullable|integer',
+        'status' => 'nullable|string',
+    ]);
+
+    $product = Product::create($validated);
+    return response()->json($product->load(['category', 'metalType']), 201);
+});
+
+Route::put('/products/{id}', function (Request $request, $id) {
+    $product = Product::findOrFail($id);
+    $product->update($request->all());
+    return response()->json($product->load(['category', 'metalType']));
+});
+
+Route::delete('/products/{id}', function ($id) {
+    $product = Product::findOrFail($id);
+    $product->delete();
+    return response()->json(['message' => 'Product deleted successfully']);
+});
+
+// Gold Rates API
+Route::get('/gold-rates', function (Request $request) {
+    $query = GoldRate::with('metalType')->latest();
+    if ($request->has('page') || $request->query('paginate')) {
+        return response()->json($query->paginate(10));
+    }
+    return response()->json($query->get());
+});
+
+Route::put('/gold-rates/{id}', function (Request $request, $id) {
+    $rate = GoldRate::findOrFail($id);
+    $rate->update($request->only(['buy_rate', 'sell_rate', 'effective_date']));
+    return response()->json($rate->load('metalType'));
+});
+
+// Categories API
+Route::get('/categories', function () {
+    return response()->json(Category::all());
+});
+
+// Metal Types API
+Route::get('/metal-types', function (Request $request) {
+    $search = $request->query('search');
+    $query = MetalType::query()->when($search, function ($q, $search) {
+        $q->where('name', 'like', "%{$search}%");
+    })->latest();
+
+    if ($request->has('page') || $request->query('paginate')) {
+        return response()->json($query->paginate(10));
+    }
+    return response()->json($query->get());
+});
+
+// Gemstones API
+Route::get('/gemstones', function () {
+    return response()->json(Gemstone::all());
+});
+
+// Customers API
+Route::get('/customers', function () {
+    return response()->json(Customer::withCount('sales')->get());
+});
+
+Route::post('/customers', function (Request $request) {
+    $validated = $request->validate([
+        'name' => 'required|string|max:255',
+        'phone' => 'required|string|max:50',
+        'email' => 'nullable|email',
+        'address' => 'nullable|string',
+        'loyalty_points' => 'nullable|integer',
+    ]);
+
+    $customer = Customer::create($validated);
+    return response()->json($customer, 201);
+});
+
+// Sales & Invoices API
+Route::get('/sales', function () {
+    return response()->json(
+        Sale::with(['customer', 'saleItems', 'user'])->latest()->get()
+    );
+});
+
+Route::post('/sales', function (Request $request) {
+    $validated = $request->validate([
+        'invoice_no' => 'required|string|unique:sales,invoice_no',
+        'customer_id' => 'nullable|exists:customers,id',
+        'total_amount' => 'required|numeric',
+        'discount' => 'nullable|numeric',
+        'tax' => 'nullable|numeric',
+        'grand_total' => 'required|numeric',
+        'sale_date' => 'required|date',
+    ]);
+
+    $validated['user_id'] = $request->user_id ?? 1;
+
+    $sale = Sale::create($validated);
+
+    if ($request->has('items') && is_array($request->items)) {
+        foreach ($request->items as $item) {
+            $sale->saleItems()->create([
+                'product_id' => $item['product_id'] ?? 1,
+                'qty' => $item['qty'] ?? 1,
+                'weight_sold' => $item['weight_g'] ?? 0,
+                'metal_rate' => $item['metal_rate'] ?? 0,
+                'unit_price' => $item['unit_price'] ?? 0,
+                'subtotal' => $item['total'] ?? 0,
+            ]);
+        }
+    }
+
+    return response()->json($sale->load(['customer', 'saleItems']), 201);
+});
+
+// Buybacks API
+Route::get('/buybacks', function () {
+    return response()->json(
+        Buyback::with(['customer', 'metalType'])->latest()->get()
+    );
+});
+
+Route::post('/buybacks', function (Request $request) {
+    $validated = $request->validate([
+        'customer_id' => 'nullable|exists:customers,id',
+        'metal_type_id' => 'required|exists:metal_types,id',
+        'weight' => 'required|numeric',
+        'buyback_rate' => 'required|numeric',
+        'deduction_rate' => 'nullable|numeric',
+        'labor_deduction' => 'nullable|numeric',
+        'total_refund' => 'required|numeric',
+        'buyback_date' => 'required|date',
+    ]);
+
+    $buyback = Buyback::create($validated);
+    return response()->json($buyback->load(['customer', 'metalType']), 201);
+});
+
+// Suppliers API
+Route::get('/suppliers', function () {
+    return response()->json(Supplier::all());
+});
+
+// Live Gold Price & Conversion APIs (GoldConverterService + GoldPriceController)
+Route::prefix('gold-price')->group(function () {
+    Route::get('/spot', [GoldPriceController::class, 'getSpotPrice']);
+    Route::get('/cambodia', [GoldPriceController::class, 'getCambodianGoldPrice']);
+    Route::post('/convert', [GoldPriceController::class, 'convert']);
+    Route::post('/valuation', [GoldPriceController::class, 'calculateValuation']);
+    Route::get('/metadata', [GoldPriceController::class, 'getMetadata']);
+});
+

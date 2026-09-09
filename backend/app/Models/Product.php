@@ -21,6 +21,7 @@ class Product extends Model
         'markup_rate',
         'stock_qty',
         'status',
+        'image_id',
     ];
 
     protected $casts = [
@@ -39,7 +40,10 @@ class Product extends Model
     {
         return $this->belongsTo(MetalType::class);
     }
-
+    public function image()
+    {
+        return $this->belongsTo(Image::class);
+    }
     public function productGemstones()
     {
         return $this->hasMany(ProductGemstone::class);

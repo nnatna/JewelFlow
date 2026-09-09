@@ -9,6 +9,6 @@ class GoldRateSeeder extends Seeder
 {
     public function run(): void
     {
-        GoldRate::factory()->count(20)->create();
+        GoldRate::factory()->count(10)->create();
     }
 }
