@@ -10,9 +10,20 @@ class SupplierController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $search=$request->input('search');
+        $sort=$request->input('sort','created_at');
+        $direction=$request->input('direction','desc');
+        $suppliers=Supplier::query()
+            ->when($search,function($query,$search){
+                return $query->where('name','like',"%{$search}%")
+                    ->orWhere('email','like',"%{$search}%")
+                    ->orWhere('phone','like',"%{$search}%");
+            })
+            ->orderBy($sort,$direction)
+            ->paginate(10);
+        return view('suppliers.index',compact('suppliers'));
     }
 
     /**
@@ -20,7 +31,7 @@ class SupplierController extends Controller
      */
     public function create()
     {
-        //
+        return view('suppliers.create');
     }
 
     /**
@@ -28,7 +39,14 @@ class SupplierController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated=$request->validate([
+            'company_name'=>'required|string|max:255',
+            'contact_name'=>'required|string|max:255',
+            'phone'=>'required|string|max:20',
+            'address'=>'required|string|max:255',
+        ]);
+        Supplier::create($validated);
+        return redirect()->route('suppliers.index')->with('success','Supplier created successfully');
     }
 
     /**
@@ -44,7 +62,7 @@ class SupplierController extends Controller
      */
     public function edit(Supplier $supplier)
     {
-        //
+        return view('suppliers.edit',compact('supplier'));
     }
 
     /**
@@ -52,7 +70,14 @@ class SupplierController extends Controller
      */
     public function update(Request $request, Supplier $supplier)
     {
-        //
+        $validated=$request->validate([
+            'company_name'=>'required|string|max:255',
+            'contact_name'=>'required|string|max:255',
+            'phone'=>'required|string|max:20',
+            'address'=>'required|string|max:255',
+        ]);
+        $supplier->update($validated);
+        return redirect()->route('suppliers.index')->with('success','Supplier updated successfully');
     }
 
     /**
@@ -60,6 +85,7 @@ class SupplierController extends Controller
      */
     public function destroy(Supplier $supplier)
     {
-        //
+        $supplier->delete();
+        return redirect()->route('suppliers.index')->with('success','Supplier deleted successfully');
     }
 }

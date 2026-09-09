@@ -10,9 +10,20 @@ class CustomerController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $search=$request->input('search');
+        $sort=$request->input('sort','created_at');
+        $direction=$request->input('direction','desc');
+        $customers=Customer::query()
+            ->when($search,function($query,$search){
+                return $query->where('name','like',"%{$search}%")
+                    ->orWhere('email','like',"%{$search}%")
+                    ->orWhere('phone','like',"%{$search}%");
+            })
+            ->orderBy($sort,$direction)
+            ->paginate(10);
+        return view('customers.index',compact('customers'));
     }
 
     /**
@@ -20,7 +31,7 @@ class CustomerController extends Controller
      */
     public function create()
     {
-        //
+        return view('customers.create');
     }
 
     /**
@@ -28,7 +39,15 @@ class CustomerController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        $validated=$request->validate([
+            'name'=>'required|string|max:255',
+            'email'=>'required|email|unique:customers,email',
+            'phone'=>'required|string|max:20',
+            'address'=>'required|string|max:255',
+            'loyalty_points'=>'nullable|integer|min:0',
+        ]);
+        Customer::create($validated);
+        return redirect()->route('customers.index')->with('success','Customer created successfully');
     }
 
     /**
@@ -44,7 +63,7 @@ class CustomerController extends Controller
      */
     public function edit(Customer $customer)
     {
-        //
+        return view('customers.edit',compact('customer'));
     }
 
     /**
@@ -52,7 +71,15 @@ class CustomerController extends Controller
      */
     public function update(Request $request, Customer $customer)
     {
-        //
+        $validated=$request->validate([
+            'name'=>'required|string|max:255',
+            'email'=>'required|email|unique:customers,email,'.$customer->id,
+            'phone'=>'required|string|max:20',
+            'address'=>'required|string|max:255',
+            'loyalty_points'=>'nullable|integer|min:0',
+        ]);
+        $customer->update($validated);
+        return redirect()->route('customers.index')->with('success','Customer updated successfully');
     }
 
     /**
@@ -60,6 +87,7 @@ class CustomerController extends Controller
      */
     public function destroy(Customer $customer)
     {
-        //
+        $customer->delete();
+        return redirect()->route('customers.index')->with('success','Customer deleted successfully');
     }
 }
