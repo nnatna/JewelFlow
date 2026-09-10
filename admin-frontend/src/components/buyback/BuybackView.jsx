@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
-import { Repeat, Scale, FileText } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faArrowsRotate, faScaleBalanced, faFileLines } from '@fortawesome/free-solid-svg-icons';
 
 export const BuybackView = () => {
   const { buybacks, goldRates, processBuyback } = useApp();
@@ -56,7 +57,7 @@ export const BuybackView = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-          <Repeat className="w-6 h-6 text-amber-600" />
+          <FontAwesomeIcon icon={faArrowsRotate} className="w-6 h-6 text-amber-600" />
           Scrap Gold Buyback & Trade-In Terminal
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
@@ -68,9 +69,9 @@ export const BuybackView = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Buyback Appraisal Form (5 cols on lg) */}
         <div className="lg:col-span-5 rounded-2xl bg-white border border-slate-200 shadow-xs p-6 space-y-4 text-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div className="flex items-center justify-between pb-3 border-slate-100 border-b">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 font-serif">
-              <Scale className="w-4 h-4 text-amber-600" />
+              <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4 text-amber-600" />
               Precious Metal Appraisal Slip
             </h2>
             <span className="text-[10px] text-amber-900 font-mono font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
@@ -206,7 +207,7 @@ export const BuybackView = () => {
         <div className="lg:col-span-7 rounded-2xl bg-white border border-slate-200 shadow-xs p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-amber-600" />
+              <FontAwesomeIcon icon={faFileLines} className="w-4 h-4 text-amber-600" />
               Settled Buyback Vouchers Table
             </h2>
             <span className="text-xs text-slate-500 font-semibold">{buybacks.length} vouchers recorded</span>

@@ -1,10 +1,11 @@
 {
-  "spot_price_oz": 4408.30,
-  "bid": 4408.30,
-  "ask": 4410.30,
-  "change": 54.50,
-  "change_percent": 1.25,
-  "currency": "USD",
-  "timestamp": 1788954720,
-  "source": "Live Gold Price (NY Spot Feed)"
+    "source": "Binance PAXG (Live Spot)",
+    "symbol": "XAU",
+    "spot_price_oz": 4417.87,
+    "bid": 4417.16,
+    "ask": 4417.17,
+    "change": 42.1,
+    "change_percent": 0.96,
+    "timestamp": 1789006029,
+    "date": "2026-09-10 02:07:09"
 }

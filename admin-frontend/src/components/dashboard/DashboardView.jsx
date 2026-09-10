@@ -2,27 +2,29 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  DollarSign,
-  Scale,
-  ShoppingBag,
-  TrendingUp,
-  ArrowUpRight,
-  AlertTriangle,
-  Repeat,
-  Sparkles,
-  ChevronRight,
-  Clock
-} from 'lucide-react';
+  faDollarSign,
+  faScaleBalanced,
+  faBagShopping,
+  faArrowTrendUp,
+  faTriangleExclamation,
+  faArrowsRotate,
+  faWandMagicSparkles,
+  faChevronRight,
+  faClock
+} from '@fortawesome/free-solid-svg-icons';
 
 export const DashboardView = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKhmer = (i18n.language || 'km').startsWith('km');
   const {
     sales,
     products,
     goldRates,
     buybacks,
     setActiveTab,
+    liveSpot,
   } = useApp();
 
   // Quick live calculator state
@@ -53,7 +55,7 @@ export const DashboardView = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-amber-50 via-white to-amber-100/50 p-6 rounded-2xl border border-amber-200 shadow-xs relative overflow-hidden">
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold mb-2">
-            <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+            <FontAwesomeIcon icon={faWandMagicSparkles} className="w-3.5 h-3.5 text-amber-600" />
             Jewelry Atelier & Point of Sale
           </div>
           <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-serif">
@@ -69,14 +71,14 @@ export const DashboardView = () => {
             onClick={() => setActiveTab('pos')}
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-95"
           >
-            <ShoppingBag className="w-4 h-4" />
+            <FontAwesomeIcon icon={faBagShopping} className="w-4 h-4" />
             {t('nav.openPos', 'Open POS Terminal')}
           </button>
           <button
             onClick={() => setActiveTab('buyback')}
             className="flex items-center gap-2 bg-white hover:bg-slate-50 text-amber-900 border border-amber-300 font-semibold px-4 py-2.5 rounded-xl text-sm shadow-xs cursor-pointer transition-all"
           >
-            <Repeat className="w-4 h-4 text-amber-600" />
+            <FontAwesomeIcon icon={faArrowsRotate} className="w-4 h-4 text-amber-600" />
             {t('nav.buybacks', 'Scrap Gold Buybacks')}
           </button>
         </div>
@@ -89,14 +91,14 @@ export const DashboardView = () => {
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>{t('dashboard.totalRevenue', 'Total Revenue')}</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
+              <FontAwesomeIcon icon={faDollarSign} className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
             ${totalSalesRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
-            <ArrowUpRight className="w-3.5 h-3.5" />
+            <FontAwesomeIcon icon={faArrowTrendUp} className="w-3.5 h-3.5" />
             <span>+14.8% vs last week</span>
           </div>
         </div>
@@ -106,14 +108,14 @@ export const DashboardView = () => {
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>{t('dashboard.goldInVault', 'Gold Stock in Vault')}</span>
             <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center">
-              <Scale className="w-4 h-4" />
+              <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
             {totalGoldGrams.toFixed(1)}g
           </div>
           <div className="mt-2 text-xs text-slate-500 flex items-center gap-1">
-            <span>{(totalGoldGrams / 3.75).toFixed(1)} ជី (Chi)</span>
+            <span>{(totalGoldGrams / 3.75).toFixed(1)} {isKhmer ? 'ជី' : 'Chi'}</span>
           </div>
         </div>
 
@@ -122,7 +124,7 @@ export const DashboardView = () => {
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>{t('dashboard.avgTicket', 'Average Ticket')}</span>
             <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-              <TrendingUp className="w-4 h-4" />
+              <FontAwesomeIcon icon={faArrowTrendUp} className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
@@ -138,7 +140,7 @@ export const DashboardView = () => {
           <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
             <span>{t('dashboard.scrapBuybacks', 'Scrap Buybacks')}</span>
             <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              <Repeat className="w-4 h-4" />
+              <FontAwesomeIcon icon={faArrowsRotate} className="w-4 h-4" />
             </div>
           </div>
           <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
@@ -154,21 +156,33 @@ export const DashboardView = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Daily Metal Board Table */}
         <div className="lg:col-span-2 p-6 rounded-2xl bg-white border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-amber-600" />
-                Live Metal Price Board (per gram)
-              </h2>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <FontAwesomeIcon icon={faArrowTrendUp} className="w-4 h-4 text-amber-600" />
+                  Live Metal Price Board (per gram)
+                </h2>
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-900 font-bold text-xs shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="text-amber-800">{isKhmer ? 'តាមតម្លៃដើម:' : 'Market Spot:'}</span>
+                  <span className="font-mono font-extrabold text-amber-950">
+                    ${(liveSpot?.spot_price_per_oz || 4411.10).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/oz
+                  </span>
+                  <span className="text-[11px] font-mono text-amber-800">
+                    (${(liveSpot?.price_per_chi || ((liveSpot?.spot_price_per_oz || 4411.10) / 31.1034768 * 3.75)).toFixed(2)}/{isKhmer ? 'ជី' : 'chi'})
+                  </span>
+                </div>
+              </div>
               <p className="text-xs text-slate-500 mt-0.5">
                 Automatically recalculates jewelry prices across the store
               </p>
             </div>
             <button
               onClick={() => setActiveTab('goldrates')}
-              className="text-xs text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 cursor-pointer"
+              className="text-xs text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 cursor-pointer self-start sm:self-auto"
             >
-              Manage Rates <ChevronRight className="w-3.5 h-3.5" />
+              Manage Rates <FontAwesomeIcon icon={faChevronRight} className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -229,7 +243,7 @@ export const DashboardView = () => {
           <div>
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs uppercase font-bold tracking-wider text-amber-800 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                <FontAwesomeIcon icon={faWandMagicSparkles} className="w-3.5 h-3.5 text-amber-600" />
                 Instant Atelier Estimator
               </span>
               <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-semibold">Real-time</span>
@@ -304,7 +318,7 @@ export const DashboardView = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-amber-600" />
+                <FontAwesomeIcon icon={faClock} className="w-4 h-4 text-amber-600" />
                 Recent Sales & Invoices
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">Latest finalized boutique customer sales</p>
@@ -352,7 +366,7 @@ export const DashboardView = () => {
         <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600" />
+              <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-amber-600" />
               Stock Restock Alerts
             </h2>
             <span className="text-xs text-rose-700 bg-rose-100 px-2 py-0.5 rounded font-bold">

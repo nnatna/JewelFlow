@@ -48,8 +48,8 @@ const MainLayout = () => {
         {/* Pinned Navbar */}
         <Navbar />
 
-        {/* Scrollable Content View */}
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8 w-full">
+        {/* Content View */}
+        <main className={`flex-1 min-h-0 w-full ${activeTab === 'pos' ? 'overflow-y-auto lg:overflow-hidden p-3 sm:p-4 lg:p-5' : 'overflow-y-auto p-6 lg:p-8'}`}>
           {renderContent()}
         </main>
       </div>

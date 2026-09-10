@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
-import { Sparkles, ShieldCheck, Search } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faWandMagicSparkles, faShieldHalved, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
 
 export const GemstonesView = () => {
   const { gemstones } = useApp();
@@ -34,7 +35,7 @@ export const GemstonesView = () => {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-            <Sparkles className="w-6 h-6 text-amber-600" />
+            <FontAwesomeIcon icon={faWandMagicSparkles} className="w-6 h-6 text-amber-600" />
             Gemstones & Certified Diamonds Vault Table
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -62,7 +63,7 @@ export const GemstonesView = () => {
       {/* Filter Toolbar */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs w-full">
         <div className="relative w-full sm:max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search code, cut, clarity, or stone..."
@@ -152,7 +153,7 @@ export const GemstonesView = () => {
                     </td>
                     <td className="p-4 text-center font-sans whitespace-nowrap">
                       <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-                        <ShieldCheck className="w-3.5 h-3.5" />
+                        <FontAwesomeIcon icon={faShieldHalved} className="w-3.5 h-3.5" />
                         GIA Verified
                       </span>
                     </td>

@@ -311,9 +311,9 @@ export const apiService = {
   },
 
   // 10. Live Gold Price & Cambodian Measurements API
-  getSpotPrice: async (symbol = 'XAU', currency = 'USD') => {
+  getSpotPrice: async (symbol = 'XAU', currency = 'USD', forceFresh = false) => {
     try {
-      const res = await client.get('/gold-price/spot', { params: { symbol, currency } });
+      const res = await client.get('/gold-price/spot', { params: { symbol, currency, force_fresh: forceFresh } });
       return res.data;
     } catch (e) {
       console.error('API getSpotPrice error:', e);

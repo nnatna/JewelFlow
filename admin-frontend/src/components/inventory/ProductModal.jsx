@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
-import { X, Gem } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faXmark, faGem } from '@fortawesome/free-solid-svg-icons';
 
 export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
   const { categories, metalTypes, goldRates, addProduct, updateProduct } = useApp();
@@ -65,11 +66,11 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
       <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-8">
         <div className="p-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2 font-serif text-lg font-bold text-slate-900">
-            <Gem className="w-5 h-5 text-amber-600" />
+            <FontAwesomeIcon icon={faGem} className="w-5 h-5 text-amber-600" />
             <span>{initialData ? 'Edit Jewelry Specifications' : 'Register New Jewelry Piece'}</span>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 bg-white border border-slate-200 cursor-pointer">
-            <X className="w-4 h-4" />
+            <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
           </button>
         </div>
 

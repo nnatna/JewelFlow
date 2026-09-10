@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\Api\GoldPriceController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\ImageController;
+use App\Http\Controllers\ProductController;
 use App\Models\Buyback;
 use App\Models\Category;
 use App\Models\Customer;
@@ -25,43 +27,19 @@ Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::put('/posts/{id}', [PostController::class, 'update']);
 Route::delete('/posts/{id}', [PostController::class, 'destroy']);
 
+// Images API
+Route::get('/images', [ImageController::class, 'index']);
+Route::post('/images', [ImageController::class, 'store']);
+Route::get('/images/{id}', [ImageController::class, 'show']);
+Route::put('/images/{id}', [ImageController::class, 'update']);
+Route::delete('/images/{id}', [ImageController::class, 'destroy']);
+
 // Products API
-Route::get('/products', function () {
-    return response()->json(
-        Product::with(['category', 'metalType', 'image', 'productGemstones'])->latest()->get()
-    );
-});
-
-Route::post('/products', function (Request $request) {
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'code_sku' => 'required|string|unique:products,code_sku',
-        'barcode' => 'nullable|string',
-        'category_id' => 'required|exists:categories,id',
-        'metal_type_id' => 'required|exists:metal_types,id',
-        'net_weight' => 'required|numeric',
-        'gross_weight' => 'nullable|numeric',
-        'labor_cost' => 'nullable|numeric',
-        'markup_rate' => 'nullable|numeric',
-        'stock_qty' => 'nullable|integer',
-        'status' => 'nullable|string',
-    ]);
-
-    $product = Product::create($validated);
-    return response()->json($product->load(['category', 'metalType']), 201);
-});
-
-Route::put('/products/{id}', function (Request $request, $id) {
-    $product = Product::findOrFail($id);
-    $product->update($request->all());
-    return response()->json($product->load(['category', 'metalType']));
-});
-
-Route::delete('/products/{id}', function ($id) {
-    $product = Product::findOrFail($id);
-    $product->delete();
-    return response()->json(['message' => 'Product deleted successfully']);
-});
+Route::get('/products', [ProductController::class, 'index']);
+Route::post('/products', [ProductController::class, 'store']);
+Route::get('/products/{id}', [ProductController::class, 'show']);
+Route::put('/products/{id}', [ProductController::class, 'update']);
+Route::delete('/products/{id}', [ProductController::class, 'destroy']);
 
 // Gold Rates API
 Route::get('/gold-rates', function (Request $request) {
@@ -185,7 +163,7 @@ Route::get('/suppliers', function () {
     return response()->json(Supplier::all());
 });
 
-// Live Gold Price & Conversion APIs (GoldConverterService + GoldPriceController)
+// Live Gold Price & Conversion APIs (GoldPriceController)
 Route::prefix('gold-price')->group(function () {
     Route::get('/spot', [GoldPriceController::class, 'getSpotPrice']);
     Route::get('/cambodia', [GoldPriceController::class, 'getCambodianGoldPrice']);

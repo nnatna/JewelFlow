@@ -15,6 +15,14 @@ export const AppProvider = ({ children }) => {
   const [buybacks, setBuybacks] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [cambodianGold, setCambodianGold] = useState(null);
+  const [liveSpot, setLiveSpot] = useState({
+    spot_price_per_oz: 4411.10,
+    spot_price_per_gram: 141.82,
+    price_per_chi: 531.83,
+    price_per_damlung: 5318.30,
+    change_24h: 57.30,
+    change_percent_24h: 1.31,
+  });
   const [backendConnected, setBackendConnected] = useState(false);
   
   // POS Cart State
@@ -26,7 +34,7 @@ export const AppProvider = ({ children }) => {
   // App Notifications
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'Live API connection established with Laravel backend.', type: 'success', time: 'Just now' },
-    { id: 2, text: 'Cambodian Gold (ជី & តម្លឹង) and spot valuations synced.', type: 'info', time: 'Just now' }
+    { id: 2, text: 'Gold bullion and market spot valuations synced ($4,411.10/oz).', type: 'info', time: 'Just now' }
   ]);
 
   // Load live data from Backend API
@@ -36,7 +44,7 @@ export const AppProvider = ({ children }) => {
         const isHealthy = await apiService.checkHealth();
         setBackendConnected(isHealthy);
 
-        const [prods, rates, cats, metals, gems, custs, sls, bbs, sups, camGold] = await Promise.all([
+        const [prods, rates, cats, metals, gems, custs, sls, bbs, sups, camGold, spotData] = await Promise.all([
           apiService.getProducts(),
           apiService.getGoldRates(),
           apiService.getCategories(),
@@ -47,6 +55,7 @@ export const AppProvider = ({ children }) => {
           apiService.getBuybacks(),
           apiService.getSuppliers(),
           apiService.getCambodianGold(),
+          apiService.getSpotPrice(),
         ]);
 
         setProducts(prods);
@@ -59,11 +68,26 @@ export const AppProvider = ({ children }) => {
         setBuybacks(bbs);
         setSuppliers(sups);
         if (camGold) setCambodianGold(camGold);
+        if (spotData?.spot_price_per_oz) setLiveSpot(spotData);
       } catch (e) {
         console.error('API load error:', e);
       }
     };
     fetchData();
+
+    // Auto-sync real-time live gold spot price every 30 seconds
+    const spotInterval = setInterval(async () => {
+      try {
+        const fresh = await apiService.getSpotPrice('XAU', 'USD', false);
+        if (fresh?.spot_price_per_oz) {
+          setLiveSpot(prev => (prev?.spot_price_per_oz !== fresh.spot_price_per_oz ? fresh : prev));
+        }
+      } catch (err) {
+        // quiet background fail
+      }
+    }, 30000);
+
+    return () => clearInterval(spotInterval);
   }, []);
 
   // Notification helper
@@ -170,7 +194,20 @@ export const AppProvider = ({ children }) => {
       }
       return rate;
     }));
-    addNotification(`Gold rates successfully updated. Live inventory re-priced.`, 'success');
+    addNotification('Gold rates successfully updated. Live inventory re-priced.', 'success');
+  };
+
+  // Refresh live gold spot price
+  const refreshSpotPrice = async () => {
+    try {
+      const fresh = await apiService.getSpotPrice('XAU', 'USD', true);
+      if (fresh?.spot_price_per_oz) {
+        setLiveSpot(fresh);
+        addNotification(`Live spot refreshed: $${fresh.spot_price_per_oz.toLocaleString(undefined, { minimumFractionDigits: 2 })} / oz (${fresh.source || 'Live'})`, 'info');
+      }
+    } catch (err) {
+      console.error('Failed to refresh spot price:', err);
+    }
   };
 
   // Checkout / Create Sale
@@ -338,6 +375,9 @@ export const AppProvider = ({ children }) => {
       backendConnected,
       cambodianGold,
       setCambodianGold,
+      liveSpot,
+      setLiveSpot,
+      refreshSpotPrice,
       CAMBODIAN_STANDARDS,
       convertGramsToChi,
       convertGramsToDamlung,

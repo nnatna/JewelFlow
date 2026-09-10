@@ -9,6 +9,6 @@ class MetalTypeSeeder extends Seeder
 {
     public function run(): void
     {
-        MetalType::factory()->count(10)->create();
+        MetalType::factory()->count(20)->create();
     }
 }

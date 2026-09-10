@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
-import { Truck, Phone, Mail, ShieldCheck, Package, Search, FileText } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faTruck,
+  faPhone,
+  faEnvelope,
+  faShieldHalved,
+  faBox,
+  faMagnifyingGlass,
+  faFileLines
+} from '@fortawesome/free-solid-svg-icons';
 
 export const SuppliersView = () => {
   const { suppliers } = useApp();
@@ -27,7 +36,7 @@ export const SuppliersView = () => {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-            <Truck className="w-6 h-6 text-amber-600" />
+            <FontAwesomeIcon icon={faTruck} className="w-6 h-6 text-amber-600" />
             Bullion Refineries & Gemstone Suppliers Table
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -36,7 +45,7 @@ export const SuppliersView = () => {
         </div>
 
         <div className="flex items-center gap-2 text-xs bg-white border border-slate-200 px-4 py-2 rounded-xl text-slate-700 shadow-xs">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <FontAwesomeIcon icon={faShieldHalved} className="w-4 h-4 text-emerald-600" />
           <span className="font-medium">100% LBMA & Responsible Jewellery Council (RJC) Certified</span>
         </div>
       </div>
@@ -44,7 +53,7 @@ export const SuppliersView = () => {
       {/* Filter toolbar */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between w-full">
         <div className="relative w-full max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search refinery, broker, or bullion grade..."
@@ -88,31 +97,31 @@ export const SuppliersView = () => {
                   </td>
                   <td className="p-4 font-mono text-slate-700 whitespace-nowrap">
                     <span className="flex items-center gap-2">
-                      <Phone className="w-3.5 h-3.5 text-slate-400" />
+                      <FontAwesomeIcon icon={faPhone} className="w-3.5 h-3.5 text-slate-400" />
                       {sup.phone}
                     </span>
                   </td>
                   <td className="p-4 font-mono text-slate-600 whitespace-nowrap">
                     <span className="flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
+                      <FontAwesomeIcon icon={faEnvelope} className="w-3.5 h-3.5 text-slate-400" />
                       {sup.email}
                     </span>
                   </td>
                   <td className="p-4 text-center whitespace-nowrap">
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200">
-                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <FontAwesomeIcon icon={faShieldHalved} className="w-3.5 h-3.5" />
                       LBMA Approved
                     </span>
                   </td>
                   <td className="p-4 text-center whitespace-nowrap">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold text-slate-700 bg-slate-100">
-                      <Package className="w-3.5 h-3.5 text-amber-600" />
+                      <FontAwesomeIcon icon={faBox} className="w-3.5 h-3.5 text-amber-600" />
                       Scheduled
                     </span>
                   </td>
                   <td className="p-4 text-right whitespace-nowrap">
                     <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-200 hover:border-amber-500 font-semibold text-xs cursor-pointer transition-colors shadow-2xs">
-                      <FileText className="w-3.5 h-3.5" />
+                      <FontAwesomeIcon icon={faFileLines} className="w-3.5 h-3.5" />
                       Issue PO
                     </button>
                   </td>

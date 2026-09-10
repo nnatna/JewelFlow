@@ -3,15 +3,16 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { ProductModal } from './ProductModal';
 import { Pagination } from '../common/Pagination';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Gem,
-  Grid,
-  List,
-} from 'lucide-react';
+  faMagnifyingGlass,
+  faPlus,
+  faPenToSquare,
+  faTrashCan,
+  faGem,
+  faTableCellsLarge,
+  faList
+} from '@fortawesome/free-solid-svg-icons';
 
 const fallbackImg = 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80';
 
@@ -62,7 +63,7 @@ export const ProductList = () => {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-            <Gem className="w-6 h-6 text-amber-600" />
+            <FontAwesomeIcon icon={faGem} className="w-6 h-6 text-amber-600" />
             {t('catalog.title', 'Jewelry & Bullion Catalog Table')}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -79,7 +80,7 @@ export const ProductList = () => {
               }`}
               title="Table View"
             >
-              <List className="w-4 h-4" />
+              <FontAwesomeIcon icon={faList} className="w-4 h-4" />
             </button>
             <button
               onClick={() => setViewMode('grid')}
@@ -88,7 +89,7 @@ export const ProductList = () => {
               }`}
               title="Grid View"
             >
-              <Grid className="w-4 h-4" />
+              <FontAwesomeIcon icon={faTableCellsLarge} className="w-4 h-4" />
             </button>
           </div>
 
@@ -96,7 +97,7 @@ export const ProductList = () => {
             onClick={handleCreate}
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4" />
+            <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
             {t('catalog.addPiece', 'Add Jewelry Piece')}
           </button>
         </div>
@@ -105,7 +106,7 @@ export const ProductList = () => {
       {/* Filter Toolbar */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs w-full">
         <div className="relative w-full md:max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder={t('catalog.searchItem', 'Search SKU, name, or barcode...')}
@@ -216,14 +217,14 @@ export const ProductList = () => {
                             className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 cursor-pointer transition-colors"
                             title={t('common.edit', 'Edit')}
                           >
-                            <Edit className="w-3.5 h-3.5" />
+                            <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => deleteProduct(product.id)}
                             className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-800 cursor-pointer transition-colors"
                             title={t('common.delete', 'Delete')}
                           >
-                            <Trash2 className="w-3.5 h-3.5" />
+                            <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -309,14 +310,14 @@ export const ProductList = () => {
                         className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 cursor-pointer"
                         title={t('common.edit', 'Edit')}
                       >
-                        <Edit className="w-3.5 h-3.5" />
+                        <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => deleteProduct(product.id)}
                         className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 cursor-pointer"
                         title={t('common.delete', 'Delete')}
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>

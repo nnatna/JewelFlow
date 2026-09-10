@@ -2,26 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  TrendingUp,
-  RefreshCw,
-  Scale,
-  ShieldCheck,
-  Edit3,
-  Calculator,
-  Coins,
-  Globe2,
-  CheckCircle2,
-  Copy,
-  Search
-} from 'lucide-react';
+  faArrowTrendUp,
+  faRotate,
+  faScaleBalanced,
+  faPenToSquare,
+  faCalculator,
+  faCoins,
+  faGlobe,
+  faCircleCheck,
+  faCopy,
+  faMagnifyingGlass
+} from '@fortawesome/free-solid-svg-icons';
 
 export const GoldRatesView = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isKhmer = (i18n.language || 'km').startsWith('km');
   const {
     goldRates,
     updateGoldRate,
     cambodianGold,
+    liveSpot,
+    refreshSpotPrice,
     CAMBODIAN_STANDARDS,
     convertGramsToChi,
     convertGramsToDamlung,
@@ -49,7 +52,14 @@ export const GoldRatesView = () => {
 
   const paginatedRates = filteredRates.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Live Spot Benchmark Rates (តាមតម្លៃដើម: $4,411.10 / oz)
+  const spotOuncePrice = liveSpot?.spot_price_per_oz || 4411.10;
+  const spotGramRate24k = liveSpot?.spot_price_per_gram || (spotOuncePrice / 31.1034768);
+  const spotChiRate24k = liveSpot?.price_per_chi || (spotGramRate24k * 3.75);
+  const spotDamlungRate24k = liveSpot?.price_per_damlung || (spotChiRate24k * 10);
+
   // Cambodian Gold Calculator State
+  const [pricingBasis, setPricingBasis] = useState('spot'); // 'spot' (តាមតម្លៃដើម) | 'store' (តម្លៃហាង)
   const [calcWeight, setCalcWeight] = useState(1);
   const [calcUnit, setCalcUnit] = useState('chi'); // 'chi', 'damlung', 'g', 'hun', 'oz_t'
   const [calcPurity, setCalcPurity] = useState('24k');
@@ -62,8 +72,11 @@ export const GoldRatesView = () => {
     buy_rate_per_gram: 78.0
   };
 
-  // Base 24k benchmark rate per gram (defaulting to 83.00 if rates not yet loaded)
+  // Base 24k benchmark rate per gram (store rate)
   const base24kGramRate = goldRates[0]?.rate_per_gram || 83.0;
+
+  // Active base gram rate based on selected pricing basis (តាមតម្លៃដើម vs តម្លៃហាង)
+  const effectiveBaseGramRate = pricingBasis === 'spot' ? spotGramRate24k : base24kGramRate;
 
   // Purity factors
   const purityMultipliers = {
@@ -87,7 +100,7 @@ export const GoldRatesView = () => {
   // Calculator calculations
   const weightInGrams = (parseFloat(calcWeight) || 0) * (unitToGrams[calcUnit] || 1.0);
   const purityFactor = purityMultipliers[calcPurity] || 1.0;
-  const calculatedGramPriceUSD = base24kGramRate * purityFactor;
+  const calculatedGramPriceUSD = effectiveBaseGramRate * purityFactor;
   const totalValueUSD = weightInGrams * calculatedGramPriceUSD;
   const khrRate = 4100;
   const totalValueKHR = Math.round(totalValueUSD * khrRate);
@@ -101,10 +114,14 @@ export const GoldRatesView = () => {
   };
 
   const handleCopyQuote = () => {
-    const text = `JewelFlow Quote: ${calcWeight} ${calcUnit.toUpperCase()} (${calcPurity.toUpperCase()}) = $${totalValueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD (${totalValueKHR.toLocaleString()} KHR)`;
+    const basisLabel = pricingBasis === 'spot'
+      ? (isKhmer ? 'តាមតម្លៃដើម ($4,411.10/oz)' : 'Market Spot ($4,411.10/oz)')
+      : (isKhmer ? 'តម្លៃហាង Atelier' : 'Store Atelier Rate');
+    const unitLabel = isKhmer ? calcUnit.toUpperCase() : (calcUnit === 'chi' ? 'Chi' : calcUnit === 'damlung' ? 'Damlung' : calcUnit.toUpperCase());
+    const text = `JewelFlow Quote (${basisLabel}): ${calcWeight} ${unitLabel} (${calcPurity.toUpperCase()}) = $${totalValueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD (${totalValueKHR.toLocaleString()} KHR)`;
     navigator.clipboard?.writeText(text);
     setCopied(true);
-    addNotification('Cambodian gold valuation copied to clipboard!', 'info');
+    addNotification(isKhmer ? `បានចម្លងសម្រង់តម្លៃ (${basisLabel})!` : `Gold valuation quote (${basisLabel}) copied to clipboard!`, 'info');
     setTimeout(() => setCopied(false), 2500);
   };
 
@@ -114,89 +131,100 @@ export const GoldRatesView = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-amber-600" />
+            <FontAwesomeIcon icon={faArrowTrendUp} className="w-6 h-6 text-amber-600" />
             {t('cambodiaGold.title', 'Daily Metal Fix & Cambodian Gold Board')}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            {t('nav.cambodianFix', 'Real-time bullion benchmarks with Cambodian measurements: Gram, Chi (ជី), and Damlung (តម្លឹង).')}
+            {isKhmer
+              ? 'តម្លៃមាសទីផ្សារអន្តរជាតិ និងខ្នាតខ្មែរ៖ ក្រាម, ជី, និង តម្លឹង។'
+              : 'Real-time bullion benchmarks with Cambodian measurements: Gram, Chi, and Damlung.'}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 font-semibold flex items-center gap-1.5 shadow-2xs">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            Live Spot Engine Connected
-          </span>
+          <button
+            onClick={refreshSpotPrice}
+            className="text-xs text-amber-950 bg-amber-50 hover:bg-amber-100 px-3.5 py-1.5 rounded-full border border-amber-300 font-bold flex items-center gap-2 shadow-2xs transition-all cursor-pointer"
+            title="Refresh Live Gold Spot Price"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-600"></span>
+            </span>
+            <span>{isKhmer ? 'តាមតម្លៃដើម (Live Spot):' : 'Live Market Spot:'} <strong className="font-mono text-amber-900 text-sm">${spotOuncePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> / oz</span>
+            <FontAwesomeIcon icon={faRotate} className="w-3.5 h-3.5 text-amber-600 hover:rotate-180 transition-transform duration-500 ml-1" />
+          </button>
         </div>
       </div>
 
-      {/* 🇰🇭 Cambodian Gold Standards & Formulas Banner */}
+      {/* Cambodian Gold Standards & Formulas Banner */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Troy Ounce Benchmark */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-            <span>{t('cambodiaGold.troyOunce', 'Troy Ounce (អោនស៍)')}</span>
-            <Globe2 className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-amber-900 font-extrabold">1 {t('cambodiaGold.troyOunce', 'Troy Ounce')} • {isKhmer ? 'តាមតម្លៃដើម' : 'Market Spot'}</span>
+            <FontAwesomeIcon icon={faGlobe} className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-xl font-mono font-bold text-slate-900">
-            ${(base24kGramRate * 31.1035).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl font-mono font-bold text-slate-900">
+            ${spotOuncePrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="text-[11px] text-slate-500 mt-1 font-mono">
-            {t('cambodiaGold.troyOunceDesc', '1 oz t = 31.1035 grams')}
+            1 oz t = 31.1035 grams • {isKhmer ? 'តាមតម្លៃដើម' : 'Market Spot'}
           </div>
-          <div className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded mt-2 font-medium">
-            International LBMA Fix
+          <div className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded mt-2 font-bold flex items-center justify-between">
+            <span>{isKhmer ? 'តាមតម្លៃដើម (Live Spot)' : 'Live Market Spot'}</span>
+            <span className="text-emerald-700 font-bold font-mono">+{liveSpot?.change_percent_24h || 1.31}%</span>
           </div>
         </div>
 
         {/* 1 Gram */}
         <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-            <span>1 {t('cambodiaGold.gram', 'Gram (ក្រាម)')}</span>
-            <Scale className="w-3.5 h-3.5 text-amber-600" />
+            <span>1 {t('cambodiaGold.gram', 'Gram')} • {isKhmer ? 'តាមតម្លៃដើម' : 'Market Spot'}</span>
+            <FontAwesomeIcon icon={faScaleBalanced} className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-xl font-mono font-bold text-amber-700">
-            ${base24kGramRate.toFixed(2)}
+          <div className="text-2xl font-mono font-bold text-amber-700">
+            ${spotGramRate24k.toFixed(2)}
           </div>
           <div className="text-[11px] text-slate-500 mt-1 font-mono">
-            {Math.round(base24kGramRate * khrRate).toLocaleString()} ៛ KHR
+            {Math.round(spotGramRate24k * khrRate).toLocaleString()} {isKhmer ? '៛ KHR' : 'KHR'}
           </div>
-          <div className="text-[10px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded mt-2 font-mono">
-            {t('cambodiaGold.pricePerGram', 'Formula')}: Spot / 31.1035
+          <div className="text-[10px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded mt-2 font-mono font-medium">
+            {isKhmer ? 'តាមតម្លៃដើម:' : 'Market Spot:'} ${spotOuncePrice.toFixed(2)} / 31.1035
           </div>
         </div>
 
-        {/* 1 Chi (ជី) */}
+        {/* 1 Chi */}
         <div className="bg-gradient-to-br from-amber-50/80 to-white border border-amber-300 rounded-2xl p-4 shadow-xs">
           <div className="flex items-center justify-between text-[11px] font-bold text-amber-900 uppercase tracking-wider mb-1">
-            <span>1 {t('cambodiaGold.chi', 'Chi (ជី)')} • 3.75g</span>
-            <Coins className="w-3.5 h-3.5 text-amber-600" />
+            <span>1 {t('cambodiaGold.chi', 'Chi')} • 3.75g • {isKhmer ? 'តាមតម្លៃដើម' : 'Market Spot'}</span>
+            <FontAwesomeIcon icon={faCoins} className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-xl font-mono font-bold text-amber-800">
-            ${(base24kGramRate * 3.75).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl font-mono font-bold text-amber-800">
+            ${spotChiRate24k.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="text-[11px] text-slate-600 mt-1 font-mono">
-            {Math.round(base24kGramRate * 3.75 * khrRate).toLocaleString()} ៛ KHR
+            {Math.round(spotChiRate24k * khrRate).toLocaleString()} {isKhmer ? '៛ KHR' : 'KHR'}
           </div>
           <div className="text-[10px] text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded mt-2 font-mono font-bold">
-            {t('cambodiaGold.pricePerChi', 'Formula')}: Price/g × 3.75
+            {isKhmer ? 'តាមតម្លៃដើម:' : 'Market Spot:'} ${spotGramRate24k.toFixed(2)} × 3.75
           </div>
         </div>
 
-        {/* 1 Damlung (តម្លឹង) */}
+        {/* 1 Damlung */}
         <div className="bg-gradient-to-br from-amber-500 to-amber-600 text-white rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between text-[11px] font-bold text-amber-100 uppercase tracking-wider mb-1">
-            <span>1 {t('cambodiaGold.damlung', 'Damlung (តម្លឹង)')} • 10 ជី</span>
-            <Scale className="w-3.5 h-3.5 text-amber-100" />
+            <span>1 {t('cambodiaGold.damlung', 'Damlung')} • 10 {isKhmer ? 'ជី' : 'Chi'} • {isKhmer ? 'តាមតម្លៃដើម' : 'Market Spot'}</span>
+            <FontAwesomeIcon icon={faScaleBalanced} className="w-3.5 h-3.5 text-amber-100" />
           </div>
-          <div className="text-xl font-mono font-bold text-white">
-            ${(base24kGramRate * 37.5).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <div className="text-2xl font-mono font-bold text-white">
+            ${spotDamlungRate24k.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="text-[11px] text-amber-100 mt-1 font-mono">
-            {Math.round(base24kGramRate * 37.5 * khrRate).toLocaleString()} ៛ KHR
+            {Math.round(spotDamlungRate24k * khrRate).toLocaleString()} {isKhmer ? '៛ KHR' : 'KHR'}
           </div>
           <div className="text-[10px] text-amber-950 bg-white/90 px-2 py-0.5 rounded mt-2 font-mono font-bold">
-            {t('cambodiaGold.pricePerDamlung', 'Formula')}: Price/Chi × 10
+            {isKhmer ? 'តាមតម្លៃដើម:' : 'Market Spot:'} ${spotChiRate24k.toFixed(2)} × 10
           </div>
         </div>
       </div>
@@ -209,17 +237,19 @@ export const GoldRatesView = () => {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Scale className="w-4 h-4 text-amber-600" />
+                  <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4 text-amber-600" />
                   Active Multi-Purity Metal Fix Board
                 </h2>
                 <p className="text-xs text-slate-500">
-                  Priced per Gram, Chi (ជី), Damlung (តម្លឹង), and Troy Ounce ({filteredRates.length} total metals).
+                  {isKhmer
+                    ? `តម្លៃគិតជា ក្រាម, ជី, តម្លឹង, និង អោនស៍ (${filteredRates.length} មុខលោហៈសរុប)។`
+                    : `Priced per Gram, Chi, Damlung, and Troy Ounce (${filteredRates.length} total metals).`}
                 </p>
               </div>
 
               {/* Search Metal */}
               <div className="relative max-w-xs w-full">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
                   placeholder="Filter metal or rate..."
@@ -235,9 +265,9 @@ export const GoldRatesView = () => {
                 <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
                   <tr>
                     <th className="py-3 px-3">Metal & Purity</th>
-                    <th className="py-3 px-3">Per Gram (ក្រាម)</th>
-                    <th className="py-3 px-3">Per Chi (ជី 3.75g)</th>
-                    <th className="py-3 px-3">Per Damlung (តម្លឹង 37.5g)</th>
+                    <th className="py-3 px-3">{isKhmer ? 'Per Gram (ក្រាម)' : 'Per Gram'}</th>
+                    <th className="py-3 px-3">{isKhmer ? 'Per Chi (ជី 3.75g)' : 'Per Chi (3.75g)'}</th>
+                    <th className="py-3 px-3">{isKhmer ? 'Per Damlung (តម្លឹង 37.5g)' : 'Per Damlung (37.5g)'}</th>
                     <th className="py-3 px-3">Troy Oz (31.10g)</th>
                     <th className="py-3 px-3 text-right">Buyback / g</th>
                   </tr>
@@ -300,18 +330,46 @@ export const GoldRatesView = () => {
           <div>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 font-serif text-base font-bold text-slate-900">
-                <Calculator className="w-4 h-4 text-amber-600" />
+                <FontAwesomeIcon icon={faCalculator} className="w-4 h-4 text-amber-600" />
                 Cambodian Gold Calculator
               </div>
               <span className="text-[10px] font-bold bg-amber-200/60 text-amber-900 px-2 py-0.5 rounded">
-                ខ្នាតមាសខ្មែរ
+                {isKhmer ? 'ខ្នាតមាសខ្មែរ' : 'Cambodian Units'}
               </span>
             </div>
             <p className="text-xs text-slate-600 mb-4">
-              Instantly value gold weight in Chi (ជី), Damlung (តម្លឹង), or Grams with live rates.
+              {isKhmer
+                ? 'គណនាតម្លៃមាសជា ជី, តម្លឹង, ឬ ក្រាម តាមតម្លៃទីផ្សារភ្លាមៗ។'
+                : 'Instantly value gold weight in Chi, Damlung, or Grams with live rates.'}
             </p>
 
             <div className="space-y-3 text-xs">
+              {/* Pricing Mode Toggle: តាមតម្លៃដើម vs តម្លៃហាង */}
+              <div className="flex items-center gap-1.5 p-1 bg-amber-100/70 border border-amber-300/80 rounded-xl mb-1">
+                <button
+                  type="button"
+                  onClick={() => setPricingBasis('spot')}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                    pricingBasis === 'spot'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-amber-900 hover:bg-white/60'
+                  }`}
+                >
+                  {isKhmer ? 'តាមតម្លៃដើម' : 'Market Spot'} (${spotOuncePrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}/oz)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPricingBasis('store')}
+                  className={`flex-1 py-1.5 px-2 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                    pricingBasis === 'store'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-amber-900 hover:bg-white/60'
+                  }`}
+                >
+                  {isKhmer ? 'តម្លៃហាង' : 'Store Rate'} (${base24kGramRate.toFixed(2)}/g)
+                </button>
+              </div>
+
               {/* Weight & Unit Input */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -326,30 +384,30 @@ export const GoldRatesView = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Unit (ខ្នាត)</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{isKhmer ? 'ខ្នាត (Unit)' : 'Unit'}</label>
                   <select
                     value={calcUnit}
                     onChange={(e) => setCalcUnit(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-2 text-slate-900 font-semibold focus:border-amber-500 focus:outline-none shadow-2xs"
                   >
-                    <option value="chi">Chi (ជី) • 3.75g</option>
-                    <option value="damlung">Damlung (តម្លឹង) • 37.5g</option>
-                    <option value="g">Gram (ក្រាម) • 1g</option>
-                    <option value="hun">Hun (ហ៊ុន) • 0.375g</option>
-                    <option value="oz_t">Troy Oz • 31.10g</option>
+                    <option value="chi">{isKhmer ? 'Chi (ជី) • 3.75g' : 'Chi • 3.75g'}</option>
+                    <option value="damlung">{isKhmer ? 'Damlung (តម្លឹង) • 37.5g' : 'Damlung • 37.5g'}</option>
+                    <option value="g">{isKhmer ? 'Gram (ក្រាម) • 1g' : 'Gram • 1g'}</option>
+                    <option value="hun">{isKhmer ? 'Hun (ហ៊ុន) • 0.375g' : 'Hun • 0.375g'}</option>
+                    <option value="oz_t">{isKhmer ? 'Troy Oz (អោនស៍) • 31.10g' : 'Troy Oz • 31.10g'}</option>
                   </select>
                 </div>
               </div>
 
               {/* Purity Selection */}
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Gold Purity (ទឹកមាស)</label>
+                <label className="block text-slate-700 font-semibold mb-1">{isKhmer ? 'ទឹកមាស (Gold Purity)' : 'Gold Purity'}</label>
                 <select
                   value={calcPurity}
                   onChange={(e) => setCalcPurity(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-medium focus:border-amber-500 focus:outline-none shadow-2xs"
                 >
-                  <option value="24k">24K Pure Bullion (មាសសុទ្ធ 99.9%)</option>
+                  <option value="24k">{isKhmer ? '24K Pure Bullion (មាសសុទ្ធ 99.9%)' : '24K Pure Bullion (99.9%)'}</option>
                   <option value="22k">22K Fine Gold (91.6%)</option>
                   <option value="21k">21K Arabic Gold (87.5%)</option>
                   <option value="18k">18K Italian Fine Jewelry (75.0%)</option>
@@ -365,12 +423,12 @@ export const GoldRatesView = () => {
                   <span className="font-bold text-slate-900">{weightInGrams.toFixed(3)} g</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600">
-                  <span>In Chi (ជី):</span>
-                  <span className="font-bold text-amber-800">{convertGramsToChi(weightInGrams).toFixed(2)} ជី</span>
+                  <span>{isKhmer ? 'In Chi (ជី):' : 'In Chi:'}</span>
+                  <span className="font-bold text-amber-800">{convertGramsToChi(weightInGrams).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600">
-                  <span>In Damlung (តម្លឹង):</span>
-                  <span className="font-bold text-slate-900">{convertGramsToDamlung(weightInGrams).toFixed(3)} តម្លឹង</span>
+                  <span>{isKhmer ? 'In Damlung (តម្លឹង):' : 'In Damlung:'}</span>
+                  <span className="font-bold text-slate-900">{convertGramsToDamlung(weightInGrams).toFixed(3)} {isKhmer ? 'តម្លឹង' : 'Damlung'}</span>
                 </div>
               </div>
 
@@ -384,7 +442,7 @@ export const GoldRatesView = () => {
                   <span className="text-xs font-sans font-normal text-amber-200 ml-1">USD</span>
                 </div>
                 <div className="text-sm font-mono font-bold text-amber-200 mt-0.5">
-                  {totalValueKHR.toLocaleString()} ៛ KHR
+                  {totalValueKHR.toLocaleString()} {isKhmer ? '៛ KHR' : 'KHR'}
                 </div>
               </div>
 
@@ -396,12 +454,12 @@ export const GoldRatesView = () => {
               >
                 {copied ? (
                   <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <FontAwesomeIcon icon={faCircleCheck} className="w-4 h-4 text-emerald-600" />
                     <span className="text-emerald-700 font-bold">Quotation Copied!</span>
                   </>
                 ) : (
                   <>
-                    <Copy className="w-4 h-4 text-slate-500" />
+                    <FontAwesomeIcon icon={faCopy} className="w-4 h-4 text-slate-500" />
                     <span>Copy Cambodian Quotation</span>
                   </>
                 )}
@@ -414,7 +472,7 @@ export const GoldRatesView = () => {
             <details className="group cursor-pointer">
               <summary className="text-xs font-bold text-slate-700 flex items-center justify-between select-none">
                 <span className="flex items-center gap-1.5">
-                  <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                  <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5 text-amber-600" />
                   Override Daily Benchmark Rate
                 </span>
                 <span className="text-[10px] text-amber-700 group-open:rotate-180 transition-transform">▼</span>

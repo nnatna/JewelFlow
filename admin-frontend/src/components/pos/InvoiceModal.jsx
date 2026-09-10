@@ -1,5 +1,6 @@
 import React from 'react';
-import { Printer, CheckCircle, X, Gem, ShieldCheck } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faPrint, faCircleCheck, faXmark, faGem, faShieldHalved } from '@fortawesome/free-solid-svg-icons';
 
 export const InvoiceModal = ({ invoice, onClose }) => {
   if (!invoice) return null;
@@ -14,7 +15,7 @@ export const InvoiceModal = ({ invoice, onClose }) => {
         {/* Modal Top Actions (no-print) */}
         <div className="no-print p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2 text-emerald-700 font-bold text-sm">
-            <CheckCircle className="w-4 h-4 text-emerald-600" />
+            <FontAwesomeIcon icon={faCircleCheck} className="w-4 h-4 text-emerald-600" />
             <span>Sale Finalized & Recorded</span>
           </div>
           <div className="flex items-center gap-2">
@@ -22,14 +23,14 @@ export const InvoiceModal = ({ invoice, onClose }) => {
               onClick={handlePrint}
               className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs cursor-pointer shadow-sm"
             >
-              <Printer className="w-3.5 h-3.5" />
+              <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5" />
               Print Luxury Invoice
             </button>
             <button
               onClick={onClose}
               className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-100 border border-slate-200 cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -41,7 +42,7 @@ export const InvoiceModal = ({ invoice, onClose }) => {
             <div>
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs">
-                  <Gem className="w-4 h-4" />
+                  <FontAwesomeIcon icon={faGem} className="w-4 h-4" />
                 </div>
                 <h1 className="text-xl font-serif font-bold text-slate-900 tracking-wider">
                   JEWELFLOW ATELIER
@@ -130,7 +131,7 @@ export const InvoiceModal = ({ invoice, onClose }) => {
 
           {/* Authenticity Certificate Guarantee */}
           <div className="mt-8 p-4 rounded-xl bg-amber-50/60 border border-amber-200 flex items-start gap-3">
-            <ShieldCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <FontAwesomeIcon icon={faShieldHalved} className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
             <div className="text-[11px] text-slate-700 leading-relaxed">
               <strong className="text-amber-900 block mb-0.5">Certificate of Authenticity & Purity Guarantee:</strong>
               We certify that each piece described above has been assayed for purity and conforms to international hallmarking standards. Gemstones are ethically sourced and independently graded.

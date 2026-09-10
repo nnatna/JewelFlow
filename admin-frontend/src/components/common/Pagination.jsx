@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faAnglesLeft, faChevronLeft, faChevronRight, faAnglesRight } from '@fortawesome/free-solid-svg-icons';
 
 export const Pagination = ({
   currentPage,
@@ -70,7 +71,7 @@ export const Pagination = ({
           className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 transition-colors cursor-pointer"
           title="First page"
         >
-          <ChevronsLeft className="w-3.5 h-3.5" />
+          <FontAwesomeIcon icon={faAnglesLeft} className="w-3.5 h-3.5" />
         </button>
 
         {/* Prev Page */}
@@ -80,7 +81,7 @@ export const Pagination = ({
           className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 transition-colors cursor-pointer"
           title="Previous page"
         >
-          <ChevronLeft className="w-3.5 h-3.5" />
+          <FontAwesomeIcon icon={faChevronLeft} className="w-3.5 h-3.5" />
         </button>
 
         {/* Page numbers */}
@@ -105,7 +106,7 @@ export const Pagination = ({
           className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 transition-colors cursor-pointer"
           title="Next page"
         >
-          <ChevronRight className="w-3.5 h-3.5" />
+          <FontAwesomeIcon icon={faChevronRight} className="w-3.5 h-3.5" />
         </button>
 
         {/* Last Page */}
@@ -115,7 +116,7 @@ export const Pagination = ({
           className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed text-slate-600 transition-colors cursor-pointer"
           title="Last page"
         >
-          <ChevronsRight className="w-3.5 h-3.5" />
+          <FontAwesomeIcon icon={faAnglesRight} className="w-3.5 h-3.5" />
         </button>
       </div>
     </div>

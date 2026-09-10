@@ -2,7 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
-import { Users, UserPlus, Search, Crown, Phone, Mail, MapPin, ShoppingBag, X } from 'lucide-react';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import {
+  faUsers,
+  faUserPlus,
+  faMagnifyingGlass,
+  faCrown,
+  faPhone,
+  faEnvelope,
+  faLocationDot,
+  faBagShopping,
+  faXmark
+} from '@fortawesome/free-solid-svg-icons';
 
 export const CustomersView = () => {
   const { t } = useTranslation();
@@ -55,7 +66,7 @@ export const CustomersView = () => {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
-            <Users className="w-6 h-6 text-amber-600" />
+            <FontAwesomeIcon icon={faUsers} className="w-6 h-6 text-amber-600" />
             {t('customers.title', 'Clientèle & VIP Privilege CRM Table')}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
@@ -75,7 +86,7 @@ export const CustomersView = () => {
             onClick={() => setIsAddModalOpen(true)}
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-95"
           >
-            <UserPlus className="w-4 h-4" />
+            <FontAwesomeIcon icon={faUserPlus} className="w-4 h-4" />
             {t('customers.enrollClient', 'Enroll Client')}
           </button>
         </div>
@@ -84,7 +95,7 @@ export const CustomersView = () => {
       {/* Search toolbar */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between w-full">
         <div className="relative w-full max-w-md">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder={t('customers.searchPlaceholder', 'Search client name, phone or email...')}
@@ -130,20 +141,20 @@ export const CustomersView = () => {
                           ? 'bg-slate-100 text-slate-800 border border-slate-300'
                           : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
                       }`}>
-                        <Crown className="w-3.5 h-3.5 text-amber-600" />
+                        <FontAwesomeIcon icon={faCrown} className="w-3.5 h-3.5 text-amber-600" />
                         {customer.tier} ({customer.discount_rate}% Privilege)
                       </span>
                     </td>
                     <td className="p-4 font-mono text-slate-700 whitespace-nowrap">
                       <span className="flex items-center gap-2">
-                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                        <FontAwesomeIcon icon={faPhone} className="w-3.5 h-3.5 text-slate-400" />
                         {customer.phone}
                       </span>
                     </td>
                     <td className="p-4 text-slate-600 font-mono whitespace-nowrap">
                       {customer.email ? (
                         <span className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5 text-slate-400" />
+                          <FontAwesomeIcon icon={faEnvelope} className="w-3.5 h-3.5 text-slate-400" />
                           {customer.email}
                         </span>
                       ) : (
@@ -153,7 +164,7 @@ export const CustomersView = () => {
                     <td className="p-4 text-slate-600 min-w-[220px]">
                       {customer.address ? (
                         <span className="flex items-center gap-2">
-                          <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <FontAwesomeIcon icon={faLocationDot} className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           <span className="truncate">{customer.address}</span>
                         </span>
                       ) : (
@@ -173,7 +184,7 @@ export const CustomersView = () => {
                         onClick={() => startPosForCustomer(customer)}
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-200 hover:border-amber-500 font-semibold text-xs cursor-pointer transition-colors shadow-2xs"
                       >
-                        <ShoppingBag className="w-3.5 h-3.5" />
+                        <FontAwesomeIcon icon={faBagShopping} className="w-3.5 h-3.5" />
                         Bill in POS
                       </button>
                     </td>
@@ -199,11 +210,11 @@ export const CustomersView = () => {
           <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-serif font-bold text-slate-900 text-base flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-amber-600" />
+                <FontAwesomeIcon icon={faUserPlus} className="w-5 h-5 text-amber-600" />
                 Enroll New Jewelry Client
               </h3>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X className="w-4 h-4" />
+                <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
               </button>
             </div>
 
