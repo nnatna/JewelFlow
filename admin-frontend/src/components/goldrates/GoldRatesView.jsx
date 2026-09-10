@@ -52,11 +52,11 @@ export const GoldRatesView = () => {
 
   const paginatedRates = filteredRates.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Live Spot Benchmark Rates (តាមតម្លៃដើម: $4,411.10 / oz)
-  const spotOuncePrice = liveSpot?.spot_price_per_oz || 4411.10;
-  const spotGramRate24k = liveSpot?.spot_price_per_gram || (spotOuncePrice / 31.1034768);
-  const spotChiRate24k = liveSpot?.price_per_chi || (spotGramRate24k * 3.75);
-  const spotDamlungRate24k = liveSpot?.price_per_damlung || (spotChiRate24k * 10);
+  // Live Spot Benchmark Rates (តាមតម្លៃដើម)
+  const spotOuncePrice = liveSpot?.spot_price_per_oz !== undefined ? Number(liveSpot.spot_price_per_oz) : 0;
+  const spotGramRate24k = spotOuncePrice > 0 ? (Number(liveSpot?.spot_price_per_gram) || (spotOuncePrice / 31.1034768)) : 0;
+  const spotChiRate24k = spotOuncePrice > 0 ? (Number(liveSpot?.price_per_chi) || (spotGramRate24k * 3.75)) : 0;
+  const spotDamlungRate24k = spotOuncePrice > 0 ? (Number(liveSpot?.price_per_damlung) || (spotChiRate24k * 10)) : 0;
 
   // Cambodian Gold Calculator State
   const [pricingBasis, setPricingBasis] = useState('spot'); // 'spot' (តាមតម្លៃដើម) | 'store' (តម្លៃហាង)
@@ -115,7 +115,7 @@ export const GoldRatesView = () => {
 
   const handleCopyQuote = () => {
     const basisLabel = pricingBasis === 'spot'
-      ? (isKhmer ? 'តាមតម្លៃដើម ($4,411.10/oz)' : 'Market Spot ($4,411.10/oz)')
+      ? (isKhmer ? `តាមតម្លៃដើម ($${spotOuncePrice.toFixed(2)}/oz)` : `Market Spot ($${spotOuncePrice.toFixed(2)}/oz)`)
       : (isKhmer ? 'តម្លៃហាង Atelier' : 'Store Atelier Rate');
     const unitLabel = isKhmer ? calcUnit.toUpperCase() : (calcUnit === 'chi' ? 'Chi' : calcUnit === 'damlung' ? 'Damlung' : calcUnit.toUpperCase());
     const text = `JewelFlow Quote (${basisLabel}): ${calcWeight} ${unitLabel} (${calcPurity.toUpperCase()}) = $${totalValueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD (${totalValueKHR.toLocaleString()} KHR)`;

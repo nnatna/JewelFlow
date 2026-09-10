@@ -29,10 +29,11 @@ export const Navbar = () => {
     i18n.changeLanguage(nextLng);
   };
 
-  const spotOunce = liveSpot?.spot_price_per_oz || 4411.10;
-  const spotGram = spotOunce / 31.1034768;
-  const spotChi = liveSpot?.price_per_chi || (spotGram * 3.75);
-  const spotDamlung = liveSpot?.price_per_damlung || (spotChi * 10);
+  const spotOunce = Number(liveSpot?.spot_price_per_oz ?? 0);
+  const spotGram = spotOunce > 0 ? (Number(liveSpot?.spot_price_per_gram) || (spotOunce / 31.1034768)) : 0;
+  const spotChi = spotOunce > 0 ? (Number(liveSpot?.price_per_chi) || (spotGram * 3.75)) : 0;
+  const spotDamlung = spotOunce > 0 ? (Number(liveSpot?.price_per_damlung) || (spotChi * 10)) : 0;
+  const changePercent = Number(liveSpot?.change_percent_24h ?? 0);
 
   return (
     <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 shadow-xs select-none">
@@ -66,7 +67,7 @@ export const Navbar = () => {
               ${spotDamlung.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/{isKhmer ? 'តម្លឹង' : 'damlung'}
             </span>
             <span className="text-[10px] text-emerald-700 bg-emerald-100/90 border border-emerald-300/70 px-1.5 py-0.5 rounded font-bold font-mono">
-              +{liveSpot?.change_percent_24h || 1.31}%
+              {changePercent >= 0 ? `+${changePercent.toFixed(2)}%` : `${changePercent.toFixed(2)}%`}
             </span>
           </div>
         </div>

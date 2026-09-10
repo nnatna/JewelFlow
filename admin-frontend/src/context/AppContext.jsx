@@ -16,12 +16,12 @@ export const AppProvider = ({ children }) => {
   const [suppliers, setSuppliers] = useState([]);
   const [cambodianGold, setCambodianGold] = useState(null);
   const [liveSpot, setLiveSpot] = useState({
-    spot_price_per_oz: 4411.10,
-    spot_price_per_gram: 141.82,
-    price_per_chi: 531.83,
-    price_per_damlung: 5318.30,
-    change_24h: 57.30,
-    change_percent_24h: 1.31,
+    spot_price_per_oz: 0.00,
+    spot_price_per_gram: 0.00,
+    price_per_chi: 0.00,
+    price_per_damlung: 0.00,
+    change_24h: 0.00,
+    change_percent_24h: 0.00,
   });
   const [backendConnected, setBackendConnected] = useState(false);
   
@@ -34,7 +34,7 @@ export const AppProvider = ({ children }) => {
   // App Notifications
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'Live API connection established with Laravel backend.', type: 'success', time: 'Just now' },
-    { id: 2, text: 'Gold bullion and market spot valuations synced ($4,411.10/oz).', type: 'info', time: 'Just now' }
+    { id: 2, text: 'Gold bullion and market spot valuations synced ($0.00/oz).', type: 'info', time: 'Just now' }
   ]);
 
   // Load live data from Backend API
@@ -55,7 +55,7 @@ export const AppProvider = ({ children }) => {
           apiService.getBuybacks(),
           apiService.getSuppliers(),
           apiService.getCambodianGold(),
-          apiService.getSpotPrice(),
+          apiService.getSpotPrice('XAU', 'USD', true),
         ]);
 
         setProducts(prods);
@@ -68,7 +68,7 @@ export const AppProvider = ({ children }) => {
         setBuybacks(bbs);
         setSuppliers(sups);
         if (camGold) setCambodianGold(camGold);
-        if (spotData?.spot_price_per_oz) setLiveSpot(spotData);
+        if (spotData && spotData.spot_price_per_oz !== undefined) setLiveSpot(spotData);
       } catch (e) {
         console.error('API load error:', e);
       }
@@ -78,8 +78,8 @@ export const AppProvider = ({ children }) => {
     // Auto-sync real-time live gold spot price every 5 minutes (5mn / 300,000 ms)
     const spotInterval = setInterval(async () => {
       try {
-        const fresh = await apiService.getSpotPrice('XAU', 'USD', false);
-        if (fresh?.spot_price_per_oz) {
+        const fresh = await apiService.getSpotPrice('XAU', 'USD', true);
+        if (fresh && fresh.spot_price_per_oz !== undefined) {
           setLiveSpot(prev => (prev?.spot_price_per_oz !== fresh.spot_price_per_oz ? fresh : prev));
         }
       } catch (err) {
@@ -201,9 +201,9 @@ export const AppProvider = ({ children }) => {
   const refreshSpotPrice = async () => {
     try {
       const fresh = await apiService.getSpotPrice('XAU', 'USD', true);
-      if (fresh?.spot_price_per_oz) {
+      if (fresh && fresh.spot_price_per_oz !== undefined) {
         setLiveSpot(fresh);
-        addNotification(`Live spot refreshed: $${fresh.spot_price_per_oz.toLocaleString(undefined, { minimumFractionDigits: 2 })} / oz (${fresh.source || 'Live'})`, 'info');
+        addNotification(`Live spot refreshed: $${Number(fresh.spot_price_per_oz).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / oz (${fresh.source || 'Live'})`, 'info');
       }
     } catch (err) {
       console.error('Failed to refresh spot price:', err);

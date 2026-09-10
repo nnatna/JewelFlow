@@ -43,8 +43,8 @@ function getLiveGoldData($forceRefresh = false) {
 
     $isCacheValid = ($cachedData && isset($cachedData['timestamp']) && ($now - $cachedData['timestamp'] < CACHE_LIFETIME));
 
-    // Return cache if valid and refresh not requested
-    if (!$forceRefresh && $cachedData && isset($cachedData['spot_price_oz'])) {
+    // Return cache if valid and refresh not requested (only if price > 0)
+    if (!$forceRefresh && $cachedData && !empty($cachedData['spot_price_oz']) && (float)$cachedData['spot_price_oz'] > 0) {
         return [
             'spot_price_oz' => (float)$cachedData['spot_price_oz'],
             'bid'           => (float)($cachedData['bid'] ?? $cachedData['spot_price_oz']),
@@ -61,11 +61,16 @@ function getLiveGoldData($forceRefresh = false) {
 
     // Attempt live API fetch if requested
     $apiEndpoints = [
+        'https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT',
         'https://api.gold-api.com/price/XAU',
         'https://data-asg.goldprice.org/dbXRates/USD'
     ];
 
     $fetchedPrice = null;
+    $bid = null;
+    $ask = null;
+    $change = null;
+    $changePct = null;
     $apiUsed = '';
 
     foreach ($apiEndpoints as $url) {
@@ -86,12 +91,28 @@ function getLiveGoldData($forceRefresh = false) {
 
         if ($httpCode === 200 && $response) {
             $json = json_decode($response, true);
-            if (isset($json['price']) && is_numeric($json['price']) && $json['price'] > 500) {
+            if (isset($json['lastPrice']) && is_numeric($json['lastPrice']) && (float)$json['lastPrice'] > 500) {
+                $fetchedPrice = round((float)$json['lastPrice'], 2);
+                $bid = (float)($json['bidPrice'] ?? $fetchedPrice);
+                $ask = (float)($json['askPrice'] ?? ($fetchedPrice + 1.0));
+                $change = (float)($json['priceChange'] ?? FALLBACK_CHANGE_24H);
+                $changePct = (float)($json['priceChangePercent'] ?? FALLBACK_CHANGE_PCT);
+                $apiUsed = 'Binance PAXG (Live Spot Feed)';
+                break;
+            } elseif (isset($json['price']) && is_numeric($json['price']) && $json['price'] > 500) {
                 $fetchedPrice = (float) $json['price'];
+                $bid = $fetchedPrice;
+                $ask = round($fetchedPrice + 2.0, 2);
+                $change = FALLBACK_CHANGE_24H;
+                $changePct = FALLBACK_CHANGE_PCT;
                 $apiUsed = 'Gold-API Live Feed';
                 break;
             } elseif (isset($json['items'][0]['xauPrice']) && is_numeric($json['items'][0]['xauPrice'])) {
                 $fetchedPrice = (float) $json['items'][0]['xauPrice'];
+                $bid = $fetchedPrice;
+                $ask = round($fetchedPrice + 2.0, 2);
+                $change = FALLBACK_CHANGE_24H;
+                $changePct = FALLBACK_CHANGE_PCT;
                 $apiUsed = 'GoldPrice.org Live Feed';
                 break;
             }
@@ -100,14 +121,16 @@ function getLiveGoldData($forceRefresh = false) {
 
     // Success branch
     if ($fetchedPrice !== null) {
-        $bid = $fetchedPrice;
-        $ask = round($fetchedPrice + 2.0, 2);
+        $bid = $bid ?? $fetchedPrice;
+        $ask = $ask ?? round($fetchedPrice + 2.0, 2);
+        $change = $change ?? FALLBACK_CHANGE_24H;
+        $changePct = $changePct ?? FALLBACK_CHANGE_PCT;
         $saveData = [
             'spot_price_oz' => $fetchedPrice,
             'bid'           => $bid,
             'ask'           => $ask,
-            'change'        => FALLBACK_CHANGE_24H,
-            'change_percent'=> FALLBACK_CHANGE_PCT,
+            'change'        => $change,
+            'change_percent'=> $changePct,
             'currency'      => 'USD',
             'timestamp'     => $now,
             'source'        => $apiUsed
@@ -128,8 +151,8 @@ function getLiveGoldData($forceRefresh = false) {
         ];
     }
 
-    // Graceful fallback to previous cache if exists, or benchmark default
-    if ($cachedData && isset($cachedData['spot_price_oz'])) {
+    // Graceful fallback to previous cache if exists and > 0, or benchmark default
+    if ($cachedData && !empty($cachedData['spot_price_oz']) && (float)$cachedData['spot_price_oz'] > 0) {
         return [
             'spot_price_oz' => (float) $cachedData['spot_price_oz'],
             'bid'           => (float) ($cachedData['bid'] ?? $cachedData['spot_price_oz']),
@@ -350,6 +373,12 @@ if ($isAjax) {
 
             <!-- Header Controls & Actions -->
             <div class="d-flex align-items-center gap-2">
+                <span class="badge rounded-pill bg-white text-slate-800 border px-3 py-2 d-flex align-items-center gap-1.5 shadow-sm" title="ប្រព័ន្ធទាញយកតម្លៃស្វ័យប្រវត្តរៀងរាល់ ៥ នាទី">
+                    <i class="bi bi-arrow-repeat text-warning"></i>
+                    <span class="small fw-semibold text-slate-700">ស្វ័យប្រវត្តិ (5mn):</span>
+                    <span id="autoRefreshCountdown" class="font-monospace fw-bold text-amber-600">05:00</span>
+                </span>
+
                 <span class="badge rounded-pill <?php echo $goldData['is_fallback'] ? 'bg-warning text-dark' : 'bg-success'; ?> px-3 py-2 d-flex align-items-center gap-1.5 shadow-sm">
                     <i class="bi <?php echo $goldData['is_fallback'] ? 'bi-exclamation-triangle-fill' : 'bi-broadcast'; ?>"></i>
                     <span id="liveStatusBadge"><?php echo htmlspecialchars($goldData['source']); ?></span>
@@ -677,6 +706,34 @@ if ($isAjax) {
         const formatUSD = (num) => '$' + Number(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const formatKHR = (num) => Math.round(Number(num)).toLocaleString('en-US') + ' ៛ KHR';
 
+        // 5-Minute (300 seconds) Auto-Refresh Interval
+        const AUTO_REFRESH_INTERVAL_SEC = 300; // 5mn
+        let secondsUntilRefresh = AUTO_REFRESH_INTERVAL_SEC;
+
+        function updateCountdownDisplay() {
+            const el = document.getElementById('autoRefreshCountdown');
+            if (!el) return;
+            const mins = Math.floor(secondsUntilRefresh / 60);
+            const secs = secondsUntilRefresh % 60;
+            el.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function resetAutoRefreshCountdown() {
+            secondsUntilRefresh = AUTO_REFRESH_INTERVAL_SEC;
+            updateCountdownDisplay();
+        }
+
+        // Ticker for 5-minute auto request
+        setInterval(() => {
+            secondsUntilRefresh--;
+            if (secondsUntilRefresh <= 0) {
+                resetAutoRefreshCountdown();
+                refreshGoldPrices();
+            } else {
+                updateCountdownDisplay();
+            }
+        }, 1000);
+
         // AJAX Refresh Functionality
         async function refreshGoldPrices() {
             const btn = document.getElementById('btnRefresh');
@@ -684,6 +741,7 @@ if ($isAjax) {
             
             btn.disabled = true;
             icon.classList.add('animate-spin-custom');
+            resetAutoRefreshCountdown();
 
             try {
                 const response = await fetch('gold_prices.php?ajax=1&refresh=1');
@@ -735,6 +793,9 @@ if ($isAjax) {
                     if (document.getElementById('lastUpdated')) {
                         document.getElementById('lastUpdated').textContent = data.last_updated;
                     }
+                    if (document.getElementById('liveStatusBadge') && data.source) {
+                        document.getElementById('liveStatusBadge').textContent = data.source;
+                    }
 
                     // Recalculate interactive calculator
                     calculateCustomWeight();
@@ -780,6 +841,14 @@ if ($isAjax) {
             document.getElementById('calcResultUsd').textContent = formatUSD(totalUSD);
             document.getElementById('calcResultKhr').textContent = '≈ ' + formatKHR(totalKHR);
         }
+
+        // Initialize 5-minute countdown display
+        updateCountdownDisplay();
+
+        // Auto-fetch live market price on load so it jumps from 0.00 to live market price
+        setTimeout(() => {
+            refreshGoldPrices();
+        }, 300);
     </script>
 </body>
 </html>

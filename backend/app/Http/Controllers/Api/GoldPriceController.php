@@ -120,7 +120,7 @@ class GoldPriceController extends Controller
             return response()->json($cachedData);
         }
 
-        $spotResult = $this->fetchSpotPriceFromApi($symbol, $currency);
+        $spotResult = $this->fetchSpotPriceFromApi($symbol, $currency, $forceFresh);
 
         // Run multi-karat, multi-unit conversions
         $breakdown = $this->getRatesBreakdown($spotResult['spot_price_per_oz'], $currency);
@@ -616,8 +616,30 @@ class GoldPriceController extends Controller
     /**
      * Internal helper to fetch from goldapi.io or gracefully fallback to database/defaults.
      */
-    protected function fetchSpotPriceFromApi(string $symbol, string $currency): array
+    protected function fetchSpotPriceFromApi(string $symbol, string $currency, bool $forceFresh = false): array
     {
+        // 1. Check local live gold cache file first if not forcing fresh
+        $rootCache = base_path('../gold_cache.json');
+        $publicCache = public_path('gold_cache.json');
+        $cacheFile = file_exists($rootCache) ? $rootCache : (file_exists($publicCache) ? $publicCache : null);
+
+        if (!$forceFresh && $cacheFile && file_exists($cacheFile)) {
+            $cached = json_decode(@file_get_contents($cacheFile), true);
+            if (!empty($cached['spot_price_oz']) && is_numeric($cached['spot_price_oz']) && (float)$cached['spot_price_oz'] > 0) {
+                $spotOz = (float)$cached['spot_price_oz'];
+                return [
+                    'source'             => $cached['source'] ?? 'Live Gold Feed (NY Spot Feed)',
+                    'spot_price_per_oz'  => $spotOz,
+                    'bid'                => (float)($cached['bid'] ?? $spotOz),
+                    'ask'                => (float)($cached['ask'] ?? ($spotOz + 2.0)),
+                    'change_24h'         => (float)($cached['change'] ?? 0.0),
+                    'change_percent_24h' => (float)($cached['change_percent'] ?? 0.0),
+                    'timestamp'          => (int)($cached['timestamp'] ?? time()),
+                    'note'               => 'Live Gold Price from cache.',
+                ];
+            }
+        }
+
         $apiKey = config('services.goldapi.key');
         $baseUrl = rtrim(config('services.goldapi.base_url', 'https://www.goldapi.io/api'), '/');
 
@@ -683,6 +705,9 @@ class GoldPriceController extends Controller
                             'date'           => date('Y-m-d H:i:s'),
                         ];
                         @file_put_contents(public_path('gold_cache.json'), json_encode($cachePayload, JSON_PRETTY_PRINT));
+                        if (file_exists(base_path('../gold_cache.json'))) {
+                            @file_put_contents(base_path('../gold_cache.json'), json_encode($cachePayload, JSON_PRETTY_PRINT));
+                        }
 
                         return [
                             'source'             => 'Binance (PAXG / Real-Time Live Spot)',

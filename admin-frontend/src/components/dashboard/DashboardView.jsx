@@ -167,10 +167,10 @@ export const DashboardView = () => {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span className="text-amber-800">{isKhmer ? 'តាមតម្លៃដើម:' : 'Market Spot:'}</span>
                   <span className="font-mono font-extrabold text-amber-950">
-                    ${(liveSpot?.spot_price_per_oz || 4411.10).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/oz
+                    ${Number(liveSpot?.spot_price_per_oz ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/oz
                   </span>
                   <span className="text-[11px] font-mono text-amber-800">
-                    (${(liveSpot?.price_per_chi || ((liveSpot?.spot_price_per_oz || 4411.10) / 31.1034768 * 3.75)).toFixed(2)}/{isKhmer ? 'ជី' : 'chi'})
+                    (${Number(liveSpot?.price_per_chi ?? (Number(liveSpot?.spot_price_per_oz ?? 0) / 31.1034768 * 3.75)).toFixed(2)}/{isKhmer ? 'ជី' : 'chi'})
                   </span>
                 </div>
               </div>

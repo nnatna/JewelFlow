@@ -43,8 +43,8 @@ function getLiveGoldData($forceRefresh = false) {
 
     $isCacheValid = ($cachedData && isset($cachedData['timestamp']) && ($now - $cachedData['timestamp'] < CACHE_LIFETIME));
 
-    // Return cache if valid and refresh not requested
-    if (!$forceRefresh && $cachedData && isset($cachedData['spot_price_oz'])) {
+    // Return cache if valid and refresh not requested (only if price > 0)
+    if (!$forceRefresh && $cachedData && !empty($cachedData['spot_price_oz']) && (float)$cachedData['spot_price_oz'] > 0) {
         return [
             'spot_price_oz' => (float)$cachedData['spot_price_oz'],
             'bid'           => (float)($cachedData['bid'] ?? $cachedData['spot_price_oz']),
@@ -61,11 +61,16 @@ function getLiveGoldData($forceRefresh = false) {
 
     // Attempt live API fetch if requested
     $apiEndpoints = [
+        'https://api.binance.com/api/v3/ticker/24hr?symbol=PAXGUSDT',
         'https://api.gold-api.com/price/XAU',
         'https://data-asg.goldprice.org/dbXRates/USD'
     ];
 
     $fetchedPrice = null;
+    $bid = null;
+    $ask = null;
+    $change = null;
+    $changePct = null;
     $apiUsed = '';
 
     foreach ($apiEndpoints as $url) {
@@ -86,12 +91,28 @@ function getLiveGoldData($forceRefresh = false) {
 
         if ($httpCode === 200 && $response) {
             $json = json_decode($response, true);
-            if (isset($json['price']) && is_numeric($json['price']) && $json['price'] > 500) {
+            if (isset($json['lastPrice']) && is_numeric($json['lastPrice']) && (float)$json['lastPrice'] > 500) {
+                $fetchedPrice = round((float)$json['lastPrice'], 2);
+                $bid = (float)($json['bidPrice'] ?? $fetchedPrice);
+                $ask = (float)($json['askPrice'] ?? ($fetchedPrice + 1.0));
+                $change = (float)($json['priceChange'] ?? FALLBACK_CHANGE_24H);
+                $changePct = (float)($json['priceChangePercent'] ?? FALLBACK_CHANGE_PCT);
+                $apiUsed = 'Binance PAXG (Live Spot Feed)';
+                break;
+            } elseif (isset($json['price']) && is_numeric($json['price']) && $json['price'] > 500) {
                 $fetchedPrice = (float) $json['price'];
+                $bid = $fetchedPrice;
+                $ask = round($fetchedPrice + 2.0, 2);
+                $change = FALLBACK_CHANGE_24H;
+                $changePct = FALLBACK_CHANGE_PCT;
                 $apiUsed = 'Gold-API Live Feed';
                 break;
             } elseif (isset($json['items'][0]['xauPrice']) && is_numeric($json['items'][0]['xauPrice'])) {
                 $fetchedPrice = (float) $json['items'][0]['xauPrice'];
+                $bid = $fetchedPrice;
+                $ask = round($fetchedPrice + 2.0, 2);
+                $change = FALLBACK_CHANGE_24H;
+                $changePct = FALLBACK_CHANGE_PCT;
                 $apiUsed = 'GoldPrice.org Live Feed';
                 break;
             }
@@ -100,14 +121,16 @@ function getLiveGoldData($forceRefresh = false) {
 
     // Success branch
     if ($fetchedPrice !== null) {
-        $bid = $fetchedPrice;
-        $ask = round($fetchedPrice + 2.0, 2);
+        $bid = $bid ?? $fetchedPrice;
+        $ask = $ask ?? round($fetchedPrice + 2.0, 2);
+        $change = $change ?? FALLBACK_CHANGE_24H;
+        $changePct = $changePct ?? FALLBACK_CHANGE_PCT;
         $saveData = [
             'spot_price_oz' => $fetchedPrice,
             'bid'           => $bid,
             'ask'           => $ask,
-            'change'        => FALLBACK_CHANGE_24H,
-            'change_percent'=> FALLBACK_CHANGE_PCT,
+            'change'        => $change,
+            'change_percent'=> $changePct,
             'currency'      => 'USD',
             'timestamp'     => $now,
             'source'        => $apiUsed
@@ -128,8 +151,8 @@ function getLiveGoldData($forceRefresh = false) {
         ];
     }
 
-    // Graceful fallback to previous cache if exists, or benchmark default
-    if ($cachedData && isset($cachedData['spot_price_oz'])) {
+    // Graceful fallback to previous cache if exists and > 0, or benchmark default
+    if ($cachedData && !empty($cachedData['spot_price_oz']) && (float)$cachedData['spot_price_oz'] > 0) {
         return [
             'spot_price_oz' => (float) $cachedData['spot_price_oz'],
             'bid'           => (float) ($cachedData['bid'] ?? $cachedData['spot_price_oz']),
@@ -821,6 +844,11 @@ if ($isAjax) {
 
         // Initialize 5-minute countdown display
         updateCountdownDisplay();
+
+        // Auto-fetch live market price on load so it jumps from 0.00 to live market price
+        setTimeout(() => {
+            refreshGoldPrices();
+        }, 300);
     </script>
 </body>
 </html>
