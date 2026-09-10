@@ -38,6 +38,7 @@ return [
     'goldapi' => [
         'key' => env('GOLD_API_KEY'),
         'base_url' => env('GOLD_API_BASE_URL', 'https://www.goldapi.io/api'),
+        'cache_ttl' => (int)env('GOLD_API_CACHE_TTL', 300), // 5 minutes (300s)
     ],
 
 ];

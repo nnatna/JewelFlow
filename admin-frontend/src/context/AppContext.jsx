@@ -75,7 +75,7 @@ export const AppProvider = ({ children }) => {
     };
     fetchData();
 
-    // Auto-sync real-time live gold spot price every 30 seconds
+    // Auto-sync real-time live gold spot price every 5 minutes (5mn / 300,000 ms)
     const spotInterval = setInterval(async () => {
       try {
         const fresh = await apiService.getSpotPrice('XAU', 'USD', false);
@@ -85,7 +85,7 @@ export const AppProvider = ({ children }) => {
       } catch (err) {
         // quiet background fail
       }
-    }, 30000);
+    }, 5 * 60 * 1000);
 
     return () => clearInterval(spotInterval);
   }, []);

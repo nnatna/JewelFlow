@@ -350,6 +350,12 @@ if ($isAjax) {
 
             <!-- Header Controls & Actions -->
             <div class="d-flex align-items-center gap-2">
+                <span class="badge rounded-pill bg-white text-slate-800 border px-3 py-2 d-flex align-items-center gap-1.5 shadow-sm" title="ប្រព័ន្ធទាញយកតម្លៃស្វ័យប្រវត្តរៀងរាល់ ៥ នាទី">
+                    <i class="bi bi-arrow-repeat text-warning"></i>
+                    <span class="small fw-semibold text-slate-700">ស្វ័យប្រវត្តិ (5mn):</span>
+                    <span id="autoRefreshCountdown" class="font-monospace fw-bold text-amber-600">05:00</span>
+                </span>
+
                 <span class="badge rounded-pill <?php echo $goldData['is_fallback'] ? 'bg-warning text-dark' : 'bg-success'; ?> px-3 py-2 d-flex align-items-center gap-1.5 shadow-sm">
                     <i class="bi <?php echo $goldData['is_fallback'] ? 'bi-exclamation-triangle-fill' : 'bi-broadcast'; ?>"></i>
                     <span id="liveStatusBadge"><?php echo htmlspecialchars($goldData['source']); ?></span>
@@ -677,6 +683,34 @@ if ($isAjax) {
         const formatUSD = (num) => '$' + Number(num).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         const formatKHR = (num) => Math.round(Number(num)).toLocaleString('en-US') + ' ៛ KHR';
 
+        // 5-Minute (300 seconds) Auto-Refresh Interval
+        const AUTO_REFRESH_INTERVAL_SEC = 300; // 5mn
+        let secondsUntilRefresh = AUTO_REFRESH_INTERVAL_SEC;
+
+        function updateCountdownDisplay() {
+            const el = document.getElementById('autoRefreshCountdown');
+            if (!el) return;
+            const mins = Math.floor(secondsUntilRefresh / 60);
+            const secs = secondsUntilRefresh % 60;
+            el.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+        }
+
+        function resetAutoRefreshCountdown() {
+            secondsUntilRefresh = AUTO_REFRESH_INTERVAL_SEC;
+            updateCountdownDisplay();
+        }
+
+        // Ticker for 5-minute auto request
+        setInterval(() => {
+            secondsUntilRefresh--;
+            if (secondsUntilRefresh <= 0) {
+                resetAutoRefreshCountdown();
+                refreshGoldPrices();
+            } else {
+                updateCountdownDisplay();
+            }
+        }, 1000);
+
         // AJAX Refresh Functionality
         async function refreshGoldPrices() {
             const btn = document.getElementById('btnRefresh');
@@ -684,6 +718,7 @@ if ($isAjax) {
             
             btn.disabled = true;
             icon.classList.add('animate-spin-custom');
+            resetAutoRefreshCountdown();
 
             try {
                 const response = await fetch('gold_prices.php?ajax=1&refresh=1');
@@ -735,6 +770,9 @@ if ($isAjax) {
                     if (document.getElementById('lastUpdated')) {
                         document.getElementById('lastUpdated').textContent = data.last_updated;
                     }
+                    if (document.getElementById('liveStatusBadge') && data.source) {
+                        document.getElementById('liveStatusBadge').textContent = data.source;
+                    }
 
                     // Recalculate interactive calculator
                     calculateCustomWeight();
@@ -780,6 +818,9 @@ if ($isAjax) {
             document.getElementById('calcResultUsd').textContent = formatUSD(totalUSD);
             document.getElementById('calcResultKhr').textContent = '≈ ' + formatKHR(totalKHR);
         }
+
+        // Initialize 5-minute countdown display
+        updateCountdownDisplay();
     </script>
 </body>
 </html>

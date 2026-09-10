@@ -113,7 +113,7 @@ class GoldPriceController extends Controller
         $forceFresh = filter_var($request->query('force_fresh', false), FILTER_VALIDATE_BOOLEAN);
 
         $cacheKey = "gold_spot_{$symbol}_{$currency}";
-        $cacheTtlSeconds = (int)config('services.goldapi.cache_ttl', 30); // 30 seconds live cache
+        $cacheTtlSeconds = (int)config('services.goldapi.cache_ttl', 300); // 5 minutes (300s) live cache
 
         if (!$forceFresh && Cache::has($cacheKey)) {
             $cachedData = Cache::get($cacheKey);
