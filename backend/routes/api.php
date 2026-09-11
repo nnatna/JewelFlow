@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\GoldPriceController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\ProductController;
 use App\Models\Buyback;
@@ -237,7 +238,20 @@ Route::prefix('gold-price')->group(function () {
     Route::get('/exchange-rate', [GoldPriceController::class, 'getExchangeRate']);
 });
 
+<<<<<<< HEAD
 // Live FX & Currency Exchange Rate APIs (USD to KHR)
 Route::get('/exchange-rate', [GoldPriceController::class, 'getExchangeRate']);
 Route::get('/exchange-rate/usd-khr', [GoldPriceController::class, 'getUsdKhrRate']);
+=======
+// Reports & Analytics APIs (ReportController)
+Route::prefix('reports')->group(function () {
+    Route::get('/summary', [ReportController::class, 'getSummary']);
+    Route::get('/sales', [ReportController::class, 'getSalesReport']);
+    Route::get('/buybacks', [ReportController::class, 'getBuybackReport']);
+    Route::get('/inventory', [ReportController::class, 'getInventoryReport']);
+    Route::get('/cashflow', [ReportController::class, 'getCashFlowReport']);
+    Route::get('/gold-rates-history', [ReportController::class, 'getGoldRateHistoryReport']);
+});
+
+>>>>>>> 8b6dce2b0f96e35d068bb5e8b25bc9042deb5373
 
