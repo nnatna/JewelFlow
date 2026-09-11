@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faTableColumns,
   faBagShopping,
+  faClockRotateLeft,
   faGem,
   faArrowTrendUp,
   faArrowsRotate,
@@ -17,13 +18,14 @@ import {
 
 export const Sidebar = () => {
   const { t } = useTranslation();
-  const { activeTab, setActiveTab, products, cart } = useApp();
+  const { activeTab, setActiveTab, products, cart, sales } = useApp();
 
   const totalGoldWeight = products.reduce((acc, p) => acc + (Number(p.net_weight) * Number(p.stock_qty)), 0);
 
   const navItems = [
     { id: 'dashboard', label: t('nav.dashboard', 'Dashboard'), icon: faTableColumns },
     { id: 'pos', label: t('nav.pos', 'POS Terminal'), icon: faBagShopping, badge: cart.length > 0 ? `${cart.length} in cart` : null },
+    { id: 'sales_history', label: t('nav.salesHistory', 'History Sales'), icon: faClockRotateLeft, badge: sales?.length > 0 ? `${sales.length}` : null },
     { id: 'products', label: t('nav.catalog', 'Jewelry Catalog'), icon: faGem, badge: `${products.length}` },
     { id: 'goldrates', label: t('nav.goldRates', 'Daily Metal Fix'), icon: faArrowTrendUp },
     { id: 'buyback', label: t('nav.buybacks', 'Scrap Gold Buybacks'), icon: faArrowsRotate },
@@ -56,7 +58,7 @@ export const Sidebar = () => {
           {t('nav.operations', 'Store Operations')}
         </div>
         {navItems.map(item => {
-          const isActive = activeTab === item.id;
+          const isActive = activeTab === item.id || (item.id === 'sales_history' && activeTab === 'sales');
           return (
             <button
               key={item.id}
@@ -96,7 +98,8 @@ export const Sidebar = () => {
             </span>
           </div>
           <div className="text-xl font-bold font-mono text-slate-900 mt-1">
-            {totalGoldWeight.toFixed(2)} <span className="text-xs text-amber-700 font-sans font-normal">grams</span>
+            {(totalGoldWeight / 3.75).toFixed(2)} <span className="text-xs text-amber-700 font-sans font-normal">{t('cambodiaGold.chi', 'Chi')}</span>
+            <span className="text-xs text-slate-400 font-normal ml-1.5">({totalGoldWeight.toFixed(1)}g)</span>
           </div>
           <div className="text-[11px] text-slate-500 mt-1 flex items-center justify-between">
             <span>{t('nav.estValuation', 'Est. Valuation:')}</span>

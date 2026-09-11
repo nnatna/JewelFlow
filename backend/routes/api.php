@@ -100,7 +100,16 @@ Route::post('/customers', function (Request $request) {
 // Sales & Invoices API
 Route::get('/sales', function () {
     return response()->json(
-        Sale::with(['customer', 'saleItems', 'user'])->latest()->get()
+        Sale::with(['customer', 'saleItems.product.metalType', 'user', 'payments'])
+            ->orderBy('sale_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get()
+    );
+});
+
+Route::get('/sales/{id}', function ($id) {
+    return response()->json(
+        Sale::with(['customer', 'saleItems.product.metalType', 'user', 'payments'])->findOrFail($id)
     );
 });
 
@@ -122,17 +131,72 @@ Route::post('/sales', function (Request $request) {
     if ($request->has('items') && is_array($request->items)) {
         foreach ($request->items as $item) {
             $sale->saleItems()->create([
-                'product_id' => $item['product_id'] ?? 1,
-                'qty' => $item['qty'] ?? 1,
-                'weight_sold' => $item['weight_g'] ?? 0,
-                'metal_rate' => $item['metal_rate'] ?? 0,
-                'unit_price' => $item['unit_price'] ?? 0,
-                'subtotal' => $item['total'] ?? 0,
+                'product_id'        => $item['product_id'] ?? 1,
+                'quantity'          => $item['quantity'] ?? $item['qty'] ?? 1,
+                'weight_sold'       => $item['weight_sold'] ?? $item['weight_g'] ?? 0,
+                'gold_rate_applied' => $item['gold_rate_applied'] ?? $item['metal_rate'] ?? 0,
+                'labor_fee'         => $item['labor_fee'] ?? 0,
+                'gemstone_price'    => $item['gemstone_price'] ?? 0,
+                'unit_price'        => $item['unit_price'] ?? 0,
+                'subtotal'          => $item['subtotal'] ?? $item['total'] ?? 0,
+                'status'            => $item['status'] ?? 'completed',
             ]);
         }
     }
 
-    return response()->json($sale->load(['customer', 'saleItems']), 201);
+    // Record Payment
+    $paymentMethod = $request->payment_method ?? 'cash';
+    $sale->payments()->create([
+        'amount' => $sale->grand_total,
+        'payment_method' => $paymentMethod,
+        'payment_date' => $sale->sale_date,
+        'reference_no' => 'PAY-' . rand(10000, 99999),
+    ]);
+
+    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']), 201);
+});
+
+Route::put('/sales/{id}/status', function (Request $request, $id) {
+    $status = $request->input('status') ?? $request->json('status');
+    if (!in_array($status, ['pending', 'completed', 'cancelled'])) {
+        return response()->json(['message' => 'Invalid status. Must be pending, completed, or cancelled.'], 422);
+    }
+
+    $sale = Sale::findOrFail($id);
+    $sale->update(['status' => $status]);
+    $sale->saleItems()->update(['status' => $status]);
+
+    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']));
+});
+
+Route::put('/sales/{id}', function (Request $request, $id) {
+    $sale = Sale::findOrFail($id);
+    $status = $request->input('status') ?? $request->json('status');
+    if ($status && in_array($status, ['pending', 'completed', 'cancelled'])) {
+        $sale->update(['status' => $status]);
+        $sale->saleItems()->update(['status' => $status]);
+    }
+    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']));
+});
+
+Route::put('/sale-items/{id}/status', function (Request $request, $id) {
+    $status = $request->input('status') ?? $request->json('status');
+    if (!in_array($status, ['pending', 'completed', 'cancelled'])) {
+        return response()->json(['message' => 'Invalid status. Must be pending, completed, or cancelled.'], 422);
+    }
+
+    $item = \App\Models\SaleItem::findOrFail($id);
+    $item->update(['status' => $status]);
+
+    $sale = $item->sale;
+    $distinctStatuses = $sale->saleItems()->pluck('status')->unique();
+    if ($distinctStatuses->count() === 1) {
+        $sale->update(['status' => $distinctStatuses->first()]);
+    } elseif ($distinctStatuses->contains('pending')) {
+        $sale->update(['status' => 'pending']);
+    }
+
+    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']));
 });
 
 // Buybacks API
@@ -170,5 +234,10 @@ Route::prefix('gold-price')->group(function () {
     Route::post('/convert', [GoldPriceController::class, 'convert']);
     Route::post('/valuation', [GoldPriceController::class, 'calculateValuation']);
     Route::get('/metadata', [GoldPriceController::class, 'getMetadata']);
+    Route::get('/exchange-rate', [GoldPriceController::class, 'getExchangeRate']);
 });
+
+// Live FX & Currency Exchange Rate APIs (USD to KHR)
+Route::get('/exchange-rate', [GoldPriceController::class, 'getExchangeRate']);
+Route::get('/exchange-rate/usd-khr', [GoldPriceController::class, 'getUsdKhrRate']);
 

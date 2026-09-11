@@ -33,6 +33,7 @@ class SaleItemFactory extends Factory
             'unit_price' => $unitPrice,
             'quantity' => $quantity,
             'subtotal' => $subtotal,
+            'status' => fake()->randomElement(['pending', 'completed', 'cancelled']),
         ];
     }
 }

@@ -217,31 +217,78 @@ export const apiService = {
     try {
       const res = await client.get('/sales');
       const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      return data.map(s => ({
-        id: s.id,
-        invoice_no: s.invoice_no,
-        customer_name: s.customer?.name || 'Walk-in Guest',
-        customer_phone: s.customer?.phone || 'N/A',
-        user_name: s.user?.name || 'Alexander Cross (Store Manager)',
-        sale_date: s.sale_date ? s.sale_date.split('T')[0] : 'Today',
-        items: (s.sale_items || []).map(item => ({
-          product_name: `Jewelry Item #${item.product_id}`,
-          code_sku: `SKU-${item.product_id}`,
-          qty: item.qty || 1,
-          weight_g: item.weight_sold || 5.0,
-          unit_price: parseFloat(item.unit_price) || 1200,
-          total: parseFloat(item.subtotal) || 1200
-        })),
-        total_amount: parseFloat(s.total_amount) || 1200,
-        discount: parseFloat(s.discount) || 0,
-        tax: parseFloat(s.tax) || 0,
-        grand_total: parseFloat(s.grand_total) || 1200,
-        payment_method: 'Credit Card',
-        payment_status: 'Paid'
-      }));
+      return data.map(s => {
+        const rawItems = s.sale_items || s.saleItems || [];
+        const rawPayments = s.payments || [];
+        const primaryPayment = rawPayments[0] || null;
+
+        return {
+          id: s.id,
+          invoice_no: s.invoice_no,
+          customer_id: s.customer_id,
+          customer_name: s.customer?.name || (s.customer_id ? `Customer #${s.customer_id}` : 'Walk-in Guest'),
+          customer_phone: s.customer?.phone || '',
+          customer_email: s.customer?.email || '',
+          customer_address: s.customer?.address || '',
+          user_id: s.user_id,
+          user_name: s.user?.name || 'Staff Jeweler',
+          sale_date: s.sale_date ? s.sale_date.split('T')[0] : 'Today',
+          items: rawItems.map(item => ({
+            id: item.id,
+            product_id: item.product_id,
+            product_name: item.product?.name || item.product_name || `Jewelry Item #${item.product_id}`,
+            code_sku: item.product?.code_sku || item.code_sku || `SKU-${item.product_id}`,
+            metal_type_name: item.product?.metal_type?.name || '',
+            qty: parseInt(item.quantity ?? item.qty, 10) || 1,
+            weight_g: parseFloat(item.weight_sold ?? item.weight_g) || 0,
+            gold_rate_applied: parseFloat(item.gold_rate_applied ?? item.metal_rate) || 0,
+            labor_fee: parseFloat(item.labor_fee) || 0,
+            gemstone_price: parseFloat(item.gemstone_price) || 0,
+            unit_price: parseFloat(item.unit_price) || 0,
+            total: parseFloat(item.subtotal ?? item.total) || 0,
+            status: item.status || 'completed'
+          })),
+          total_amount: parseFloat(s.total_amount) || 0,
+          discount: parseFloat(s.discount) || 0,
+          tax: parseFloat(s.tax) || 0,
+          grand_total: parseFloat(s.grand_total) || 0,
+          payments: rawPayments.map(p => ({
+            id: p.id,
+            amount: parseFloat(p.amount) || 0,
+            payment_method: p.payment_method || 'cash',
+            payment_date: p.payment_date ? p.payment_date.split('T')[0] : '',
+            reference_no: p.reference_no || '',
+          })),
+          payment_method: primaryPayment?.payment_method || s.payment_method || 'cash',
+          payment_status: rawPayments.length > 0 ? 'Paid' : 'Pending',
+          payment_ref: primaryPayment?.reference_no || '',
+          status: s.status || 'completed',
+          notes: s.notes || ''
+        };
+      });
     } catch (e) {
       console.error('API getSales error:', e);
       return [];
+    }
+  },
+
+  updateSaleStatus: async (id, status) => {
+    try {
+      const res = await client.put(`/sales/${id}/status`, { status });
+      return res.data;
+    } catch (e) {
+      console.error('Backend updateSaleStatus failed:', e.message);
+      throw e;
+    }
+  },
+
+  updateSaleItemStatus: async (itemId, status) => {
+    try {
+      const res = await client.put(`/sale-items/${itemId}/status`, { status });
+      return res.data;
+    } catch (e) {
+      console.error('Backend updateSaleItemStatus failed:', e.message);
+      throw e;
     }
   },
 
@@ -348,6 +395,27 @@ export const apiService = {
     } catch (e) {
       console.error('API calculateValuation error:', e);
       throw e;
+    }
+  },
+
+  // 11. Live USD to KHR Exchange Rate API
+  getExchangeRate: async (base = 'USD', target = 'KHR', forceFresh = false) => {
+    try {
+      const res = await client.get('/exchange-rate', { params: { base, target, force_fresh: forceFresh } });
+      return res.data;
+    } catch (e) {
+      console.error('API getExchangeRate error:', e);
+      return {
+        success: false,
+        base,
+        target,
+        rate: 4045,
+        formatted: '4,045',
+        symbol: '៛',
+        display_khmer: '១ USD = ៤,០៤៥ រៀល (៛)',
+        display_english: '1 USD = 4,045 KHR',
+        source: 'Standard Benchmark (Offline)'
+      };
     }
   },
 };

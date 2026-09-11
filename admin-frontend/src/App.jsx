@@ -4,6 +4,7 @@ import { Sidebar } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
 import { DashboardView } from './components/dashboard/DashboardView';
 import { PosTerminal } from './components/pos/PosTerminal';
+import { SalesHistoryView } from './components/sales/SalesHistoryView';
 import { ProductList } from './components/inventory/ProductList';
 import { GoldRatesView } from './components/goldrates/GoldRatesView';
 import { BuybackView } from './components/buyback/BuybackView';
@@ -21,6 +22,9 @@ const MainLayout = () => {
         return <DashboardView />;
       case 'pos':
         return <PosTerminal />;
+      case 'sales':
+      case 'sales_history':
+        return <SalesHistoryView />;
       case 'products':
         return <ProductList />;
       case 'goldrates':

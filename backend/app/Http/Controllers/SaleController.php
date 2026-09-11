@@ -29,8 +29,8 @@ class SaleController extends Controller
                     })->orWhereHas('user', function ($sub) use ($search) {
                         $sub->where('name', 'like', "%{$search}%");
                     })->orWhere('invoice_no', 'like', "%{$search}%")
-                      ->orWhere('total_amount', 'like', "%{$search}%")
-                      ->orWhere('grand_total', 'like', "%{$search}%");
+                        ->orWhere('total_amount', 'like', "%{$search}%")
+                        ->orWhere('grand_total', 'like', "%{$search}%");
                 });
             })
             ->orderBy($sort, $direction)
@@ -57,38 +57,37 @@ class SaleController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'customer_id'   => 'nullable|exists:customers,id',
-            'user_id'       => 'nullable|exists:users,id',
-            'invoice_no'    => 'required|string|max:255|unique:sales,invoice_no',
-            'total_amount'  => 'nullable|numeric|min:0',
-            'discount'      => 'nullable|numeric|min:0',
-            'tax'           => 'nullable|numeric|min:0',
-            'grand_total'   => 'nullable|numeric|min:0',
-            'sale_date'     => 'required|date',
+            'customer_id' => 'nullable|exists:customers,id',
+            'user_id' => 'nullable|exists:users,id',
+            'invoice_no' => 'required|string|max:255|unique:sales,invoice_no',
+            'total_amount' => 'nullable|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0',
+            'grand_total' => 'nullable|numeric|min:0',
+            'sale_date' => 'required|date',
             // Nested items validation
-            'items'                     => 'nullable|array',
-            'items.*.product_id'        => 'required_with:items|exists:products,id',
+            'items' => 'nullable|array',
+            'items.*.product_id' => 'required_with:items|exists:products,id',
             'items.*.gold_rate_applied' => 'required_with:items|numeric|min:0',
-            'items.*.weight_sold'       => 'required_with:items|numeric|min:0',
-            'items.*.labor_fee'         => 'nullable|numeric|min:0',
-            'items.*.gemstone_price'    => 'nullable|numeric|min:0',
-            'items.*.quantity'          => 'required_with:items|integer|min:1',
+            'items.*.weight_sold' => 'required_with:items|numeric|min:0',
+            'items.*.labor_fee' => 'nullable|numeric|min:0',
+            'items.*.gemstone_price' => 'nullable|numeric|min:0',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
         ]);
 
         $discount = $validated['discount'] ?? 0;
         $tax = $validated['tax'] ?? 0;
         $totalAmount = $validated['total_amount'] ?? 0;
 
-        // ១. បង្កើត Sale តាមរយៈ Model
         $sale = Sale::create([
-            'customer_id'  => $validated['customer_id'] ?? null,
-            'user_id'      => Auth::id() ?? ($validated['user_id'] ?? 1),
-            'invoice_no'   => $validated['invoice_no'],
+            'customer_id' => $validated['customer_id'] ?? null,
+            'user_id' => Auth::id() ?? ($validated['user_id'] ?? 1),
+            'invoice_no' => 'INV-' . date('mdY') . '-' . mt_rand(1000, 9999),
             'total_amount' => $totalAmount,
-            'discount'     => $discount,
-            'tax'          => $tax,
-            'grand_total'  => $totalAmount - $discount + $tax,
-            'sale_date'    => $validated['sale_date'],
+            'discount' => $discount,
+            'tax' => $tax,
+            'grand_total' => $totalAmount - $discount + $tax,
+            'sale_date' => $validated['sale_date'],
         ]);
 
         // ២. បញ្ចូល Items និងកាត់ស្តុកតាម Model (បើមាន Items)
@@ -104,14 +103,14 @@ class SaleController extends Controller
 
                 // បង្កើត SaleItem តាមរយៈ Relation នៃ Sale Model
                 $sale->saleItems()->create([
-                    'product_id'        => $item['product_id'],
+                    'product_id' => $item['product_id'],
                     'gold_rate_applied' => $item['gold_rate_applied'],
-                    'weight_sold'       => $item['weight_sold'],
-                    'labor_fee'         => $labor,
-                    'gemstone_price'    => $gemPrice,
-                    'unit_price'        => $unitPrice,
-                    'quantity'          => $item['quantity'],
-                    'subtotal'          => $subtotal,
+                    'weight_sold' => $item['weight_sold'],
+                    'labor_fee' => $labor,
+                    'gemstone_price' => $gemPrice,
+                    'unit_price' => $unitPrice,
+                    'quantity' => $item['quantity'],
+                    'subtotal' => $subtotal,
                 ]);
 
                 // កាត់ស្តុកតាមរយៈ Product Model
@@ -121,7 +120,7 @@ class SaleController extends Controller
             // Update តម្លៃសរុបឡើងវិញ
             $sale->update([
                 'total_amount' => $calculatedTotal,
-                'grand_total'  => $calculatedTotal - $discount + $tax,
+                'grand_total' => $calculatedTotal - $discount + $tax,
             ]);
         }
 
@@ -156,14 +155,14 @@ class SaleController extends Controller
     public function update(Request $request, Sale $sale)
     {
         $validated = $request->validate([
-            'customer_id'  => 'nullable|exists:customers,id',
-            'user_id'      => 'nullable|exists:users,id',
-            'invoice_no'   => 'required|string|max:255|unique:sales,invoice_no,' . $sale->id,
+            'customer_id' => 'nullable|exists:customers,id',
+            'user_id' => 'nullable|exists:users,id',
+            'invoice_no' => 'required|string|max:255|unique:sales,invoice_no,' . $sale->id,
             'total_amount' => 'nullable|numeric|min:0',
-            'discount'     => 'nullable|numeric|min:0',
-            'tax'          => 'nullable|numeric|min:0',
-            'grand_total'  => 'nullable|numeric|min:0',
-            'sale_date'    => 'required|date',
+            'discount' => 'nullable|numeric|min:0',
+            'tax' => 'nullable|numeric|min:0',
+            'grand_total' => 'nullable|numeric|min:0',
+            'sale_date' => 'required|date',
         ]);
 
         $discount = $validated['discount'] ?? $sale->discount;
@@ -172,14 +171,14 @@ class SaleController extends Controller
         $grandTotal = $totalAmount - $discount + $tax;
 
         $sale->update([
-            'customer_id'  => $validated['customer_id'] ?? $sale->customer_id,
-            'user_id'      => $validated['user_id'] ?? $sale->user_id,
-            'invoice_no'   => $validated['invoice_no'],
+            'customer_id' => $validated['customer_id'] ?? $sale->customer_id,
+            'user_id' => $validated['user_id'] ?? $sale->user_id,
+            'invoice_no' => $validated['invoice_no'],
             'total_amount' => $totalAmount,
-            'discount'     => $discount,
-            'tax'          => $tax,
-            'grand_total'  => $grandTotal,
-            'sale_date'    => $validated['sale_date'],
+            'discount' => $discount,
+            'tax' => $tax,
+            'grand_total' => $grandTotal,
+            'sale_date' => $validated['sale_date'],
         ]);
 
         return redirect()->route('sales.index')->with('success', 'Sale updated successfully');
@@ -194,7 +193,7 @@ class SaleController extends Controller
         foreach ($sale->saleItems as $item) {
             Product::where('id', $item->product_id)->increment('stock_qty', $item->quantity);
         }
-        
+
         $sale->delete();
 
         return redirect()->route('sales.index')->with('success', 'Sale deleted successfully');

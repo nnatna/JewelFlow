@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -10,15 +10,46 @@ import {
   faClock,
   faCircleCheck,
   faGlobe,
-  faXmark
+  faXmark,
+  faBoxOpen,
+  faReceipt,
+  faUsers,
+  faArrowRight
 } from '@fortawesome/free-solid-svg-icons';
 
 export const Navbar = () => {
   const { t, i18n } = useTranslation();
-  const { notifications, removeNotification, setActiveTab, cart, liveSpot } = useApp();
+  const {
+    notifications,
+    removeNotification,
+    setActiveTab,
+    cart,
+    liveSpot,
+    exchangeRate,
+    refreshExchangeRate,
+    searchQuery,
+    setSearchQuery,
+    products,
+    sales,
+    customers
+  } = useApp();
+
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchContainerRef = useRef(null);
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
+
+  // Close search dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleLanguageToggle = () => {
     const nextLng = isKhmer ? 'en' : 'km';
@@ -35,8 +66,41 @@ export const Navbar = () => {
   const spotDamlung = spotOunce > 0 ? (Number(liveSpot?.price_per_damlung) || (spotChi * 10)) : 0;
   const changePercent = Number(liveSpot?.change_percent_24h ?? 0);
 
+  // Global search filtering across entities
+  const cleanQ = (searchQuery || '').toLowerCase().trim();
+  const matchedProducts = cleanQ
+    ? products.filter(p =>
+        p.name?.toLowerCase().includes(cleanQ) ||
+        p.code_sku?.toLowerCase().includes(cleanQ) ||
+        p.barcode?.includes(cleanQ)
+      ).slice(0, 4)
+    : [];
+
+  const matchedSales = cleanQ
+    ? sales.filter(s =>
+        s.invoice_no?.toLowerCase().includes(cleanQ) ||
+        s.customer_name?.toLowerCase().includes(cleanQ) ||
+        s.customer_phone?.toLowerCase().includes(cleanQ) ||
+        s.payment_ref?.toLowerCase().includes(cleanQ)
+      ).slice(0, 4)
+    : [];
+
+  const matchedCustomers = cleanQ
+    ? customers.filter(c =>
+        c.name?.toLowerCase().includes(cleanQ) ||
+        c.phone?.includes(cleanQ) ||
+        c.email?.toLowerCase().includes(cleanQ)
+      ).slice(0, 4)
+    : [];
+
+  const totalResultsCount = cleanQ
+    ? (products.filter(p => p.name?.toLowerCase().includes(cleanQ) || p.code_sku?.toLowerCase().includes(cleanQ) || p.barcode?.includes(cleanQ)).length +
+       sales.filter(s => s.invoice_no?.toLowerCase().includes(cleanQ) || s.customer_name?.toLowerCase().includes(cleanQ) || s.customer_phone?.toLowerCase().includes(cleanQ)).length +
+       customers.filter(c => c.name?.toLowerCase().includes(cleanQ) || c.phone?.includes(cleanQ)).length)
+    : 0;
+
   return (
-    <header className="shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 shadow-xs select-none">
+    <header className="no-print shrink-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 text-slate-800 shadow-xs select-none">
       {/* Live Gold Rates Marquee Bar - Only Show Market Spot */}
       <div className="bg-amber-50/80 border-b border-amber-200/70 px-4 py-1.5 flex items-center justify-between text-xs overflow-x-auto gap-4">
         {/* Ticker Live Indicator & តាមតម្លៃដើម Benchmark */}
@@ -81,22 +145,223 @@ export const Navbar = () => {
 
       {/* Main Top Bar */}
       <div className="px-6 py-2.5 flex items-center justify-between gap-4">
-        {/* Search Input */}
-        <div className="flex items-center gap-3 max-w-md w-full">
+        {/* Global Search Input with Cross-System Dropdown */}
+        <div ref={searchContainerRef} className="relative max-w-md w-full">
           <div className="relative w-full">
-            <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
             <input
               type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsSearchOpen(true);
+              }}
+              onFocus={() => {
+                if (searchQuery.trim()) setIsSearchOpen(true);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setIsSearchOpen(false);
+              }}
               placeholder={t('nav.searchPlaceholder', 'Search catalog, SKU, customer or invoice...')}
-              className="w-full pl-9 pr-4 py-2 bg-slate-100/90 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-200 transition-all"
+              className="w-full pl-9 pr-8 py-2 bg-slate-100/90 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-200 transition-all"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setIsSearchOpen(false);
+                }}
+                title={isKhmer ? 'សម្អាតការស្វែងរក' : 'Clear search'}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 p-0.5 rounded-full hover:bg-slate-200/80 transition-all cursor-pointer"
+              >
+                <FontAwesomeIcon icon={faXmark} className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
+
+          {/* Global Search Results Dropdown Flyout */}
+          {isSearchOpen && cleanQ && (
+            <div className="absolute left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 max-h-[80vh] flex flex-col">
+              {/* Dropdown Header */}
+              <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-700">
+                  {isKhmer ? 'លទ្ធផលស្វែងរកទូទាំងប្រព័ន្ធ' : 'Global Search Results'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[11px]">
+                  {totalResultsCount} {isKhmer ? 'លទ្ធផល' : 'matches'}
+                </span>
+              </div>
+
+              <div className="overflow-y-auto p-2 space-y-3 divide-y divide-slate-100">
+                {totalResultsCount === 0 ? (
+                  <div className="py-8 text-center text-xs text-slate-400">
+                    <p className="font-medium text-slate-600">
+                      {isKhmer ? `មិនមានទិន្នន័យត្រូវនឹង "${searchQuery}" ឡើយ` : `No matching records found for "${searchQuery}"`}
+                    </p>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      {isKhmer ? 'សូមសាកល្បងបញ្ចូលឈ្មោះទំនិញ, លេខកូដ SKU, ឬលេខទូរស័ព្ទ' : 'Try searching by SKU, jewelry name, customer phone, or invoice #'}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Products Match */}
+                    {matchedProducts.length > 0 && (
+                      <div className="pt-2 first:pt-0">
+                        <div className="flex items-center justify-between px-2 pb-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5 text-amber-700">
+                            <FontAwesomeIcon icon={faBoxOpen} className="w-3.5 h-3.5" />
+                            {isKhmer ? 'ទំនិញក្នុងកាតាឡុក' : 'Jewelry Products'}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setActiveTab('products');
+                              setIsSearchOpen(false);
+                            }}
+                            className="text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1 normal-case cursor-pointer"
+                          >
+                            <span>{isKhmer ? 'មើលទាំងអស់' : 'View all'}</span>
+                            <FontAwesomeIcon icon={faArrowRight} className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          {matchedProducts.map(p => (
+                            <div
+                              key={p.id}
+                              onClick={() => {
+                                setActiveTab('products');
+                                setIsSearchOpen(false);
+                              }}
+                              className="px-3 py-2 rounded-xl hover:bg-amber-50/70 border border-transparent hover:border-amber-200 flex items-center justify-between text-xs cursor-pointer transition-colors"
+                            >
+                              <div className="truncate pr-2">
+                                <p className="font-semibold text-slate-800 truncate">{p.name}</p>
+                                <p className="text-[10px] text-slate-500 font-mono">
+                                  SKU: <span className="text-amber-700 font-medium">{p.code_sku}</span> • {p.weight_grams}g
+                                </p>
+                              </div>
+                              <span className="font-mono font-bold text-amber-800 shrink-0">
+                                ${(p.fixed_price || (p.weight_grams * 85) || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Sales & Invoices Match */}
+                    {matchedSales.length > 0 && (
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between px-2 pb-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5 text-emerald-700">
+                            <FontAwesomeIcon icon={faReceipt} className="w-3.5 h-3.5" />
+                            {isKhmer ? 'វិក្កយបត្រ & ការលក់' : 'Sales & Invoices'}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setActiveTab('sales_history');
+                              setIsSearchOpen(false);
+                            }}
+                            className="text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1 normal-case cursor-pointer"
+                          >
+                            <span>{isKhmer ? 'មើលទាំងអស់' : 'View all'}</span>
+                            <FontAwesomeIcon icon={faArrowRight} className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          {matchedSales.map(s => (
+                            <div
+                              key={s.id}
+                              onClick={() => {
+                                setActiveTab('sales_history');
+                                setIsSearchOpen(false);
+                              }}
+                              className="px-3 py-2 rounded-xl hover:bg-emerald-50/70 border border-transparent hover:border-emerald-200 flex items-center justify-between text-xs cursor-pointer transition-colors"
+                            >
+                              <div className="truncate pr-2">
+                                <p className="font-semibold text-slate-800 font-mono text-emerald-800">{s.invoice_no}</p>
+                                <p className="text-[10px] text-slate-500 truncate">
+                                  {s.customer_name || 'Walk-in'} • {s.sale_date || 'Recent'}
+                                </p>
+                              </div>
+                              <span className="font-mono font-bold text-slate-800 shrink-0">
+                                ${(Number(s.final_total_usd || s.total_amount || 0)).toLocaleString()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Customers Match */}
+                    {matchedCustomers.length > 0 && (
+                      <div className="pt-2">
+                        <div className="flex items-center justify-between px-2 pb-1.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                          <span className="flex items-center gap-1.5 text-blue-700">
+                            <FontAwesomeIcon icon={faUsers} className="w-3.5 h-3.5" />
+                            {isKhmer ? 'អតិថិជន' : 'Customers'}
+                          </span>
+                          <button
+                            onClick={() => {
+                              setActiveTab('customers');
+                              setIsSearchOpen(false);
+                            }}
+                            className="text-amber-600 hover:text-amber-800 font-medium flex items-center gap-1 normal-case cursor-pointer"
+                          >
+                            <span>{isKhmer ? 'មើលទាំងអស់' : 'View all'}</span>
+                            <FontAwesomeIcon icon={faArrowRight} className="w-2.5 h-2.5" />
+                          </button>
+                        </div>
+                        <div className="space-y-1">
+                          {matchedCustomers.map(c => (
+                            <div
+                              key={c.id}
+                              onClick={() => {
+                                setActiveTab('customers');
+                                setIsSearchOpen(false);
+                              }}
+                              className="px-3 py-2 rounded-xl hover:bg-blue-50/70 border border-transparent hover:border-blue-200 flex items-center justify-between text-xs cursor-pointer transition-colors"
+                            >
+                              <div className="truncate pr-2">
+                                <p className="font-semibold text-slate-800 truncate">{c.name}</p>
+                                <p className="text-[10px] text-slate-500 font-mono">{c.phone || c.email || 'No contact'}</p>
+                              </div>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0">
+                                {c.tier || 'VIP'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Dropdown Footer Tip */}
+              <div className="px-4 py-2 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                <span>{isKhmer ? '💡 តម្រងនេះត្រូវបានអនុវត្តលើទំព័របច្ចុប្បន្នដោយស្វ័យប្រវត្តិ' : '💡 Filters the active page view automatically'}</span>
+                <span>ESC to close</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Center Exchange Rate Badge (Balances top bar whitespace) */}
-        <div className="hidden xl:flex items-center gap-2 text-xs text-slate-600 bg-amber-50/60 border border-amber-200/80 px-3 py-1.5 rounded-xl font-medium">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span>{t('nav.cambodiaExchange', 'Live Rate: 1 USD = 4,100 KHR')}</span>
+        {/* Center Exchange Rate Badge (Live USD to KHR API) */}
+        <div
+          onClick={refreshExchangeRate}
+          title={isKhmer ? 'ចុចដើម្បីផ្ទុកអត្រាប្តូរប្រាក់ឡើងវិញ' : 'Click to refresh live exchange rate'}
+          className="hidden xl:flex items-center gap-2 text-xs text-amber-950 bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-300/90 px-3.5 py-1.5 rounded-xl font-medium cursor-pointer hover:border-amber-400 hover:shadow-xs active:scale-98 transition-all select-none"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="font-semibold font-mono tracking-tight text-amber-900">
+            {isKhmer
+              ? `អត្រាប្តូរប្រាក់: ១ USD = ${Number(exchangeRate?.rate || 4045).toLocaleString('en-US')} ៛ KHR`
+              : `Live FX: 1 USD = ${Number(exchangeRate?.rate || 4045).toLocaleString('en-US')} KHR`}
+          </span>
         </div>
 
         {/* Action Controls & Profile */}

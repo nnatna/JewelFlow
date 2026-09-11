@@ -49,6 +49,13 @@ class Product extends Model
         return $this->hasMany(ProductGemstone::class);
     }
 
+    public function gemstones()
+    {
+        return $this->belongsToMany(Gemstone::class, 'product_gemstones')
+            ->withPivot(['quantity', 'total_carat', 'setting_cost'])
+            ->withTimestamps();
+    }
+
     public function saleItems()
     {
         return $this->hasMany(SaleItem::class);

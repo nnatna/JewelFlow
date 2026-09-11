@@ -56,7 +56,7 @@ export const DashboardView = () => {
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-bold mb-2">
             <FontAwesomeIcon icon={faWandMagicSparkles} className="w-3.5 h-3.5 text-amber-600" />
-            Jewelry Atelier & Point of Sale
+            {t('dashboard.atelierBadge', 'Jewelry Atelier & Point of Sale')}
           </div>
           <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-serif">
             {t('dashboard.welcome', 'Welcome to JewelFlow Atelier')}
@@ -99,7 +99,7 @@ export const DashboardView = () => {
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-xs text-emerald-600 font-semibold">
             <FontAwesomeIcon icon={faArrowTrendUp} className="w-3.5 h-3.5" />
-            <span>+14.8% vs last week</span>
+            <span>+14.8% {t('dashboard.vsLastWeek', 'vs last week')}</span>
           </div>
         </div>
 
@@ -131,7 +131,7 @@ export const DashboardView = () => {
             ${avgTicket.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="mt-2 text-xs text-slate-400">
-            {sales.length} completed transactions
+            {sales.length} {t('dashboard.completedTransactions', 'completed transactions')}
           </div>
         </div>
 
@@ -147,7 +147,7 @@ export const DashboardView = () => {
             ${totalBuybacksAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <div className="mt-2 text-xs text-slate-400">
-            {buybacks.length} client trade-in tickets
+            {buybacks.length} {t('dashboard.tradeInTickets', 'client trade-in tickets')}
           </div>
         </div>
       </div>
@@ -161,7 +161,7 @@ export const DashboardView = () => {
               <div className="flex flex-wrap items-center gap-2.5">
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <FontAwesomeIcon icon={faArrowTrendUp} className="w-4 h-4 text-amber-600" />
-                  Live Metal Price Board (per gram)
+                  {t('dashboard.metalPriceBoard', 'Live Metal Price Board (per gram)')}
                 </h2>
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-300 text-amber-900 font-bold text-xs shadow-2xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -175,14 +175,14 @@ export const DashboardView = () => {
                 </div>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                Automatically recalculates jewelry prices across the store
+                {t('dashboard.metalBoardDesc', 'Automatically recalculates jewelry prices across the store')}
               </p>
             </div>
             <button
               onClick={() => setActiveTab('goldrates')}
               className="text-xs text-amber-700 hover:text-amber-800 font-bold flex items-center gap-1 cursor-pointer self-start sm:self-auto"
             >
-              Manage Rates <FontAwesomeIcon icon={faChevronRight} className="w-3.5 h-3.5" />
+              {t('dashboard.manageRates', 'Manage Rates')} <FontAwesomeIcon icon={faChevronRight} className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -190,11 +190,11 @@ export const DashboardView = () => {
             <table className="w-full text-left text-xs">
               <thead className="text-slate-600 border-b border-slate-200 bg-slate-50 font-semibold">
                 <tr>
-                  <th className="py-2.5 px-2">Metal & Purity</th>
-                  <th className="py-2.5 px-2">Retail Sell Rate</th>
-                  <th className="py-2.5 px-2">Store Buyback Rate</th>
-                  <th className="py-2.5 px-2">Spread / Margin</th>
-                  <th className="py-2.5 px-2 text-right">24h Flux</th>
+                  <th className="py-2.5 px-2">{t('catalog.metalPurity', 'Metal & Purity')}</th>
+                  <th className="py-2.5 px-2">{t('dashboard.sellRate', 'Retail Sell Rate')}</th>
+                  <th className="py-2.5 px-2">{t('dashboard.buybackRate', 'Store Buyback Rate')}</th>
+                  <th className="py-2.5 px-2">{t('dashboard.spread', 'Spread / Margin')}</th>
+                  <th className="py-2.5 px-2 text-right">{t('dashboard.flux24h', '24h Flux')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
@@ -244,17 +244,17 @@ export const DashboardView = () => {
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs uppercase font-bold tracking-wider text-amber-800 flex items-center gap-1.5">
                 <FontAwesomeIcon icon={faWandMagicSparkles} className="w-3.5 h-3.5 text-amber-600" />
-                Instant Atelier Estimator
+                {t('dashboard.estimatorTitle', 'Instant Atelier Estimator')}
               </span>
-              <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-semibold">Real-time</span>
+              <span className="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded font-semibold">{t('dashboard.realTime', 'Real-time')}</span>
             </div>
             <p className="text-xs text-slate-600 mb-4">
-              Calculate instant retail pricing based on metal weight and live market fixes.
+              {t('dashboard.estimatorDesc', 'Calculate instant retail pricing based on metal weight and live market fixes.')}
             </p>
 
             <div className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Metal Karat</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('dashboard.metalKarat', 'Metal Karat')}</label>
                 <select
                   value={calcMetalId}
                   onChange={(e) => setCalcMetalId(e.target.value)}
@@ -270,7 +270,7 @@ export const DashboardView = () => {
 
               <div>
                 <label className="block text-slate-700 font-semibold mb-1">
-                  Net Weight: <span className="font-mono text-amber-800 font-bold">{calcWeight} g</span>
+                  {t('dashboard.netWeight', 'Net Weight:')} <span className="font-mono text-amber-800 font-bold">{calcWeight} g</span>
                 </label>
                 <input
                   type="range"
@@ -284,7 +284,7 @@ export const DashboardView = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Making / Craftsmanship Fee ($)</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('dashboard.makingFee', 'Making / Craftsmanship Fee ($)')}</label>
                 <input
                   type="number"
                   value={calcLabor}
@@ -298,14 +298,14 @@ export const DashboardView = () => {
           {/* Result Box */}
           <div className="mt-6 pt-4 border-t border-amber-200">
             <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
-              <span>Estimated Retail Tag:</span>
-              <span className="text-[11px] text-amber-800 font-semibold">Includes 15% Markup</span>
+              <span>{t('dashboard.estimatedTag', 'Estimated Retail Tag:')}</span>
+              <span className="text-[11px] text-amber-800 font-semibold">{t('dashboard.includesMarkup', 'Includes 15% Markup')}</span>
             </div>
             <div className="text-2xl font-bold font-mono text-amber-700">
               ${estimatedJewelryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="text-[11px] text-slate-500 mt-1">
-              Metal Value: ${(calcWeight * selectedMetalRate).toFixed(2)} + Labor: ${calcLabor}
+              {t('dashboard.metalValue', 'Metal Value:')} ${(calcWeight * selectedMetalRate).toFixed(2)} + {t('dashboard.labor', 'Labor:')} ${calcLabor}
             </div>
           </div>
         </div>
@@ -319,16 +319,24 @@ export const DashboardView = () => {
             <div>
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <FontAwesomeIcon icon={faClock} className="w-4 h-4 text-amber-600" />
-                Recent Sales & Invoices
+                {t('dashboard.recentSalesTitle', 'Recent Sales & Invoices')}
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Latest finalized boutique customer sales</p>
+              <p className="text-xs text-slate-500 mt-0.5">{t('dashboard.recentSalesSubtitle', 'Latest finalized boutique customer sales')}</p>
             </div>
-            <button
-              onClick={() => setActiveTab('pos')}
-              className="text-xs text-amber-700 hover:text-amber-800 font-bold"
-            >
-              Open Register →
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setActiveTab('sales')}
+                className="text-xs text-amber-800 hover:text-amber-900 font-bold bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-200 cursor-pointer transition-colors"
+              >
+                {t('dashboard.viewHistory', 'View History →')}
+              </button>
+              <button
+                onClick={() => setActiveTab('pos')}
+                className="text-xs text-slate-600 hover:text-slate-900 font-semibold cursor-pointer"
+              >
+                {t('dashboard.openRegister', 'Open Register →')}
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3">
@@ -346,8 +354,8 @@ export const DashboardView = () => {
                     </span>
                   </div>
                   <div className="text-slate-700 font-medium mt-1">
-                    Customer: <span className="text-slate-900 font-bold">{sale.customer_name}</span>
-                    <span className="text-slate-500 ml-2">({sale.items.length} item{sale.items.length > 1 ? 's' : ''})</span>
+                    {t('salesHistory.customer', 'Customer')}: <span className="text-slate-900 font-bold">{sale.customer_name}</span>
+                    <span className="text-slate-500 ml-2">({sale.items.length} {sale.items.length > 1 ? t('salesHistory.items', 'items') : t('salesHistory.itemSingle', 'item')})</span>
                   </div>
                 </div>
 
@@ -367,10 +375,10 @@ export const DashboardView = () => {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
               <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-amber-600" />
-              Stock Restock Alerts
+              {t('dashboard.restockAlerts', 'Stock Restock Alerts')}
             </h2>
             <span className="text-xs text-rose-700 bg-rose-100 px-2 py-0.5 rounded font-bold">
-              {lowStockProducts.length} Items
+              {lowStockProducts.length} {t('dashboard.items', 'Items')}
             </span>
           </div>
 
@@ -395,9 +403,9 @@ export const DashboardView = () => {
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-xs font-bold text-rose-600 font-mono">
-                    {prod.stock_qty} left
+                    {prod.stock_qty} {t('dashboard.left', 'left')}
                   </div>
-                  <div className="text-[10px] text-slate-400">Restock needed</div>
+                  <div className="text-[10px] text-slate-400">{t('dashboard.restockNeeded', 'Restock needed')}</div>
                 </div>
               </div>
             ))}
@@ -407,7 +415,7 @@ export const DashboardView = () => {
             onClick={() => setActiveTab('products')}
             className="w-full mt-4 py-2 text-center text-xs font-semibold text-amber-800 hover:text-amber-900 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors cursor-pointer border border-amber-200"
           >
-            View Full Inventory Table →
+            {t('dashboard.viewInventory', 'View Full Inventory Table →')}
           </button>
         </div>
       </div>

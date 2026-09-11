@@ -13,7 +13,8 @@ import {
   faGlobe,
   faCircleCheck,
   faCopy,
-  faMagnifyingGlass
+  faFilter,
+  faXmark
 } from '@fortawesome/free-solid-svg-icons';
 
 export const GoldRatesView = () => {
@@ -28,27 +29,31 @@ export const GoldRatesView = () => {
     CAMBODIAN_STANDARDS,
     convertGramsToChi,
     convertGramsToDamlung,
-    addNotification
+    addNotification,
+    searchQuery,
+    setSearchQuery
   } = useApp();
 
   const [selectedRateId, setSelectedRateId] = useState(goldRates[0]?.metal_type_id || 1);
   const [newSellRate, setNewSellRate] = useState('');
   const [newBuyRate, setNewBuyRate] = useState('');
 
-  // Metal Rates Table Search & Pagination (10 per page)
-  const [metalSearch, setMetalSearch] = useState('');
+  // Metal Rates Table Pagination (10 per page)
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
-  // Filter rates
+  // Filter rates using global searchQuery
+  const cleanQ = (searchQuery || '').toLowerCase().trim();
   const filteredRates = goldRates.filter(r =>
-    r.name.toLowerCase().includes(metalSearch.toLowerCase()) ||
-    r.rate_per_gram?.toString().includes(metalSearch)
+    !cleanQ || (
+      r.name?.toLowerCase().includes(cleanQ) ||
+      r.rate_per_gram?.toString().includes(cleanQ)
+    )
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [metalSearch]);
+  }, [searchQuery]);
 
   const paginatedRates = filteredRates.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -238,7 +243,7 @@ export const GoldRatesView = () => {
               <div>
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4 text-amber-600" />
-                  Active Multi-Purity Metal Fix Board
+                  {t('cambodiaGold.activeBoard', 'Active Multi-Purity Metal Fix Board')}
                 </h2>
                 <p className="text-xs text-slate-500">
                   {isKhmer
@@ -247,29 +252,32 @@ export const GoldRatesView = () => {
                 </p>
               </div>
 
-              {/* Search Metal */}
-              <div className="relative max-w-xs w-full">
-                <FontAwesomeIcon icon={faMagnifyingGlass} className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Filter metal or rate..."
-                  value={metalSearch}
-                  onChange={(e) => setMetalSearch(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white"
-                />
-              </div>
+              {/* Active Navbar Search Indicator */}
+              {cleanQ && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium text-xs">
+                  <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+                  <span>{t('catalog.filterActive', 'Navbar Filter:')} <strong className="font-bold font-mono text-amber-950">"{cleanQ}"</strong></span>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="ml-1 text-slate-400 hover:text-amber-700 p-0.5 rounded transition-colors cursor-pointer"
+                    title={t('common.clear', 'Clear')}
+                  >
+                    <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
                   <tr>
-                    <th className="py-3 px-3">Metal & Purity</th>
+                    <th className="py-3 px-3">{t('catalog.metalPurity', 'Metal & Purity')}</th>
                     <th className="py-3 px-3">{isKhmer ? 'Per Gram (ក្រាម)' : 'Per Gram'}</th>
                     <th className="py-3 px-3">{isKhmer ? 'Per Chi (ជី 3.75g)' : 'Per Chi (3.75g)'}</th>
                     <th className="py-3 px-3">{isKhmer ? 'Per Damlung (តម្លឹង 37.5g)' : 'Per Damlung (37.5g)'}</th>
-                    <th className="py-3 px-3">Troy Oz (31.10g)</th>
-                    <th className="py-3 px-3 text-right">Buyback / g</th>
+                    <th className="py-3 px-3">{t('cambodiaGold.troyOunceShort', 'Troy Oz (31.10g)')}</th>
+                    <th className="py-3 px-3 text-right">{t('cambodiaGold.buybackGram', 'Buyback / g')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 font-mono">
@@ -305,7 +313,7 @@ export const GoldRatesView = () => {
                   {paginatedRates.length === 0 && (
                     <tr>
                       <td colSpan="6" className="py-8 text-center text-slate-400 font-sans text-xs">
-                        No metal types matching &quot;{metalSearch}&quot;
+                        {t('cambodiaGold.noMetalsFound', 'No metal types matching')} &quot;{metalSearch}&quot;
                       </td>
                     </tr>
                   )}
@@ -331,10 +339,10 @@ export const GoldRatesView = () => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 font-serif text-base font-bold text-slate-900">
                 <FontAwesomeIcon icon={faCalculator} className="w-4 h-4 text-amber-600" />
-                Cambodian Gold Calculator
+                {t('cambodiaGold.calculatorTitle', 'Cambodian Gold Calculator')}
               </div>
               <span className="text-[10px] font-bold bg-amber-200/60 text-amber-900 px-2 py-0.5 rounded">
-                {isKhmer ? 'ខ្នាតមាសខ្មែរ' : 'Cambodian Units'}
+                {t('cambodiaGold.cambodianUnits', 'Cambodian Units')}
               </span>
             </div>
             <p className="text-xs text-slate-600 mb-4">
@@ -373,7 +381,7 @@ export const GoldRatesView = () => {
               {/* Weight & Unit Input */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Weight Amount</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{t('cambodiaGold.weightAmount', 'Weight Amount')}</label>
                   <input
                     type="number"
                     step="0.01"
@@ -384,7 +392,7 @@ export const GoldRatesView = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">{isKhmer ? 'ខ្នាត (Unit)' : 'Unit'}</label>
+                  <label className="block text-slate-700 font-semibold mb-1">{t('cambodiaGold.unitLabel', 'Unit')}</label>
                   <select
                     value={calcUnit}
                     onChange={(e) => setCalcUnit(e.target.value)}
@@ -401,7 +409,7 @@ export const GoldRatesView = () => {
 
               {/* Purity Selection */}
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">{isKhmer ? 'ទឹកមាស (Gold Purity)' : 'Gold Purity'}</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('cambodiaGold.goldPurityLabel', 'Gold Purity')}</label>
                 <select
                   value={calcPurity}
                   onChange={(e) => setCalcPurity(e.target.value)}
@@ -419,7 +427,7 @@ export const GoldRatesView = () => {
               {/* Weight Breakdown Chips */}
               <div className="bg-white/80 border border-amber-200/80 rounded-xl p-3 space-y-1.5 font-mono text-[11px]">
                 <div className="flex items-center justify-between text-slate-600">
-                  <span>Net Grams:</span>
+                  <span>{t('cambodiaGold.netGrams', 'Net Grams:')}</span>
                   <span className="font-bold text-slate-900">{weightInGrams.toFixed(3)} g</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-600">
@@ -435,7 +443,7 @@ export const GoldRatesView = () => {
               {/* Valuation Result Box */}
               <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-xl p-4 shadow-sm text-center">
                 <div className="text-[11px] font-medium text-amber-100 uppercase tracking-wider mb-0.5">
-                  Calculated Metal Valuation
+                  {t('cambodiaGold.calculatedValuation', 'Calculated Metal Valuation')}
                 </div>
                 <div className="text-2xl font-mono font-bold">
                   ${totalValueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -455,12 +463,12 @@ export const GoldRatesView = () => {
                 {copied ? (
                   <>
                     <FontAwesomeIcon icon={faCircleCheck} className="w-4 h-4 text-emerald-600" />
-                    <span className="text-emerald-700 font-bold">Quotation Copied!</span>
+                    <span className="text-emerald-700 font-bold">{t('cambodiaGold.copiedSuccess', 'Quotation Copied!')}</span>
                   </>
                 ) : (
                   <>
                     <FontAwesomeIcon icon={faCopy} className="w-4 h-4 text-slate-500" />
-                    <span>Copy Cambodian Quotation</span>
+                    <span>{t('cambodiaGold.copyQuote', 'Copy Cambodian Quotation')}</span>
                   </>
                 )}
               </button>
@@ -473,14 +481,14 @@ export const GoldRatesView = () => {
               <summary className="text-xs font-bold text-slate-700 flex items-center justify-between select-none">
                 <span className="flex items-center gap-1.5">
                   <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5 text-amber-600" />
-                  Override Daily Benchmark Rate
+                  {t('cambodiaGold.overrideRate', 'Override Daily Benchmark Rate')}
                 </span>
                 <span className="text-[10px] text-amber-700 group-open:rotate-180 transition-transform">▼</span>
               </summary>
 
               <form onSubmit={handleUpdate} className="space-y-3 mt-3 text-xs">
                 <div>
-                  <label className="block text-slate-600 font-medium mb-0.5">Target Metal</label>
+                  <label className="block text-slate-600 font-medium mb-0.5">{t('cambodiaGold.targetMetal', 'Target Metal')}</label>
                   <select
                     value={selectedRateId}
                     onChange={(e) => setSelectedRateId(e.target.value)}
@@ -494,7 +502,7 @@ export const GoldRatesView = () => {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-slate-600 font-medium mb-0.5">Sell Rate ($/g)</label>
+                    <label className="block text-slate-600 font-medium mb-0.5">{t('cambodiaGold.sellRate', 'Sell Rate ($/g)')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -506,7 +514,7 @@ export const GoldRatesView = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-slate-600 font-medium mb-0.5">Buy Rate ($/g)</label>
+                    <label className="block text-slate-600 font-medium mb-0.5">{t('cambodiaGold.buyRate', 'Buy Rate ($/g)')}</label>
                     <input
                       type="number"
                       step="0.01"
@@ -523,7 +531,7 @@ export const GoldRatesView = () => {
                   type="submit"
                   className="w-full py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold rounded-lg cursor-pointer transition-all shadow-2xs active:scale-98"
                 >
-                  Save Benchmark
+                  {t('cambodiaGold.saveBenchmark', 'Save Benchmark')}
                 </button>
               </form>
             </details>

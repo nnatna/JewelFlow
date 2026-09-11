@@ -6,20 +6,19 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faUsers,
   faUserPlus,
-  faMagnifyingGlass,
   faCrown,
   faPhone,
   faEnvelope,
   faLocationDot,
   faBagShopping,
-  faXmark
+  faXmark,
+  faFilter
 } from '@fortawesome/free-solid-svg-icons';
 
 export const CustomersView = () => {
   const { t } = useTranslation();
-  const { customers, addCustomer, setSelectedCustomer, setActiveTab } = useApp();
+  const { customers, addCustomer, setSelectedCustomer, setActiveTab, searchQuery, setSearchQuery } = useApp();
 
-  const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -33,15 +32,18 @@ export const CustomersView = () => {
     discount_rate: 2.0
   });
 
+  const cleanQ = (searchQuery || '').toLowerCase().trim();
   const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.phone.includes(searchTerm) ||
-    c.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    !cleanQ || (
+      c.name?.toLowerCase().includes(cleanQ) ||
+      c.phone?.includes(cleanQ) ||
+      c.email?.toLowerCase().includes(cleanQ)
+    )
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchQuery]);
 
   const paginatedCustomers = filteredCustomers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -92,19 +94,25 @@ export const CustomersView = () => {
         </div>
       </div>
 
-      {/* Search toolbar */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between w-full">
-        <div className="relative w-full max-w-md">
-          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder={t('customers.searchPlaceholder', 'Search client name, phone or email...')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white"
-          />
+      {/* Active Navbar Search Indicator */}
+      {cleanQ && (
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200 shadow-xs flex items-center justify-between w-full text-xs">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium">
+            <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+            <span>{t('catalog.filterActive', 'Navbar Filter:')} <strong className="font-bold font-mono text-amber-950">"{cleanQ}"</strong></span>
+            <button
+              onClick={() => setSearchQuery('')}
+              className="ml-1 text-slate-400 hover:text-amber-700 p-0.5 rounded transition-colors cursor-pointer"
+              title={t('common.clear', 'Clear')}
+            >
+              <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
+            </button>
+          </div>
+          <span className="text-slate-500 font-medium">
+            {filteredCustomers.length} {t('customers.clientsFound', 'clients found')}
+          </span>
         </div>
-      </div>
+      )}
 
       {/* Customers Table */}
       <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden w-full">
@@ -115,9 +123,9 @@ export const CustomersView = () => {
                 <th className="p-4 whitespace-nowrap min-w-[200px]">{t('customers.clientName', 'Client Name')}</th>
                 <th className="p-4 whitespace-nowrap">{t('customers.tier', 'VIP Tier & Privilege')}</th>
                 <th className="p-4 whitespace-nowrap">{t('customers.contact', 'Phone Number')}</th>
-                <th className="p-4 whitespace-nowrap">Email Address</th>
-                <th className="p-4 whitespace-nowrap min-w-[220px]">Residence Address</th>
-                <th className="p-4 whitespace-nowrap text-center">Loyalty Points</th>
+                <th className="p-4 whitespace-nowrap">{t('customers.email', 'Email Address')}</th>
+                <th className="p-4 whitespace-nowrap min-w-[220px]">{t('customers.address', 'Residence Address')}</th>
+                <th className="p-4 whitespace-nowrap text-center">{t('customers.points', 'Loyalty Points')}</th>
                 <th className="p-4 whitespace-nowrap text-right">{t('customers.totalSpent', 'Lifetime Spend')}</th>
                 <th className="p-4 whitespace-nowrap text-right">{t('customers.actions', 'Actions')}</th>
               </tr>
@@ -158,7 +166,7 @@ export const CustomersView = () => {
                           {customer.email}
                         </span>
                       ) : (
-                        <span className="text-slate-400 italic">Not on file</span>
+                        <span className="text-slate-400 italic">{t('customers.notOnFile', 'Not on file')}</span>
                       )}
                     </td>
                     <td className="p-4 text-slate-600 min-w-[220px]">
@@ -173,7 +181,7 @@ export const CustomersView = () => {
                     </td>
                     <td className="p-4 text-center font-mono whitespace-nowrap">
                       <span className="px-3 py-1 rounded-full font-bold text-amber-800 bg-amber-50 border border-amber-200">
-                        {customer.loyalty_points} pts
+                        {customer.loyalty_points} {t('customers.pts', 'pts')}
                       </span>
                     </td>
                     <td className="p-4 text-right font-mono font-bold text-sm text-slate-900 whitespace-nowrap">
@@ -185,7 +193,7 @@ export const CustomersView = () => {
                         className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-500 hover:text-white text-amber-800 border border-amber-200 hover:border-amber-500 font-semibold text-xs cursor-pointer transition-colors shadow-2xs"
                       >
                         <FontAwesomeIcon icon={faBagShopping} className="w-3.5 h-3.5" />
-                        Bill in POS
+                        {t('customers.billInPos', 'Bill in POS')}
                       </button>
                     </td>
                   </tr>
@@ -211,7 +219,7 @@ export const CustomersView = () => {
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-serif font-bold text-slate-900 text-base flex items-center gap-2">
                 <FontAwesomeIcon icon={faUserPlus} className="w-5 h-5 text-amber-600" />
-                Enroll New Jewelry Client
+                {t('customers.enrollModalTitle', 'Enroll New Jewelry Client')}
               </h3>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
@@ -220,7 +228,7 @@ export const CustomersView = () => {
 
             <form onSubmit={handleCreateCustomer} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Full Name</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('customers.fullName', 'Full Name')}</label>
                 <input
                   type="text"
                   required
@@ -232,7 +240,7 @@ export const CustomersView = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Phone Number</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('customers.phone', 'Phone Number')}</label>
                 <input
                   type="text"
                   required
@@ -244,7 +252,7 @@ export const CustomersView = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Email Address</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('customers.email', 'Email Address')}</label>
                 <input
                   type="email"
                   value={newCust.email}
@@ -255,7 +263,7 @@ export const CustomersView = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">VIP Privilege Tier</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('customers.tierLabel', 'VIP Privilege Tier')}</label>
                 <select
                   value={newCust.tier}
                   onChange={(e) => {
@@ -276,7 +284,7 @@ export const CustomersView = () => {
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Residence Address</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('customers.address', 'Residence Address')}</label>
                 <input
                   type="text"
                   value={newCust.address}
@@ -292,13 +300,13 @@ export const CustomersView = () => {
                   onClick={() => setIsAddModalOpen(false)}
                   className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer font-medium"
                 >
-                  Cancel
+                  {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold rounded-lg cursor-pointer shadow-md"
                 >
-                  Enroll Client
+                  {t('customers.enrollClient', 'Enroll Client')}
                 </button>
               </div>
             </form>

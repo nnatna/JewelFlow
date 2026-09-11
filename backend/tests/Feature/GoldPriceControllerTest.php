@@ -100,4 +100,33 @@ class GoldPriceControllerTest extends TestCase
                 ]
             ]);
     }
+
+    public function test_can_fetch_live_usd_to_khr_exchange_rate(): void
+    {
+        $response = $this->getJson('/api/exchange-rate/usd-khr');
+
+        $response->assertStatus(200)
+            ->assertJsonStructure([
+                'success',
+                'base',
+                'target',
+                'rate',
+                'formatted',
+                'symbol',
+                'display_khmer',
+                'display_english',
+                'source',
+                'timestamp',
+                'last_updated',
+            ])
+            ->assertJson([
+                'success' => true,
+                'base'    => 'USD',
+                'target'  => 'KHR',
+                'symbol'  => '៛',
+            ]);
+
+        $this->assertGreaterThan(3500, $response->json('rate'));
+        $this->assertLessThan(5000, $response->json('rate'));
+    }
 }

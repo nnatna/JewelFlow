@@ -81,15 +81,54 @@ html.lang-km body,
   box-shadow: 0 4px 20px -2px rgba(212, 175, 55, 0.18);
 }
 
-/* Print Invoice Styling */
+/* ==========================================================================
+   A5 PRINT INVOICE STYLING (148mm x 210mm) - ZERO ROUNDED CORNERS, ZERO SHADOWS
+   ========================================================================== */
+@page {
+  size: A5 portrait;
+  margin: 6mm 8mm 6mm 8mm;
+}
+
 @media print {
-  body {
-    background: #ffffff !important;
-    color: #000000 !important;
-    overflow: visible !important;
+  /* CRITICAL: When the invoice modal is open, completely hide #root so background pages NEVER print */
+  body.invoice-modal-open > #root,
+  body:has(.invoice-modal-overlay) > #root,
+  body:has(.printable-invoice) > #root {
+    display: none !important;
+    visibility: hidden !important;
   }
 
-  .no-print {
+  html, body {
+    width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Enforce exact RGB color fidelity and eliminate paper shadows */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+  }
+
+  /* Hide screen-only chrome, layout elements, and action buttons */
+  .no-print,
+  aside,
+  header,
+  nav,
+  button {
     display: none !important;
   }
 
@@ -97,20 +136,111 @@ html.lang-km body,
     display: block !important;
   }
 
-  .printable-invoice {
+  /* Ensure body and app containers do NOT clip content */
+  #root,
+  .flex,
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto,
+  main {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+  }
+
+  /* Flatten modal overlay to normal flow */
+  .invoice-modal-overlay {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    z-index: auto !important;
+  }
+
+  /* Flatten modal container: absolutely NO outer page rounded borders or drop shadows */
+  .invoice-modal-container {
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     border: none !important;
+    border-radius: 0 !important;
     box-shadow: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  /* A5 Sheet Layout with full RGB preservation */
+  .printable-invoice {
     width: 100% !important;
     max-width: 100% !important;
     padding: 0 !important;
-    margin: 0 !important;
-    color: #111827 !important;
+    margin: 0 auto !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
     background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10.5px !important;
+    line-height: 1.35 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  .printable-invoice * {
-    color: #111827 !important;
-    background: transparent !important;
-    border-color: #e5e7eb !important;
+  /* Table styling for crisp A5 receipt print in full RGB */
+  .printable-invoice table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: avoid !important;
+  }
+
+  .printable-invoice th {
+    background-color: #fffbeb !important; /* amber-50 */
+    color: #78350f !important;            /* amber-900 */
+    font-weight: 700 !important;
+    border-bottom: 2px solid #f59e0b !important; /* amber-500 gold line */
+    padding: 5px 6px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .printable-invoice th:not(:first-child),
+  .printable-invoice td:not(:first-child) {
+    white-space: nowrap !important;
+  }
+
+  .printable-invoice td {
+    padding: 5px 6px !important;
+    border-bottom: 1px solid #fef3c7 !important; /* subtle gold amber divider */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .printable-invoice tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Certificate box with rich gold RGB styling */
+  .printable-invoice .guarantee-box {
+    border: 1px solid #fcd34d !important; /* amber-300 */
+    border-radius: 8px !important;
+    background-color: #fffdf5 !important; /* warm gold amber tint */
+    padding: 10px 14px !important;
+    margin-top: 14px !important;
+    page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 }

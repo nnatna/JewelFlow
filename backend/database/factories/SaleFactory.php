@@ -25,14 +25,15 @@ class SaleFactory extends Factory
         $grandTotal = $totalAmount - $discount + $tax;
 
         return [
-            'customer_id' => Customer::factory(),
-            'user_id' => User::factory(),
-            'invoice_no' => fake()->unique()->bothify('INV-#####'),
+            'customer_id' => Customer::inRandomOrder()->value('id') ?? Customer::factory(),
+            'user_id' => User::inRandomOrder()->value('id') ?? User::factory(),
+            'invoice_no' => fake()->unique()->bothify('INV' . date('mdY') . '####'),
             'total_amount' => $totalAmount,
             'discount' => $discount,
             'tax' => $tax,
             'grand_total' => $grandTotal,
-            'sale_date' => fake()->date(),
+            'sale_date' => fake()->dateTimeBetween('-30 days', 'now')->format('Y-m-d'),
+            'status' => fake()->randomElement(['completed', 'completed', 'pending', 'cancelled']),
         ];
     }
 }

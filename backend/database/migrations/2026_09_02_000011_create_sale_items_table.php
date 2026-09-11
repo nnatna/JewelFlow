@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         Schema::create('sale_items', function (Blueprint $table) {
@@ -19,6 +18,7 @@ return new class extends Migration
             $table->decimal('unit_price', 12, 2)->default(0);
             $table->integer('quantity')->default(1);
             $table->decimal('subtotal', 14, 2)->default(0);
+            $table->enum('status', ['pending', 'completed', 'cancelled'])->default('pending');
             $table->timestamps();
         });
     }

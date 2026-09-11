@@ -1,11 +1,11 @@
 {
     "source": "Binance PAXG (Live Spot)",
     "symbol": "XAU",
-    "spot_price_oz": 4416.07,
-    "bid": 4418.99,
-    "ask": 4419,
-    "change": 43.82,
-    "change_percent": 1,
-    "timestamp": 1789007955,
-    "date": "2026-09-10 02:39:15"
+    "spot_price_oz": 4358.63,
+    "bid": 4358.99,
+    "ask": 4359,
+    "change": -37.01,
+    "change_percent": -0.84,
+    "timestamp": 1789117308,
+    "date": "2026-09-11 09:01:48"
 }

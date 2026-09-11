@@ -4,7 +4,6 @@ import { useApp } from '../../context/AppContext';
 import { InvoiceModal } from './InvoiceModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faMagnifyingGlass,
   faBagShopping,
   faTrashCan,
   faPlus,
@@ -15,7 +14,9 @@ import {
   faQrcode,
   faUser,
   faPercent,
-  faBookmark
+  faBookmark,
+  faFilter,
+  faXmark
 } from '@fortawesome/free-solid-svg-icons';
 
 export const PosTerminal = () => {
@@ -38,10 +39,11 @@ export const PosTerminal = () => {
     taxRate,
     calculateProductPrice,
     completeSale,
-    liveSpot
+    liveSpot,
+    searchQuery,
+    setSearchQuery
   } = useApp();
 
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedMetal, setSelectedMetal] = useState('all');
   const [paymentMethod, setPaymentMethod] = useState('Credit Card');
@@ -80,11 +82,14 @@ export const PosTerminal = () => {
     setPinnedTickets(prev => prev.filter(t => t.id !== ticketId));
   };
 
-  // Filter products
+  // Filter products using global searchQuery
+  const cleanQ = (searchQuery || '').toLowerCase().trim();
   const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          p.code_sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          p.barcode?.includes(searchTerm);
+    const matchesSearch = !cleanQ || (
+      p.name?.toLowerCase().includes(cleanQ) ||
+      p.code_sku?.toLowerCase().includes(cleanQ) ||
+      p.barcode?.includes(cleanQ)
+    );
     const matchesCategory = selectedCategory === 'all' || p.category_id === Number(selectedCategory);
     const matchesMetal = selectedMetal === 'all' || p.metal_type_id === Number(selectedMetal);
     return matchesSearch && matchesCategory && matchesMetal;
@@ -92,6 +97,8 @@ export const PosTerminal = () => {
 
   // Calculate totals
   const subtotal = cart.reduce((acc, item) => acc + (item.calculatedPrice * item.qty), 0);
+  const totalWeightGrams = cart.reduce((acc, item) => acc + ((Number(item.net_weight) || 0) * item.qty), 0);
+  const totalWeightChi = totalWeightGrams / 3.75;
   const discountAmount = subtotal * (discountPercent / 100);
   const taxableTotal = subtotal - discountAmount;
   const taxAmount = taxableTotal * (taxRate / 100);
@@ -126,16 +133,19 @@ export const PosTerminal = () => {
         <div className="shrink-0 p-4 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2.5 w-full sm:w-auto">
-              <div className="relative w-full sm:w-64">
-                <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder={t('pos.searchPlaceholder', 'Scan Barcode or Search SKU / Name...')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white"
-                />
-              </div>
+              {cleanQ && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium text-xs">
+                  <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+                  <span>{t('catalog.filterActive', 'Navbar Filter:')} <strong className="font-bold font-mono text-amber-950">"{cleanQ}"</strong></span>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="ml-1 text-slate-400 hover:text-amber-700 p-0.5 rounded transition-colors cursor-pointer"
+                    title={t('common.clear', 'Clear')}
+                  >
+                    <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
+                  </button>
+                </div>
+              )}
 
               {/* Spot Benchmark Pill */}
               <div className="hidden xl:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200/80 text-amber-950 font-bold text-[11px] shrink-0">
@@ -154,11 +164,10 @@ export const PosTerminal = () => {
             <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
               <button
                 onClick={() => setSelectedMetal('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
-                  selectedMetal === 'all'
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${selectedMetal === 'all'
                     ? 'bg-amber-500 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 {t('catalog.allMetals', 'All Metals')}
               </button>
@@ -166,11 +175,10 @@ export const PosTerminal = () => {
                 <button
                   key={metal.id}
                   onClick={() => setSelectedMetal(metal.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${
-                    selectedMetal === metal.id
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-all ${selectedMetal === metal.id
                       ? 'bg-amber-500 text-white shadow-xs'
                       : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
+                    }`}
                 >
                   {metal.name.split(' ')[0]}
                 </button>
@@ -182,11 +190,10 @@ export const PosTerminal = () => {
           <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-slate-100">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap ${
-                selectedCategory === 'all'
+              className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap ${selectedCategory === 'all'
                   ? 'bg-amber-100 text-amber-900 border border-amber-300'
                   : 'text-slate-600 hover:text-slate-900'
-              }`}
+                }`}
             >
               {t('catalog.allCategories', 'All Categories')}
             </button>
@@ -194,11 +201,10 @@ export const PosTerminal = () => {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap ${
-                  selectedCategory === cat.id
+                className={`px-3 py-1 rounded-full text-xs font-semibold cursor-pointer whitespace-nowrap ${selectedCategory === cat.id
                     ? 'bg-amber-100 text-amber-900 border border-amber-300'
                     : 'text-slate-600 hover:text-slate-900'
-                }`}
+                  }`}
               >
                 {cat.name}
               </button>
@@ -231,8 +237,8 @@ export const PosTerminal = () => {
                         </span>
                       </div>
                       <div className="absolute top-2 right-2">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-white/90 text-slate-700 shadow-xs backdrop-blur-sm">
-                          {product.net_weight}g
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white/95 text-amber-950 border border-amber-300/60 shadow-xs backdrop-blur-sm">
+                          {((product.net_weight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}
                         </span>
                       </div>
                     </div>
@@ -243,14 +249,14 @@ export const PosTerminal = () => {
                     <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
                       <span>{product.code_sku}</span>
                       <span className={product.stock_qty <= 2 ? 'text-amber-700 font-bold' : 'text-slate-500'}>
-                        {product.stock_qty} in stock
+                        {product.stock_qty} {t('pos.inStockUnit', 'in stock')}
                       </span>
                     </div>
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                     <div>
-                      <div className="text-[10px] text-slate-400">Live Atelier Price</div>
+                      <div className="text-[10px] text-slate-400">{t('catalog.livePrice', 'Live Atelier Price')}</div>
                       <div className="text-base font-bold font-mono text-amber-700">
                         ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
@@ -262,7 +268,7 @@ export const PosTerminal = () => {
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs cursor-pointer transition-all active:scale-95 shadow-xs"
                     >
                       <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
-                      Add
+                      {t('pos.add', 'Add')}
                     </button>
                   </div>
                 </div>
@@ -397,7 +403,8 @@ export const PosTerminal = () => {
                 <div className="min-w-0 flex-1">
                   <div className="font-bold text-slate-900 truncate">{item.name}</div>
                   <div className="text-[11px] text-slate-500 font-mono flex items-center gap-2">
-                    <span>{item.net_weight}g</span>
+                    <span className="font-bold text-amber-950">{((item.net_weight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">({item.net_weight}g)</span>
                     <span>•</span>
                     <span className="text-amber-800 font-bold">${item.calculatedPrice.toFixed(2)}</span>
                   </div>
@@ -433,6 +440,10 @@ export const PosTerminal = () => {
 
         {/* Financial Summary */}
         <div className="pt-3 border-t border-slate-100 space-y-2 text-xs font-mono shrink-0 mt-auto">
+          <div className="flex justify-between text-slate-700 pb-1 border-b border-dashed border-slate-200">
+            <span className="font-sans font-medium">{t('pos.totalWeightChi', 'Total Weight (Chi):')}</span>
+            <span className="font-bold text-amber-950">{totalWeightChi.toFixed(2)} {isKhmer ? 'ជី' : 'Chi'} <span className="text-slate-400 font-normal text-[10px]">({totalWeightGrams.toFixed(2)}g)</span></span>
+          </div>
           <div className="flex justify-between text-slate-600">
             <span>{t('pos.subtotal', 'Metal & Labor Subtotal')}:</span>
             <span>${subtotal.toFixed(2)}</span>
@@ -473,33 +484,32 @@ export const PosTerminal = () => {
           <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-6 space-y-5 shadow-2xl">
             <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 font-serif">
               <FontAwesomeIcon icon={faCreditCard} className="w-5 h-5 text-amber-600" />
-              Finalize Payment
+              {t('pos.finalizePayment', 'Finalize Payment')}
             </h3>
 
             <div className="p-4 rounded-xl bg-amber-50/80 border border-amber-200 text-center">
-              <span className="text-xs text-slate-500 block">Total Due:</span>
+              <span className="text-xs text-slate-500 block">{t('pos.totalDue', 'Total Due:')}</span>
               <span className="text-3xl font-mono font-bold text-amber-800 mt-1 block">
                 ${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs text-slate-700 font-semibold">Select Settlement Method:</label>
+              <label className="text-xs text-slate-700 font-semibold">{t('pos.tenderMethod', 'Payment Tender Method:')}</label>
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {[
                   { id: 'Credit Card', icon: faCreditCard },
                   { id: 'Cash', icon: faMoneyBillWave },
-                  { id: 'Bank Wire', icon: faCircleCheck },
-                  { id: 'QR Pay', icon: faQrcode },
+                  { id: 'Bank Transfer', icon: faCircleCheck },
+                  { id: 'KHQR', icon: faQrcode },
                 ].map(method => (
                   <button
                     key={method.id}
                     onClick={() => setPaymentMethod(method.id)}
-                    className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 cursor-pointer text-center transition-all ${
-                      paymentMethod === method.id
+                    className={`p-3 rounded-xl border flex flex-col items-center gap-1.5 cursor-pointer text-center transition-all ${paymentMethod === method.id
                         ? 'border-amber-500 bg-amber-50 text-amber-900 font-bold shadow-xs'
                         : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                    }`}
+                      }`}
                   >
                     <FontAwesomeIcon icon={method.icon} className="w-5 h-5 text-amber-600" />
                     <span>{method.id}</span>
@@ -513,13 +523,13 @@ export const PosTerminal = () => {
                 onClick={() => setShowPaymentModal(false)}
                 className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer"
               >
-                Cancel
+                {t('common.cancel', 'Cancel')}
               </button>
               <button
                 onClick={handleCheckout}
                 className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white text-xs font-bold rounded-lg cursor-pointer shadow-md"
               >
-                Confirm & Print Invoice
+                {t('pos.confirmSale', 'Confirm & Record Sale')}
               </button>
             </div>
           </div>

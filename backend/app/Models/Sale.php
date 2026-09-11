@@ -18,6 +18,7 @@ class Sale extends Model
         'tax',
         'grand_total',
         'sale_date',
+        'status',
     ];
 
     protected $casts = [

@@ -19,6 +19,7 @@ class SaleItem extends Model
         'unit_price',
         'quantity',
         'subtotal',
+        'status',
     ];
 
     protected $casts = [
@@ -28,6 +29,7 @@ class SaleItem extends Model
         'gemstone_price' => 'decimal:2',
         'unit_price' => 'decimal:2',
         'subtotal' => 'decimal:2',
+        'status' => 'string',
     ];
 
     public function sale()

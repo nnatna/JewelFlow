@@ -125,11 +125,15 @@ class GoldPriceController extends Controller
         // Run multi-karat, multi-unit conversions
         $breakdown = $this->getRatesBreakdown($spotResult['spot_price_per_oz'], $currency);
 
+        // Fetch live USD to KHR exchange rate
+        $liveKhrFx = $this->fetchLiveExchangeRate('USD', 'KHR');
+        $khrRate = $request->has('khr_rate') ? (float)$request->query('khr_rate') : $liveKhrFx['rate'];
+
         // Run dedicated Cambodian gold measurement breakdown (Chi ជី, Damlung តម្លឹង, Gram ក្រាម)
         $cambodianBreakdown = $this->getCambodianGoldBreakdown(
             $spotResult['spot_price_per_oz'],
             '24k',
-            (float)$request->query('khr_rate', 4100.0)
+            $khrRate
         );
 
         $responsePayload = [
@@ -143,6 +147,7 @@ class GoldPriceController extends Controller
             'price_per_chi'      => round($this->pricePerChi($spotResult['spot_price_per_oz']), 2),
             'price_per_damlung'  => round($this->pricePerDamlung($spotResult['spot_price_per_oz']), 2),
             'cambodian_market'   => $cambodianBreakdown,
+            'exchange_rate'      => $liveKhrFx,
             'change_24h'         => $spotResult['change_24h'] ?? 0.0,
             'change_percent_24h' => $spotResult['change_percent_24h'] ?? 0.0,
             'timestamp'          => $spotResult['timestamp'],
@@ -171,7 +176,8 @@ class GoldPriceController extends Controller
     public function getCambodianGoldPrice(Request $request): JsonResponse
     {
         $purity = $request->query('purity', '24k');
-        $khrRate = (float)$request->query('khr_rate', 4100.0);
+        $liveKhrFx = $this->fetchLiveExchangeRate('USD', 'KHR');
+        $khrRate = $request->has('khr_rate') ? (float)$request->query('khr_rate') : $liveKhrFx['rate'];
         $customSpot = $request->query('custom_spot_price');
 
         if (!empty($customSpot) && is_numeric($customSpot)) {
@@ -185,12 +191,43 @@ class GoldPriceController extends Controller
 
         $breakdown = $this->getCambodianGoldBreakdown($spotPricePerOz, $purity, $khrRate);
         $breakdown['source'] = $source;
+        $breakdown['exchange_rate'] = $liveKhrFx;
 
         return response()->json([
-            'success' => true,
-            'title'   => 'Cambodian Gold Market Valuation (ជី & តម្លឹង)',
-            'data'    => $breakdown,
+            'success'       => true,
+            'title'         => 'Cambodian Gold Market Valuation (ជី & តម្លឹង)',
+            'exchange_rate' => $liveKhrFx,
+            'data'          => $breakdown,
         ]);
+    }
+
+    /**
+     * Live Currency Exchange Rate API (USD to KHR and other fiat currencies).
+     *
+     * GET /api/exchange-rate?base=USD&target=KHR
+     */
+    public function getExchangeRate(Request $request): JsonResponse
+    {
+        $base = strtoupper($request->query('base', 'USD'));
+        $target = strtoupper($request->query('target', 'KHR'));
+        $forceFresh = filter_var($request->query('force_fresh', false), FILTER_VALIDATE_BOOLEAN);
+
+        $rateData = $this->fetchLiveExchangeRate($base, $target, $forceFresh);
+
+        return response()->json($rateData);
+    }
+
+    /**
+     * Live USD to KHR Exchange Rate API Shortcut.
+     *
+     * GET /api/exchange-rate/usd-khr
+     */
+    public function getUsdKhrRate(Request $request): JsonResponse
+    {
+        $forceFresh = filter_var($request->query('force_fresh', false), FILTER_VALIDATE_BOOLEAN);
+        $rateData = $this->fetchLiveExchangeRate('USD', 'KHR', $forceFresh);
+
+        return response()->json($rateData);
     }
 
     /**
@@ -356,6 +393,91 @@ class GoldPriceController extends Controller
     }
 
     /**
+     * Fetch real-time live currency exchange rate.
+     * Primary pair: USD to KHR (Cambodian Riel).
+     *
+     * Sources:
+     * 1. https://open.er-api.com/v6/latest/{BASE} (Open Exchange Rates, Free, No key, Instant)
+     * 2. https://api.exchangerate-api.com/v4/latest/{BASE} (Free fallback)
+     * 3. Fallback to standard constant rate
+     */
+    public function fetchLiveExchangeRate(string $base = 'USD', string $target = 'KHR', bool $forceFresh = false): array
+    {
+        $base = strtoupper(trim($base));
+        $target = strtoupper(trim($target));
+        $cacheKey = "fx_rate_{$base}_{$target}";
+        $cacheTtl = 1800; // 30 minutes cache
+
+        if (!$forceFresh && Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
+        $rate = null;
+        $source = null;
+        $providerTimestamp = null;
+
+        // Try primary free live FX provider (open.er-api.com)
+        try {
+            $response = Http::timeout(4)->get("https://open.er-api.com/v6/latest/{$base}");
+            if ($response->successful()) {
+                $json = $response->json();
+                if (isset($json['rates'][$target]) && is_numeric($json['rates'][$target])) {
+                    $rate = (float)$json['rates'][$target];
+                    $source = 'open.er-api.com (Live FX)';
+                    $providerTimestamp = $json['time_last_update_unix'] ?? time();
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::info("Primary FX provider error: " . $e->getMessage());
+        }
+
+        // Try secondary free live FX provider (api.exchangerate-api.com)
+        if ($rate === null) {
+            try {
+                $response = Http::timeout(4)->get("https://api.exchangerate-api.com/v4/latest/{$base}");
+                if ($response->successful()) {
+                    $json = $response->json();
+                    if (isset($json['rates'][$target]) && is_numeric($json['rates'][$target])) {
+                        $rate = (float)$json['rates'][$target];
+                        $source = 'api.exchangerate-api.com (Live FX)';
+                        $providerTimestamp = $json['time_last_updated'] ?? time();
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::info("Secondary FX provider error: " . $e->getMessage());
+            }
+        }
+
+        // Fallback if APIs are unreachable
+        if ($rate === null) {
+            $rate = self::STANDARD_EXCHANGE_RATES[$target] ?? ($target === 'KHR' ? 4045.0 : 1.0);
+            $source = 'Standard Market Benchmark (Fallback)';
+            $providerTimestamp = time();
+        }
+
+        $roundedRate = round($rate, 2);
+        $intRate = (int)round($rate);
+
+        $payload = [
+            'success'          => true,
+            'base'             => $base,
+            'target'           => $target,
+            'rate'             => $roundedRate,
+            'rate_full'        => $rate,
+            'formatted'        => number_format($intRate, 0),
+            'symbol'           => $target === 'KHR' ? '៛' : '$',
+            'display_khmer'    => "១ {$base} = " . number_format($intRate, 0) . " រៀល (៛)",
+            'display_english'  => "1 {$base} = " . number_format($intRate, 0) . " {$target}",
+            'source'           => $source,
+            'timestamp'        => $providerTimestamp,
+            'last_updated'     => date('Y-m-d H:i:s', $providerTimestamp),
+        ];
+
+        Cache::put($cacheKey, $payload, $cacheTtl);
+        return $payload;
+    }
+
+    /**
      * Convert currency from one symbol to another using standard or custom exchange rates.
      */
     public function convertCurrency(float $amount, string $fromCurrency = 'USD', string $toCurrency = 'USD', array $customRates = []): float
@@ -368,6 +490,10 @@ class GoldPriceController extends Controller
         }
 
         $rates = array_merge(self::STANDARD_EXCHANGE_RATES, $customRates);
+        if ($to === 'KHR' && !isset($customRates['KHR'])) {
+            $rates['KHR'] = $this->fetchLiveExchangeRate('USD', 'KHR')['rate'];
+        }
+
         $fromRate = $rates[$from] ?? 1.0;
         $toRate = $rates[$to] ?? 1.0;
 

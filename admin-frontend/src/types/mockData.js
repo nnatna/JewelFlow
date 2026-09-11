@@ -197,7 +197,7 @@ export const initialCustomers = [
 export const initialSales = [
   {
     id: 1,
-    invoice_no: 'INV-2026-0089',
+    invoice_no: 'INV090820260001',
     customer_id: 1,
     customer_name: 'Victoria Sterling',
     user_name: 'Alexander Cross (Store Manager)',
@@ -222,7 +222,7 @@ export const initialSales = [
   },
   {
     id: 2,
-    invoice_no: 'INV-2026-0088',
+    invoice_no: 'INV090720260002',
     customer_id: 2,
     customer_name: 'Arthur Pendelton',
     user_name: 'Elena Vance (Cashier)',

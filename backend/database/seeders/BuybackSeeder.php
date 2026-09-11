@@ -9,6 +9,6 @@ class BuybackSeeder extends Seeder
 {
     public function run(): void
     {
-        Buyback::factory()->count(20)->create();
+        Buyback::factory()->count(10)->create();
     }
 }

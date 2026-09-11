@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faWandMagicSparkles, faShieldHalved, faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons';
+import { faWandMagicSparkles, faShieldHalved, faFilter, faXmark } from '@fortawesome/free-solid-svg-icons';
 
 export const GemstonesView = () => {
-  const { gemstones } = useApp();
-  const [searchTerm, setSearchTerm] = useState('');
+  const { t } = useTranslation();
+  const { gemstones, searchQuery, setSearchQuery } = useApp();
   const [selectedType, setSelectedType] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
+  const cleanQ = (searchQuery || '').toLowerCase().trim();
   const filteredGemstones = gemstones.filter(g => {
-    const matchesSearch = g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          g.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          g.clarity.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          g.cut.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !cleanQ || (
+      g.name?.toLowerCase().includes(cleanQ) ||
+      g.code?.toLowerCase().includes(cleanQ) ||
+      g.clarity?.toLowerCase().includes(cleanQ) ||
+      g.cut?.toLowerCase().includes(cleanQ)
+    );
     const matchesType = selectedType === 'all' || g.type.toLowerCase() === selectedType.toLowerCase();
     return matchesSearch && matchesType;
   });
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedType]);
+  }, [searchQuery, selectedType]);
 
   const paginatedGemstones = filteredGemstones.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -36,23 +40,23 @@ export const GemstonesView = () => {
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
             <FontAwesomeIcon icon={faWandMagicSparkles} className="w-6 h-6 text-amber-600" />
-            Gemstones & Certified Diamonds Vault Table
+            {t('gemstones.title', 'Gemstones & Certified Diamonds Vault Table')}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            Loose precious stones inventory with 4Cs appraisal ({gemstones.length} stones registered in vault).
+            {t('gemstones.subtitle', 'Loose precious stones inventory with 4Cs appraisal')} ({gemstones.length} {t('gemstones.registeredVault', 'stones registered in vault')}).
           </p>
         </div>
 
         {/* Vault Stats Summary */}
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-right shadow-xs">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Total Vault Gems Value</span>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">{t('gemstones.totalValue', 'Total Vault Gems Value')}</span>
             <span className="text-base font-mono font-bold text-amber-700">
               ${totalVaultValue.toLocaleString()}
             </span>
           </div>
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-right shadow-xs">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">Total Carats Held</span>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">{t('gemstones.totalCarats', 'Total Carats Held')}</span>
             <span className="text-base font-mono font-bold text-slate-800">
               {totalCarats.toFixed(2)} ct
             </span>
@@ -62,15 +66,25 @@ export const GemstonesView = () => {
 
       {/* Filter Toolbar */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs w-full">
-        <div className="relative w-full sm:max-w-md">
-          <FontAwesomeIcon icon={faMagnifyingGlass} className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search code, cut, clarity, or stone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white"
-          />
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {cleanQ ? (
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium">
+              <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+              <span>{t('catalog.filterActive', 'Navbar Filter:')} <strong className="font-bold font-mono text-amber-950">"{cleanQ}"</strong></span>
+              <button
+                onClick={() => setSearchQuery('')}
+                className="ml-1 text-slate-400 hover:text-amber-700 p-0.5 rounded transition-colors cursor-pointer"
+                title={t('common.clear', 'Clear')}
+              >
+                <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-slate-500 font-medium">
+              <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+              <span>{filteredGemstones.length} {t('gemstones.stonesListed', 'gemstones listed')}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
@@ -84,7 +98,7 @@ export const GemstonesView = () => {
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              {type}
+              {type === 'all' ? t('gemstones.allTypes', 'All Types') : type}
             </button>
           ))}
         </div>
@@ -97,15 +111,15 @@ export const GemstonesView = () => {
             <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
               <tr>
                 <th className="p-4 whitespace-nowrap">Stone Code</th>
-                <th className="p-4 whitespace-nowrap min-w-[220px]">Gemstone Variety</th>
-                <th className="p-4 whitespace-nowrap">Mineral Type</th>
-                <th className="p-4 whitespace-nowrap text-center">Carat Wt.</th>
+                <th className="p-4 whitespace-nowrap min-w-[220px]">{t('gemstones.gemName', 'Gemstone Variety')}</th>
+                <th className="p-4 whitespace-nowrap">{t('catalog.category', 'Category')}</th>
+                <th className="p-4 whitespace-nowrap text-center">{t('gemstones.carat', 'Carat Wt.')}</th>
                 <th className="p-4 whitespace-nowrap">Cut Shape</th>
-                <th className="p-4 whitespace-nowrap">Clarity Grade</th>
-                <th className="p-4 whitespace-nowrap">Color Tone</th>
-                <th className="p-4 whitespace-nowrap text-right">Price / Carat</th>
+                <th className="p-4 whitespace-nowrap">{t('gemstones.clarity', 'Clarity Grade')}</th>
+                <th className="p-4 whitespace-nowrap">{t('gemstones.color', 'Color Tone')}</th>
+                <th className="p-4 whitespace-nowrap text-right">{t('gemstones.cost', 'Price / Carat')}</th>
                 <th className="p-4 whitespace-nowrap text-right">Piece Valuation</th>
-                <th className="p-4 whitespace-nowrap text-center">Vault Stock</th>
+                <th className="p-4 whitespace-nowrap text-center">{t('catalog.stock', 'Vault Stock')}</th>
                 <th className="p-4 whitespace-nowrap text-center">Certification</th>
               </tr>
             </thead>
