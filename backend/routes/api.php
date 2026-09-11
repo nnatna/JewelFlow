@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\GoldPriceController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\ImageController;
 use App\Http\Controllers\ProductController;
 use App\Models\Buyback;
@@ -171,4 +172,15 @@ Route::prefix('gold-price')->group(function () {
     Route::post('/valuation', [GoldPriceController::class, 'calculateValuation']);
     Route::get('/metadata', [GoldPriceController::class, 'getMetadata']);
 });
+
+// Reports & Analytics APIs (ReportController)
+Route::prefix('reports')->group(function () {
+    Route::get('/summary', [ReportController::class, 'getSummary']);
+    Route::get('/sales', [ReportController::class, 'getSalesReport']);
+    Route::get('/buybacks', [ReportController::class, 'getBuybackReport']);
+    Route::get('/inventory', [ReportController::class, 'getInventoryReport']);
+    Route::get('/cashflow', [ReportController::class, 'getCashFlowReport']);
+    Route::get('/gold-rates-history', [ReportController::class, 'getGoldRateHistoryReport']);
+});
+
 
