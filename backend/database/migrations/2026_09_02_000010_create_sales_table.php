@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('sales', function (Blueprint $table) {
@@ -15,7 +16,8 @@ return new class extends Migration {
             $table->decimal('total_amount', 14, 2)->default(0);
             $table->decimal('discount', 12, 2)->default(0);
             $table->decimal('tax', 12, 2)->default(0);
-            $table->decimal('grand_total', 14, 2)->default(0);
+            $table->decimal('grand_total_usd', 14, 2)->default(0);
+            $table->decimal('grand_total_khr', 14, 2)->default(0);
             $table->date('sale_date');
             $table->enum('status', ['pending', 'completed', 'cancelled'])->default('completed');
             $table->timestamps();

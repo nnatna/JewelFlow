@@ -11,6 +11,9 @@ import { BuybackView } from './components/buyback/BuybackView';
 import { GemstonesView } from './components/gemstones/GemstonesView';
 import { CustomersView } from './components/customers/CustomersView';
 import { SuppliersView } from './components/suppliers/SuppliersView';
+import { PromotionsView } from './components/promotions/PromotionsView';
+import { SettingsView } from './components/settings/SettingsView';
+import { ToastContainer } from './components/common/ToastContainer';
 import './App.css';
 
 const MainLayout = () => {
@@ -35,8 +38,12 @@ const MainLayout = () => {
         return <GemstonesView />;
       case 'customers':
         return <CustomersView />;
+      case 'promotions':
+        return <PromotionsView />;
       case 'suppliers':
         return <SuppliersView />;
+      case 'settings':
+        return <SettingsView />;
       default:
         return <DashboardView />;
     }
@@ -57,6 +64,9 @@ const MainLayout = () => {
           {renderContent()}
         </main>
       </div>
+
+      {/* Floating UI Toast & Alert Stack */}
+      <ToastContainer />
     </div>
   );
 };

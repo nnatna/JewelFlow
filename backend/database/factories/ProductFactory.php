@@ -25,8 +25,8 @@ class ProductFactory extends Factory
         return [
             'category_id' => Category::factory(),
             'metal_type_id' => MetalType::factory(),
-            'code_sku' => fake()->unique()->bothify('SKU'.bin2hex(random_bytes(4)).time()),
-            'barcode' => fake()->unique()->bothify('884'.date('mdY').mt_rand(1000, 9999)),
+            'code_sku' => fake()->unique()->bothify('SKU-????-#####'),
+            'barcode' => fake()->unique()->numerify('884###########'),
             'name' => fake()->words(3, true),
             'net_weight' => $netWeight,
             'gross_weight' => $grossWeight,

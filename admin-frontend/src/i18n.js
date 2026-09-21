@@ -39,7 +39,8 @@ export const resources = {
     "allAlertsCleared": "All alerts cleared",
     "marketTickerFootnote": "1 Chi = 3.75g | 1 Damlung = 37.5g",
     "cambodiaExchange": "Live Rate: 1 USD = 4,100 KHR",
-    "purchases": "Gold Purchases"
+    "purchases": "Gold Purchases",
+    "settings": "Settings"
   },
   "cambodiaGold": {
     "title": "Cambodian Gold Measurement Standards",
@@ -123,7 +124,7 @@ export const resources = {
     "title": "Atelier Point of Sale Terminal",
     "subtitle": "Live re-priced inventory, barcoding, and automated bullion valuation tickets",
     "searchPlaceholder": "Scan barcode or search jewelry item...",
-    "selectClient": "Select Customer Clientèle",
+    "selectClient": "Select Customer",
     "walkInGuest": "Walk-in Guest",
     "orderSummary": "Order Summary",
     "subtotal": "Metal & Labor Subtotal",
@@ -164,7 +165,7 @@ export const resources = {
     "atelierBadge": "Jewelry Atelier & Point of Sale",
     "vsLastWeek": "vs last week",
     "completedTransactions": "completed transactions",
-    "tradeInTickets": "client trade-in tickets",
+    "tradeInTickets": "customer trade-in tickets",
     "metalPriceBoard": "Live Metal Price Board (per gram)",
     "metalBoardDesc": "Automatically recalculates jewelry prices across the store",
     "manageRates": "Manage Rates",
@@ -193,18 +194,18 @@ export const resources = {
     "viewInventory": "View Full Inventory Table →"
   },
   "customers": {
-    "title": "Clientèle & VIP Privilege CRM Table",
-    "subtitle": "Client register with VIP tier privileges, loyalty points accrual, and purchase history",
-    "portfolio": "Total Client Portfolio",
-    "enrollClient": "Enroll Client",
-    "clientName": "Client Name",
+    "title": "Customer List",
+    "subtitle": "Customer register with VIP tier privileges, loyalty points accrual, and purchase history",
+    "portfolio": "Total Customer Portfolio",
+    "enrollClient": "Register Customer",
+    "clientName": "Customer Name",
     "contact": "Contact Info",
     "tier": "VIP Tier",
     "totalSpent": "Total Spent",
     "actions": "Actions",
-    "searchPlaceholder": "Search client name, phone or email...",
-    "totalClients": "total clients",
-    "enrollModalTitle": "Enroll New Jewelry Client",
+    "searchPlaceholder": "Search customer name, phone or email...",
+    "totalClients": "total customers",
+    "enrollModalTitle": "Register New Jewelry Customer",
     "fullName": "Full Name",
     "phone": "Phone Number",
     "email": "Email Address",
@@ -261,8 +262,8 @@ export const resources = {
     "status": "Purity Tested",
     "searchPlaceholder": "Search buybacks by invoice, customer or metal...",
     "appraisalSlip": "Precious Metal Appraisal Slip",
-    "clientName": "Client Full Name",
-    "clientPhone": "Client Phone / Contact",
+    "clientName": "Customer Full Name",
+    "clientPhone": "Customer Phone / Contact",
     "metalAssessment": "Tested Metal Purity",
     "grossWeight": "Gross Scrap Weight (g)",
     "meltLoss": "Melt Loss / Impurity (%)",
@@ -440,7 +441,8 @@ export const resources = {
     "allAlertsCleared": "មិនមានការជូនដំណឹងថ្មីទេ",
     "marketTickerFootnote": "១ ជី = ៣.៧៥ ក្រាម | ១ តម្លឹង = ៣៧.៥ ក្រាម",
     "cambodiaExchange": "អត្រាទីផ្សារ: ១ ដុល្លារ = ៤,១០០ រៀល",
-    "purchases": "ទិញមាសចូល"
+    "purchases": "ទិញមាសចូល",
+    "settings": "ការកំណត់ប្រព័ន្ធ"
   },
   "cambodiaGold": {
     "title": "ខ្នាតរង្វាស់ទម្ងន់មាសខ្មែរ",
@@ -593,7 +595,7 @@ export const resources = {
     "viewInventory": "មើលតារាងស្តុកពេញលេញ →"
   },
   "customers": {
-    "title": "បញ្ជីអតិថិជន និងសមាជិក VIP CRM",
+    "title": "បញ្ជីអតិថិជន",
     "subtitle": "បញ្ជីឈ្មោះអតិថិជន កម្រិត VIP ពិន្ទុសន្សំ និងប្រវត្តិទិញទំនិញ",
     "portfolio": "ផលប័ត្រអតិថិជនសរុប",
     "enrollClient": "ចុះឈ្មោះអតិថិជនថ្មី",

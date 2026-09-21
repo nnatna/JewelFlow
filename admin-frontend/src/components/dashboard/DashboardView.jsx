@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
+import { Alert } from '../common/Alert';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faDollarSign,
@@ -38,12 +39,13 @@ export const DashboardView = () => {
   const paginatedGoldRates = goldRates.slice((metalPage - 1) * metalPageSize, metalPage * metalPageSize);
 
   // Computed metrics
-  const totalSalesRevenue = sales.reduce((acc, s) => acc + s.grand_total, 0);
+  const totalSalesRevenue = sales.reduce((acc, s) => acc + (parseFloat(s.grand_total_usd ?? s.grand_total) || 0), 0);
   const totalGoldGrams = products.reduce((acc, p) => acc + (p.net_weight * p.stock_qty), 0);
   const avgTicket = sales.length > 0 ? (totalSalesRevenue / sales.length) : 0;
   const totalBuybacksAmount = buybacks.reduce((acc, b) => acc + b.total_amount, 0);
 
   const lowStockProducts = products.filter(p => p.stock_qty <= 3);
+  const [showLowStockAlert, setShowLowStockAlert] = useState(true);
 
   // Compute quick estimator
   const selectedMetalRate = goldRates.find(r => r.metal_type_id === Number(calcMetalId))?.rate_per_gram || 85.5;
@@ -51,6 +53,29 @@ export const DashboardView = () => {
 
   return (
     <div className="space-y-6">
+      {/* Low Stock Alert Callout */}
+      {showLowStockAlert && lowStockProducts.length > 0 && (
+        <Alert
+          type="warning"
+          variant="luxury"
+          title={t('dashboard.lowStockAlert', 'Low Stock Warning')}
+          message={isKhmer 
+            ? `មានគ្រឿងអលង្ការចំនួន ${lowStockProducts.length} មុខដែលជិតអស់ពីស្តុក (≤ 3 គ្រឿង)។ សូមពិនិត្យដើម្បីបំពេញស្តុកឡើងវិញ។` 
+            : `${lowStockProducts.length} jewelry pieces in vault inventory have dropped to critical safety levels (≤ 3 units). Restock is recommended.`}
+          dismissible
+          onClose={() => setShowLowStockAlert(false)}
+          action={
+            <button
+              onClick={() => setActiveTab('products')}
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer flex items-center gap-1.5"
+            >
+              <span>{t('dashboard.restockAlerts', 'Review Restock Items')}</span>
+              <FontAwesomeIcon icon={faChevronRight} className="w-3 h-3" />
+            </button>
+          }
+        />
+      )}
+
       {/* Top Banner / Welcome */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-amber-50 via-white to-amber-100/50 p-6 rounded-2xl border border-amber-200 shadow-xs relative overflow-hidden">
         <div className="relative z-10">
@@ -360,9 +385,14 @@ export const DashboardView = () => {
                 </div>
 
                 <div className="flex sm:flex-col items-center sm:items-end justify-between">
-                  <span className="text-slate-500 text-[11px]">{sale.payment_method}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500 text-[11px]">{sale.payment_method}</span>
+                    {sale.currency && (
+                      <span className="text-[10px] font-bold px-1 rounded bg-amber-100 text-amber-900">{sale.currency}</span>
+                    )}
+                  </div>
                   <span className="text-base font-mono font-bold text-slate-900">
-                    ${sale.grand_total.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    ${(parseFloat(sale.grand_total_usd ?? sale.grand_total) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>

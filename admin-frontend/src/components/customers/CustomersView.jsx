@@ -16,8 +16,17 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 export const CustomersView = () => {
-  const { t } = useTranslation();
-  const { customers, addCustomer, setSelectedCustomer, setActiveTab, searchQuery, setSearchQuery } = useApp();
+  const { t, i18n } = useTranslation();
+  const isKhmer = (i18n.language || 'km').startsWith('km');
+  const {
+    customers,
+    addCustomer,
+    setSelectedCustomer,
+    setActiveTab,
+    searchQuery,
+    setSearchQuery,
+    showToast
+  } = useApp();
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -69,16 +78,16 @@ export const CustomersView = () => {
         <div>
           <h1 className="text-2xl font-serif font-bold text-slate-900 flex items-center gap-2">
             <FontAwesomeIcon icon={faUsers} className="w-6 h-6 text-amber-600" />
-            {t('customers.title', 'Clientèle & VIP Privilege CRM Table')}
+            {t('customers.title', 'Customer List')}
           </h1>
           <p className="text-xs text-slate-500 mt-0.5">
-            {t('customers.subtitle', 'Client register with VIP tier privileges, loyalty points accrual, and purchase history')} ({customers.length} {t('customers.totalClients', 'total clients')}).
+            {t('customers.subtitle', 'Customer register with VIP tier privileges, loyalty points accrual, and purchase history')} ({customers.length} {t('customers.totalClients', 'total customers')}).
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-right shadow-xs">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">{t('customers.portfolio', 'Total Client Portfolio')}</span>
+            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">{t('customers.portfolio', 'Total Customer Portfolio')}</span>
             <span className="text-base font-mono font-bold text-amber-700">
               ${totalClientsSpend.toLocaleString()}
             </span>
@@ -89,7 +98,7 @@ export const CustomersView = () => {
             className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-semibold px-4 py-2 rounded-xl text-xs shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-95"
           >
             <FontAwesomeIcon icon={faUserPlus} className="w-4 h-4" />
-            {t('customers.enrollClient', 'Enroll Client')}
+            {t('customers.enrollClient', 'Register Customer')}
           </button>
         </div>
       </div>
@@ -109,7 +118,7 @@ export const CustomersView = () => {
             </button>
           </div>
           <span className="text-slate-500 font-medium">
-            {filteredCustomers.length} {t('customers.clientsFound', 'clients found')}
+            {filteredCustomers.length} {t('customers.clientsFound', 'customers found')}
           </span>
         </div>
       )}
@@ -120,7 +129,7 @@ export const CustomersView = () => {
           <table className="w-full min-w-[1050px] text-left text-xs">
             <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
               <tr>
-                <th className="p-4 whitespace-nowrap min-w-[200px]">{t('customers.clientName', 'Client Name')}</th>
+                <th className="p-4 whitespace-nowrap min-w-[200px]">{t('customers.clientName', 'Customer Name')}</th>
                 <th className="p-4 whitespace-nowrap">{t('customers.tier', 'VIP Tier & Privilege')}</th>
                 <th className="p-4 whitespace-nowrap">{t('customers.contact', 'Phone Number')}</th>
                 <th className="p-4 whitespace-nowrap">{t('customers.email', 'Email Address')}</th>
@@ -144,13 +153,20 @@ export const CustomersView = () => {
                     <td className="p-4 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
                         isDiamond
-                          ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                          ? 'bg-purple-100 text-purple-900 border border-purple-300 shadow-2xs'
                           : isPlatinum
-                          ? 'bg-slate-100 text-slate-800 border border-slate-300'
-                          : 'bg-yellow-50 text-yellow-800 border border-yellow-200'
+                          ? 'bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs'
+                          : customer.tier === 'Gold'
+                          ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
+                          : 'bg-slate-50 text-slate-600 border border-slate-200'
                       }`}>
-                        <FontAwesomeIcon icon={faCrown} className="w-3.5 h-3.5 text-amber-600" />
-                        {customer.tier} ({customer.discount_rate}% Privilege)
+                        <FontAwesomeIcon icon={faCrown} className={`w-3.5 h-3.5 ${
+                          isDiamond ? 'text-purple-600' : isPlatinum ? 'text-slate-500' : 'text-amber-600'
+                        }`} />
+                        <span>{customer.tier}</span>
+                        <span className="opacity-80 font-normal">
+                          ({customer.discount_rate}% {isKhmer ? 'បញ្ចុះតម្លៃ' : 'Privilege'})
+                        </span>
                       </span>
                     </td>
                     <td className="p-4 font-mono text-slate-700 whitespace-nowrap">
@@ -212,14 +228,14 @@ export const CustomersView = () => {
         />
       </div>
 
-      {/* Add Client Modal */}
+      {/* Add Customer Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
           <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="font-serif font-bold text-slate-900 text-base flex items-center gap-2">
                 <FontAwesomeIcon icon={faUserPlus} className="w-5 h-5 text-amber-600" />
-                {t('customers.enrollModalTitle', 'Enroll New Jewelry Client')}
+                {t('customers.enrollModalTitle', 'Register New Jewelry Customer')}
               </h3>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
@@ -276,10 +292,10 @@ export const CustomersView = () => {
                   }}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none"
                 >
-                  <option value="Diamond VIP">Diamond VIP (5% Privilege Discount)</option>
-                  <option value="Platinum">Platinum (3% Privilege Discount)</option>
-                  <option value="Gold">Gold (2% Privilege Discount)</option>
-                  <option value="Standard">Standard Client</option>
+                  <option value="Diamond VIP">{isKhmer ? 'Diamond VIP (បញ្ចុះតម្លៃ 5%)' : 'Diamond VIP (5% Privilege Discount)'}</option>
+                  <option value="Platinum">{isKhmer ? 'Platinum (បញ្ចុះតម្លៃ 3%)' : 'Platinum (3% Privilege Discount)'}</option>
+                  <option value="Gold">{isKhmer ? 'Gold (បញ្ចុះតម្លៃ 2%)' : 'Gold (2% Privilege Discount)'}</option>
+                  <option value="Standard">{isKhmer ? 'Standard (អតិថិជនទូទៅ - 0%)' : 'Standard Customer (0% Discount)'}</option>
                 </select>
               </div>
 
@@ -306,7 +322,7 @@ export const CustomersView = () => {
                   type="submit"
                   className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold rounded-lg cursor-pointer shadow-md"
                 >
-                  {t('customers.enrollClient', 'Enroll Client')}
+                  {t('customers.enrollClient', 'Register Customer')}
                 </button>
               </div>
             </form>

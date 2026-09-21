@@ -1,8 +1,30 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiService from '../services/api';
 import { initialSales } from '../types/mockData';
+import swal, {
+  confirmDialog,
+  showSuccess,
+  showError,
+  showWarning,
+  showInfo,
+  showToast,
+  showGoldAlert
+} from '../utils/swal';
 
 const AppContext = createContext();
+
+// VIP Tier auto-upgrade calculation based on Total Spending
+export const calculateCustomerTier = (totalSpent) => {
+  const spent = Number(totalSpent) || 0;
+  if (spent >= 10000) {
+    return { tier: 'Diamond VIP', discount_rate: 5.0 };
+  } else if (spent >= 5000) {
+    return { tier: 'Platinum', discount_rate: 3.0 };
+  } else if (spent >= 1000) {
+    return { tier: 'Gold', discount_rate: 2.0 };
+  }
+  return { tier: 'Standard', discount_rate: 0.0 };
+};
 
 export const AppProvider = ({ children }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -15,6 +37,9 @@ export const AppProvider = ({ children }) => {
   const [sales, setSales] = useState(initialSales);
   const [buybacks, setBuybacks] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [promotions, setPromotions] = useState([]);
+  const [tiers, setTiers] = useState([]);
+  const [settings, setSettings] = useState({ language: 'km', low_stock_threshold: 3 });
   const [cambodianGold, setCambodianGold] = useState(null);
   const [liveSpot, setLiveSpot] = useState({
     spot_price_per_oz: 0.00,
@@ -36,21 +61,24 @@ export const AppProvider = ({ children }) => {
     last_updated: ''
   });
   const [backendConnected, setBackendConnected] = useState(false);
-  
+
   // POS Cart State
   const [cart, setCart] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [discountPercent, setDiscountPercent] = useState(0);
   const [taxRate, setTaxRate] = useState(7.5); // 7.5% sales tax default
-  
+
   // Global Search State across entire system
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // App Notifications
+
+  // App Notifications (Navbar Dropdown History)
   const [notifications, setNotifications] = useState([
     { id: 1, text: 'Live API connection established with Laravel backend.', type: 'success', time: 'Just now' },
     { id: 2, text: 'Gold bullion and market spot valuations synced ($0.00/oz).', type: 'info', time: 'Just now' }
   ]);
+
+  // Floating Toast Alerts for UI
+  const [alerts, setAlerts] = useState([]);
 
   // Load live data from Backend API
   useEffect(() => {
@@ -59,7 +87,7 @@ export const AppProvider = ({ children }) => {
         const isHealthy = await apiService.checkHealth();
         setBackendConnected(isHealthy);
 
-        const [prods, rates, cats, metals, gems, custs, sls, bbs, sups, camGold, spotData, fxData] = await Promise.all([
+        const [prods, rates, cats, metals, gems, custs, sls, bbs, sups, promos, tierData, settingsData, camGold, spotData, fxData] = await Promise.all([
           apiService.getProducts(),
           apiService.getGoldRates(),
           apiService.getCategories(),
@@ -69,6 +97,9 @@ export const AppProvider = ({ children }) => {
           apiService.getSales(),
           apiService.getBuybacks(),
           apiService.getSuppliers(),
+          apiService.getPromotions(),
+          apiService.getTiers(),
+          apiService.getSettings(),
           apiService.getCambodianGold(),
           apiService.getSpotPrice('XAU', 'USD', true),
           apiService.getExchangeRate('USD', 'KHR'),
@@ -83,6 +114,9 @@ export const AppProvider = ({ children }) => {
         setSales(sls && sls.length > 0 ? sls : initialSales);
         setBuybacks(bbs);
         setSuppliers(sups);
+        setPromotions(promos || []);
+        setTiers(tierData || []);
+        setSettings(prev => ({ ...prev, ...(settingsData || {}) }));
         if (camGold) setCambodianGold(camGold);
         if (spotData && spotData.spot_price_per_oz !== undefined) setLiveSpot(spotData);
         if (fxData && fxData.rate) {
@@ -117,8 +151,50 @@ export const AppProvider = ({ children }) => {
     return () => clearInterval(spotInterval);
   }, []);
 
-  // Notification helper
-  const addNotification = (text, type = 'info') => {
+  // Dismiss an alert by id
+  const dismissAlert = (id) => {
+    setAlerts(prev => prev.filter(a => a.id !== id));
+  };
+
+  // Clear all active alerts
+  const clearAlerts = () => {
+    setAlerts([]);
+  };
+
+  // Show a rich UI Alert / Toast
+  const showAlert = (messageOrConfig, type = 'info', options = {}) => {
+    let alertObj;
+    if (typeof messageOrConfig === 'object' && messageOrConfig !== null && !React.isValidElement(messageOrConfig)) {
+      alertObj = {
+        id: messageOrConfig.id || (Date.now() + Math.random()),
+        title: messageOrConfig.title,
+        message: messageOrConfig.message || messageOrConfig.text,
+        type: messageOrConfig.type || type || 'info',
+        duration: messageOrConfig.duration !== undefined ? messageOrConfig.duration : 4500,
+        action: messageOrConfig.action,
+        icon: messageOrConfig.icon,
+        image: messageOrConfig.image,
+      };
+    } else {
+      alertObj = {
+        id: options.id || (Date.now() + Math.random()),
+        title: options.title,
+        message: messageOrConfig,
+        type: type || 'info',
+        duration: options.duration !== undefined ? options.duration : 4500,
+        action: options.action,
+        icon: options.icon,
+        image: options.image,
+      };
+    }
+
+    // Keep maximum 5 active alerts on screen
+    setAlerts(prev => [alertObj, ...prev.slice(0, 4)]);
+    return alertObj.id;
+  };
+
+  // Notification helper: updates Navbar dropdown AND triggers visible single Toast alert
+  const addNotification = (text, type = 'info', options = {}) => {
     const newNotif = {
       id: Date.now(),
       text,
@@ -126,10 +202,37 @@ export const AppProvider = ({ children }) => {
       time: 'Just now'
     };
     setNotifications(prev => [newNotif, ...prev.slice(0, 9)]);
+
+    if (!options.silent) {
+      showToast(text, type === 'warning' ? 'warning' : (type === 'error' ? 'error' : (type === 'success' ? 'success' : 'info')));
+    }
   };
 
   const removeNotification = (id) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
+  };
+
+  // Quick alert helper shortcuts (with SweetAlert2 integrations)
+  const alert = {
+    show: showAlert,
+    success: (msg, opts) => showAlert(msg, 'success', opts),
+    warning: (msg, opts) => showAlert(msg, 'warning', opts),
+    error: (msg, opts) => showAlert(msg, 'error', opts),
+    info: (msg, opts) => showAlert(msg, 'info', opts),
+    gold: (msg, opts) => showAlert(msg, 'gold', opts),
+    dismiss: dismissAlert,
+    clear: clearAlerts,
+    // SweetAlert2 Luxury Integrations
+    swal,
+    confirm: confirmDialog,
+    toast: showToast,
+    modal: {
+      success: showSuccess,
+      error: showError,
+      warning: showWarning,
+      info: showInfo,
+      gold: showGoldAlert,
+    }
   };
 
   // Dynamic Jewelry Price Calculator: Weight in Chi × Rate per Chi + Labor + Gemstones + Markup
@@ -163,9 +266,12 @@ export const AppProvider = ({ children }) => {
           item.id === product.id ? { ...item, qty: item.qty + 1 } : item
         );
       }
-      return [...prev, { ...product, calculatedPrice: currentPrice, qty: 1 }];
+      return [...prev, { ...product, calculatedPrice: currentPrice, qty: 1, status: 'completed' }];
     });
-    addNotification(`Added "${product.name}" to POS cart.`, 'success');
+    addNotification(`Added "${product.name}" to POS cart.`, 'success', {
+      title: 'Added to Active Ticket',
+      image: product.image
+    });
   };
 
   const removeFromCart = (productId) => {
@@ -178,6 +284,10 @@ export const AppProvider = ({ children }) => {
     } else {
       setCart(prev => prev.map(item => item.id === productId ? { ...item, qty } : item));
     }
+  };
+
+  const updateCartItemStatus = (productId, status) => {
+    setCart(prev => prev.map(item => item.id === productId ? { ...item, status } : item));
   };
 
   const clearCart = () => {
@@ -259,14 +369,43 @@ export const AppProvider = ({ children }) => {
   };
 
   // Checkout / Create Sale
-  const completeSale = async (paymentMethod, customNotes = '') => {
+  const completeSale = async (paymentMethod, paymentCurrency = 'USD', paymentOptions = {}) => {
     if (cart.length === 0) return null;
+
+    const options = typeof paymentOptions === 'string' ? { customNotes: paymentOptions } : (paymentOptions || {});
+    const pStatus = (options.paymentStatus || 'paid').toLowerCase(); // 'paid' | 'partial' | 'pending'
+    const customNotes = options.notes || options.customNotes || '';
 
     const subtotal = cart.reduce((acc, item) => acc + (item.calculatedPrice * item.qty), 0);
     const discountAmount = (subtotal * (discountPercent / 100));
     const taxableTotal = subtotal - discountAmount;
     const taxAmount = taxableTotal * (taxRate / 100);
     const grandTotal = taxableTotal + taxAmount;
+    const grandTotalUsd = Math.round(grandTotal * 100) / 100;
+    const currentFxRate = Number(exchangeRate?.rate) || 4100;
+    const grandTotalKhr = Math.round(grandTotalUsd * currentFxRate);
+
+    // Calculate paid amount and remaining balance based on currency and paymentStatus
+    let actualPaid = 0;
+    if (pStatus === 'paid') {
+      actualPaid = paymentCurrency === 'KHR' ? grandTotalKhr : grandTotalUsd;
+    } else if (pStatus === 'partial') {
+      actualPaid = options.paidAmount !== undefined && options.paidAmount !== null && options.paidAmount !== ''
+        ? Number(options.paidAmount)
+        : (paymentCurrency === 'KHR' ? Math.round(grandTotalKhr * 0.3) : Math.round(grandTotalUsd * 0.3 * 100) / 100);
+    } else { // 'pending'
+      actualPaid = 0;
+    }
+
+    const totalInSelectedCurrency = paymentCurrency === 'KHR' ? grandTotalKhr : grandTotalUsd;
+    const remainingBalance = Math.max(0, totalInSelectedCurrency - actualPaid);
+
+    // Determine overall sale status:
+    // If cashier explicitly provided saleStatus, use it.
+    // Otherwise, if paymentStatus is partial or pending, or any cart item is pending, default to 'pending', else 'completed'.
+    const hasAnyPendingItem = cart.some(item => item.status === 'pending');
+    const autoStatus = (pStatus === 'partial' || pStatus === 'pending' || hasAnyPendingItem) ? 'pending' : 'completed';
+    const finalSaleStatus = options.saleStatus || autoStatus;
 
     const now = new Date();
     const dateStr = String(now.getMonth() + 1).padStart(2, '0') + String(now.getDate()).padStart(2, '0') + now.getFullYear();
@@ -297,15 +436,33 @@ export const AppProvider = ({ children }) => {
           rate_per_chi: ratePerChi,
           metal_rate: ratePerGram,
           unit_price: item.calculatedPrice,
-          total: item.calculatedPrice * item.qty
+          total: item.calculatedPrice * item.qty,
+          status: item.status || finalSaleStatus || 'completed'
         };
       }),
       total_amount: subtotal,
       discount: discountAmount,
       tax: taxAmount,
-      grand_total: Math.round(grandTotal * 100) / 100,
+      grand_total: grandTotalUsd,
+      grand_total_usd: grandTotalUsd,
+      grand_total_khr: grandTotalKhr,
+      currency: paymentCurrency || 'USD',
       payment_method: paymentMethod,
-      payment_status: 'Paid',
+      payment_status: pStatus === 'partial' ? 'Partial' : (pStatus === 'pending' ? 'Pending' : 'Paid'),
+      paid_amount: actualPaid,
+      balance_due: remainingBalance,
+      status: finalSaleStatus,
+      payments: [
+        {
+          id: Date.now(),
+          amount: actualPaid,
+          payment_method: paymentMethod,
+          currency: paymentCurrency || 'USD',
+          payment_date: new Date().toISOString().split('T')[0],
+          reference_no: `PAY-${Math.floor(10000 + Math.random() * 90000)}`,
+          status: pStatus,
+        }
+      ],
       notes: customNotes
     };
 
@@ -315,9 +472,16 @@ export const AppProvider = ({ children }) => {
       total_amount: Math.round(subtotal * 100) / 100,
       discount: Math.round(discountAmount * 100) / 100,
       tax: Math.round(taxAmount * 100) / 100,
-      grand_total: Math.round(grandTotal * 100) / 100,
+      grand_total: grandTotalUsd,
+      grand_total_usd: grandTotalUsd,
+      grand_total_khr: grandTotalKhr,
+      currency: paymentCurrency || 'USD',
       sale_date: new Date().toISOString().split('T')[0],
       payment_method: paymentMethod ? paymentMethod.toLowerCase().replace(/\s+/g, '_') : 'cash',
+      payment_status: pStatus,
+      payment_amount: actualPaid,
+      status: finalSaleStatus,
+      notes: customNotes,
       items: cart.map(item => {
         const rateObj = goldRates.find(r => r.metal_type_id === item.metal_type_id) || goldRates[0];
         const ratePerGram = rateObj ? Number(rateObj.rate_per_gram) : 85.5;
@@ -332,7 +496,7 @@ export const AppProvider = ({ children }) => {
           gemstone_price: 0,
           unit_price: parseFloat(item.calculatedPrice) || 0,
           subtotal: (parseFloat(item.calculatedPrice) || 0) * item.qty,
-          status: 'completed'
+          status: item.status || finalSaleStatus || 'completed'
         };
       })
     };
@@ -359,25 +523,34 @@ export const AppProvider = ({ children }) => {
       return prod;
     }));
 
-    // Award loyalty points to customer
+    // Refresh customers from API so DB-computed tier/total_spent is applied
     if (selectedCustomer) {
-      setCustomers(prev => prev.map(c => {
-        if (c.id === selectedCustomer.id) {
-          const addedPoints = Math.floor(grandTotal / 50);
-          return {
-            ...c,
-            loyalty_points: c.loyalty_points + addedPoints,
-            total_spent: c.total_spent + grandTotal
-          };
+      try {
+        const freshCustomers = await apiService.getCustomers();
+        if (freshCustomers && freshCustomers.length > 0) {
+          setCustomers(freshCustomers);
+          // Notify if tier changed
+          const updated = freshCustomers.find(c => c.id === selectedCustomer.id);
+          if (updated && updated.tier !== selectedCustomer.tier) {
+            const isKhmer = (i18n.language || 'km').startsWith('km');
+            addNotification(
+              isKhmer
+                ? `🎉 អតិថិជន "${updated.name}" ត្រូវបានដំឡើងកម្រិត VIP ស្វ័យប្រវត្តិទៅជា ${updated.tier} (បញ្ចុះតម្លៃ ${updated.discount_rate}%)!`
+                : `🎉 Customer "${updated.name}" upgraded to ${updated.tier} (${updated.discount_rate}% Privilege)!`,
+              'success'
+            );
+          }
         }
-        return c;
-      }));
+      } catch {
+        // silent fail — local state is fine
+      }
     }
 
     clearCart();
     addNotification(`Invoice ${invoiceNo} completed! Total: $${grandTotal.toLocaleString()}`, 'success');
     return newSale;
   };
+
 
   // Update Sale Status
   const updateSaleStatus = async (saleId, newStatus) => {
@@ -430,142 +603,293 @@ export const AppProvider = ({ children }) => {
     }
   };
 
-  // Add Buyback
-  const processBuyback = async (buybackData) => {
-    const buybackNo = `BB-${new Date().getFullYear()}-${String(buybacks.length + 20).padStart(4, '0')}`;
-    const newRecord = {
+// Add Buyback
+const processBuyback = async (buybackData) => {
+  const buybackNo = `BB-${new Date().getFullYear()}-${String(buybacks.length + 20).padStart(4, '0')}`;
+  const newRecord = {
+    id: Date.now(),
+    buyback_no: buybackNo,
+    buyback_date: new Date().toISOString().split('T')[0],
+    ...buybackData,
+    status: 'Approved & Paid'
+  };
+  await apiService.createBuyback({
+    customer_id: null,
+    metal_type_id: 1,
+    weight: buybackData.gross_weight,
+    buyback_rate: buybackData.buy_rate_per_gram,
+    deduction_rate: buybackData.melt_loss_pct,
+    labor_deduction: buybackData.appraisal_fee,
+    total_refund: buybackData.total_amount,
+    buyback_date: newRecord.buyback_date
+  });
+  setBuybacks(prev => [newRecord, ...prev]);
+  addNotification(`Buyback voucher ${buybackNo} issued for $${newRecord.total_amount.toLocaleString()}`, 'success');
+  return newRecord;
+};
+
+// Add Customer
+const addCustomer = async (customerData) => {
+  const payload = {
+    name: customerData.name?.trim(),
+    phone: customerData.phone?.trim(),
+    email: customerData.email?.trim() || null,
+    address: customerData.address?.trim() || null,
+    loyalty_points: Number(customerData.loyalty_points) || 50
+  };
+
+  let newCust = {
+    id: Date.now(),
+    ...customerData,
+    ...payload,
+    total_spent: 0,
+    loyalty_points: payload.loyalty_points,
+    tier: customerData.tier || 'Standard',
+    discount_rate: customerData.discount_rate !== undefined ? customerData.discount_rate : 0
+  };
+
+  try {
+    const res = await apiService.addCustomer(payload);
+    if (res && res.id) {
+      newCust = { ...newCust, id: res.id };
+    }
+  } catch (e) {
+    console.error('Backend addCustomer error:', e);
+  }
+
+  setCustomers(prev => [newCust, ...prev]);
+  addNotification(`Customer "${newCust.name}" registered.`, 'success');
+  return newCust;
+};
+
+// Promotions CRUD
+const addPromotion = async (promoData) => {
+  try {
+    const res = await apiService.createPromotion(promoData);
+    const newPromo = res || { ...promoData, id: Date.now() };
+    setPromotions(prev => [newPromo, ...prev]);
+    addNotification(`Promotion "${newPromo.name}" created.`, 'success');
+    return newPromo;
+  } catch (e) {
+    console.error('API createPromotion error, creating locally:', e);
+    const fallbackPromo = {
       id: Date.now(),
-      buyback_no: buybackNo,
-      buyback_date: new Date().toISOString().split('T')[0],
-      ...buybackData,
-      status: 'Approved & Paid'
+      ...promoData,
+      discount_value: parseFloat(promoData.discount_value) || 0,
+      min_purchase: parseFloat(promoData.min_purchase) || 0,
+      created_at: new Date().toISOString()
     };
-    await apiService.createBuyback({
-      customer_id: null,
-      metal_type_id: 1,
-      weight: buybackData.gross_weight,
-      buyback_rate: buybackData.buy_rate_per_gram,
-      deduction_rate: buybackData.melt_loss_pct,
-      labor_deduction: buybackData.appraisal_fee,
-      total_refund: buybackData.total_amount,
-      buyback_date: newRecord.buyback_date
-    });
-    setBuybacks(prev => [newRecord, ...prev]);
-    addNotification(`Buyback voucher ${buybackNo} issued for $${newRecord.total_amount.toLocaleString()}`, 'success');
-    return newRecord;
-  };
+    setPromotions(prev => [fallbackPromo, ...prev]);
+    addNotification(`Promotion "${fallbackPromo.name}" created.`, 'success');
+    return fallbackPromo;
+  }
+};
 
-  // Add Customer
-  const addCustomer = async (customerData) => {
-    const newCust = {
-      id: Date.now(),
-      ...customerData,
-      total_spent: 0,
-      loyalty_points: 50,
-      tier: customerData.tier || 'Gold'
-    };
-    await apiService.addCustomer(newCust);
-    setCustomers(prev => [newCust, ...prev]);
-    addNotification(`Customer "${newCust.name}" enrolled in backend database.`, 'success');
-    return newCust;
-  };
+const editPromotion = async (updatedPromo) => {
+  try {
+    const res = await apiService.updatePromotion(updatedPromo.id, updatedPromo);
+    const saved = res || updatedPromo;
+    setPromotions(prev => prev.map(p => p.id === saved.id ? saved : p));
+    addNotification(`Promotion "${saved.name}" updated.`, 'info');
+    return saved;
+  } catch (e) {
+    console.error('API updatePromotion error, updating locally:', e);
+    setPromotions(prev => prev.map(p => p.id === updatedPromo.id ? updatedPromo : p));
+    addNotification(`Promotion "${updatedPromo.name}" updated.`, 'info');
+    return updatedPromo;
+  }
+};
 
-  // Cambodian Gold Measurement Standards & Conversions
-  const CAMBODIAN_STANDARDS = {
-    TROY_OUNCE_GRAMS: 31.1034768,
-    CHI_GRAMS: 3.75,
-    DAMLUNG_GRAMS: 37.5,
-    HUN_GRAMS: 0.375,
-    CHI_PER_DAMLUNG: 10,
-    DEFAULT_KHR_RATE: 4100
-  };
+const removePromotion = async (id) => {
+  try {
+    await apiService.deletePromotion(id);
+  } catch (e) {
+    console.error('API deletePromotion error:', e);
+  } finally {
+    setPromotions(prev => prev.filter(p => p.id !== id));
+    addNotification('Promotion deleted.', 'warning');
+  }
+};
 
-  const convertGramsToChi = (grams) => (Number(grams) || 0) / 3.75;
-  const convertGramsToDamlung = (grams) => (Number(grams) || 0) / 37.5;
-  const convertChiToGrams = (chi) => (Number(chi) || 0) * 3.75;
-  const convertDamlungToGrams = (damlung) => (Number(damlung) || 0) * 37.5;
+const addTier = async (tierData) => {
+  try {
+    const tier = await apiService.createTier(tierData);
+    const newTier = tier || { ...tierData, id: Date.now() };
+    setTiers(prev => [...prev, newTier].sort((a, b) => Number(a.min_spending) - Number(b.min_spending)));
+    addNotification(`Tier "${newTier.name}" created.`, 'success');
+    return newTier;
+  } catch (e) {
+    console.error('API createTier error, saving locally:', e);
+    const localTier = { id: Date.now(), ...tierData };
+    setTiers(prev => [...prev, localTier].sort((a, b) => Number(a.min_spending) - Number(b.min_spending)));
+    addNotification(`Tier "${localTier.name}" created.`, 'success');
+    return localTier;
+  }
+};
 
-  // Format weight in Chi (e.g. 1.44 ជី)
-  const formatChi = (grams, decimals = 2) => {
-    const chi = (Number(grams) || 0) / 3.75;
-    return `${chi.toFixed(decimals)} ជី`;
-  };
+const editTier = async (tierData) => {
+  try {
+    const tier = await apiService.updateTier(tierData.id, tierData);
+    const updated = tier || tierData;
+    setTiers(prev => prev.map(item => item.id === updated.id ? updated : item).sort((a, b) => Number(a.min_spending) - Number(b.min_spending)));
+    addNotification(`Tier "${updated.name}" updated.`, 'info');
+    return updated;
+  } catch (e) {
+    console.error('API updateTier error, updating locally:', e);
+    setTiers(prev => prev.map(item => item.id === tierData.id ? tierData : item).sort((a, b) => Number(a.min_spending) - Number(b.min_spending)));
+    addNotification(`Tier "${tierData.name}" updated.`, 'info');
+    return tierData;
+  }
+};
 
-  // Format traditional Khmer weight breakdown (តម្លឹង ជី ហ៊ុន)
-  const formatKhmerWeight = (grams) => {
-    const totalChi = (Number(grams) || 0) / 3.75;
-    if (totalChi <= 0) return '0 ជី';
-    const damlung = Math.floor(totalChi / 10);
-    const remainingChi = totalChi % 10;
-    const chi = Math.floor(remainingChi);
-    const hun = Math.round((remainingChi - chi) * 10 * 10) / 10;
+const removeTier = async (id) => {
+  try {
+    await apiService.deleteTier(id);
+  } catch (e) {
+    console.error('API deleteTier error:', e);
+  } finally {
+    setTiers(prev => prev.filter(tier => tier.id !== id));
+    addNotification('Tier removed.', 'warning');
+  }
+};
 
-    const parts = [];
-    if (damlung > 0) parts.push(`${damlung} តម្លឹង`);
-    if (chi > 0 || damlung === 0) parts.push(`${chi} ជី`);
-    if (hun > 0) parts.push(`${hun} ហ៊ុន`);
-    return parts.join(' ');
-  };
+const saveSettings = async (nextSettings) => {
+  try {
+    const saved = await apiService.updateSettings(nextSettings);
+    const merged = { ...settings, ...nextSettings, ...(saved?.settings || {}) };
+    setSettings(merged);
+    addNotification('Settings saved.', 'success');
+    return merged;
+  } catch (e) {
+    console.error('API updateSettings error, saving locally:', e);
+    const merged = { ...settings, ...nextSettings };
+    setSettings(merged);
+    addNotification('Settings saved.', 'success');
+    return merged;
+  }
+};
 
-  return (
-    <AppContext.Provider value={{
-      activeTab,
-      setActiveTab,
-      products,
-      addProduct,
-      updateProduct,
-      deleteProduct,
-      goldRates,
-      updateGoldRate,
-      metalTypes,
-      categories,
-      gemstones,
-      customers,
-      addCustomer,
-      sales,
-      completeSale,
-      updateSaleStatus,
-      updateSaleItemStatus,
-      buybacks,
-      processBuyback,
-      suppliers,
-      cart,
-      addToCart,
-      removeFromCart,
-      updateCartQty,
-      clearCart,
-      selectedCustomer,
-      setSelectedCustomer,
-      discountPercent,
-      setDiscountPercent,
-      taxRate,
-      setTaxRate,
-      calculateProductPrice,
-      notifications,
-      addNotification,
-      removeNotification,
-      backendConnected,
-      cambodianGold,
-      setCambodianGold,
-      liveSpot,
-      setLiveSpot,
-      refreshSpotPrice,
-      exchangeRate,
-      setExchangeRate,
-      refreshExchangeRate,
-      CAMBODIAN_STANDARDS,
-      convertGramsToChi,
-      convertGramsToDamlung,
-      convertChiToGrams,
-      convertDamlungToGrams,
-      formatChi,
-      formatKhmerWeight,
-      searchQuery,
-      setSearchQuery
-    }}>
-      {children}
-    </AppContext.Provider>
-  );
+// Cambodian Gold Measurement Standards & Conversions
+const CAMBODIAN_STANDARDS = {
+  TROY_OUNCE_GRAMS: 31.1034768,
+  CHI_GRAMS: 3.75,
+  DAMLUNG_GRAMS: 37.5,
+  HUN_GRAMS: 0.375,
+  CHI_PER_DAMLUNG: 10,
+  DEFAULT_KHR_RATE: 4100
+};
+
+const convertGramsToChi = (grams) => (Number(grams) || 0) / 3.75;
+const convertGramsToDamlung = (grams) => (Number(grams) || 0) / 37.5;
+const convertChiToGrams = (chi) => (Number(chi) || 0) * 3.75;
+const convertDamlungToGrams = (damlung) => (Number(damlung) || 0) * 37.5;
+
+// Format weight in Chi (e.g. 1.44 ជី)
+const formatChi = (grams, decimals = 2) => {
+  const chi = (Number(grams) || 0) / 3.75;
+  return `${chi.toFixed(decimals)} ជី`;
+};
+
+// Format traditional Khmer weight breakdown (តម្លឹង ជី ហ៊ុន)
+const formatKhmerWeight = (grams) => {
+  const totalChi = (Number(grams) || 0) / 3.75;
+  if (totalChi <= 0) return '0 ជី';
+  const damlung = Math.floor(totalChi / 10);
+  const remainingChi = totalChi % 10;
+  const chi = Math.floor(remainingChi);
+  const hun = Math.round((remainingChi - chi) * 10 * 10) / 10;
+
+  const parts = [];
+  if (damlung > 0) parts.push(`${damlung} តម្លឹង`);
+  if (chi > 0 || damlung === 0) parts.push(`${chi} ជី`);
+  if (hun > 0) parts.push(`${hun} ហ៊ុន`);
+  return parts.join(' ');
+};
+
+return (
+  <AppContext.Provider value={{
+    activeTab,
+    setActiveTab,
+    products,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    goldRates,
+    updateGoldRate,
+    metalTypes,
+    categories,
+    gemstones,
+    customers,
+    addCustomer,
+    sales,
+    completeSale,
+    updateSaleStatus,
+    updateSaleItemStatus,
+    buybacks,
+    processBuyback,
+    suppliers,
+    promotions,
+    addPromotion,
+    editPromotion,
+    removePromotion,
+    tiers,
+    addTier,
+    editTier,
+    removeTier,
+    settings,
+    saveSettings,
+    cart,
+    setCart,
+    addToCart,
+    removeFromCart,
+    updateCartQty,
+    updateCartItemStatus,
+    clearCart,
+    selectedCustomer,
+    setSelectedCustomer,
+    discountPercent,
+    setDiscountPercent,
+    taxRate,
+    setTaxRate,
+    calculateProductPrice,
+    notifications,
+    addNotification,
+    removeNotification,
+    alerts,
+    showAlert,
+    dismissAlert,
+    clearAlerts,
+    alert,
+    swal,
+    confirmDialog,
+    showToast,
+    showSuccess,
+    showError,
+    showWarning,
+    showInfo,
+    showGoldAlert,
+    backendConnected,
+    cambodianGold,
+    setCambodianGold,
+    liveSpot,
+    setLiveSpot,
+    refreshSpotPrice,
+    exchangeRate,
+    setExchangeRate,
+    refreshExchangeRate,
+    CAMBODIAN_STANDARDS,
+    convertGramsToChi,
+    convertGramsToDamlung,
+    convertChiToGrams,
+    convertDamlungToGrams,
+    formatChi,
+    formatKhmerWeight,
+    searchQuery,
+    setSearchQuery
+  }}>
+    {children}
+  </AppContext.Provider>
+);
 };
 
 export const useApp = () => useContext(AppContext);

@@ -32,7 +32,32 @@ export const apiService = {
     }
   },
 
-  // 1. Products
+  // 1. VIP Tiers
+  getTiers: async () => {
+    try {
+      const res = await client.get('/tiers');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getTiers error:', e);
+      return [];
+    }
+  },
+  createTier: async (data) => (await client.post('/tiers', data)).data,
+  updateTier: async (id, data) => (await client.put(`/tiers/${id}`, data)).data,
+  deleteTier: async (id) => { await client.delete(`/tiers/${id}`); },
+
+  // 2. Settings
+  getSettings: async () => {
+    try {
+      return (await client.get('/settings')).data || {};
+    } catch (e) {
+      console.error('API getSettings error:', e);
+      return {};
+    }
+  },
+  updateSettings: async (settings) => (await client.put('/settings', { settings })).data,
+
+  // 3. Products
   getProducts: async () => {
     try {
       const res = await client.get('/products');
@@ -92,7 +117,7 @@ export const apiService = {
     }
   },
 
-  // 2. Gold Rates
+  // 4. Gold Rates
   getGoldRates: async () => {
     try {
       const res = await client.get('/gold-rates');
@@ -100,7 +125,7 @@ export const apiService = {
       return data.map(r => ({
         id: r.id,
         metal_type_id: r.metal_type_id,
-        name: r.metal_type?.name || `Metal #${r.metal_type_id}`,
+        name: r.metal_type?.name || r.metalType?.name || `Metal #${r.metal_type_id}`,
         rate_per_gram: parseFloat(r.sell_rate) || 85.50,
         buy_rate_per_gram: parseFloat(r.buy_rate) || 80.00,
         change_24h: 1.15,
@@ -126,7 +151,7 @@ export const apiService = {
     }
   },
 
-  // 3. Categories
+  // 5. Categories
   getCategories: async () => {
     try {
       const res = await client.get('/categories');
@@ -136,8 +161,11 @@ export const apiService = {
       return [];
     }
   },
+  createCategory: async (data) => (await client.post('/categories', data)).data,
+  updateCategory: async (id, data) => (await client.put(`/categories/${id}`, data)).data,
+  deleteCategory: async (id) => { await client.delete(`/categories/${id}`); },
 
-  // 4. Metal Types
+  // 6. Metal Types
   getMetalTypes: async () => {
     try {
       const res = await client.get('/metal-types');
@@ -147,8 +175,11 @@ export const apiService = {
       return [];
     }
   },
+  createMetalType: async (data) => (await client.post('/metal-types', data)).data,
+  updateMetalType: async (id, data) => (await client.put(`/metal-types/${id}`, data)).data,
+  deleteMetalType: async (id) => { await client.delete(`/metal-types/${id}`); },
 
-  // 5. Gemstones
+  // 7. Gemstones
   getGemstones: async () => {
     try {
       const res = await client.get('/gemstones');
@@ -170,30 +201,40 @@ export const apiService = {
       return [];
     }
   },
+  createGemstone: async (data) => (await client.post('/gemstones', data)).data,
+  updateGemstone: async (id, data) => (await client.put(`/gemstones/${id}`, data)).data,
+  deleteGemstone: async (id) => { await client.delete(`/gemstones/${id}`); },
 
-  // 6. Customers
+  // 8. Customers
   getCustomers: async () => {
     try {
       const res = await client.get('/customers');
       const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
       return data.map(c => {
-        const pts = c.loyalty_points || 50;
-        let tier = 'Standard';
-        let discount = 0;
-        if (pts >= 150) { tier = 'Diamond VIP'; discount = 5.0; }
-        else if (pts >= 100) { tier = 'Platinum'; discount = 3.0; }
-        else if (pts >= 50) { tier = 'Gold'; discount = 2.0; }
+        const dbTotalSpent = parseFloat(c.total_spent) || 0;
+        const dbTier       = c.tier || null;
+        const dbDiscount   = parseFloat(c.discount_rate) || 0;
+
+        const pts = parseInt(c.loyalty_points, 10) || 0;
+        let tier     = dbTier || 'Standard';
+        let discount = dbDiscount;
+        if (!dbTier || dbTier === 'Standard') {
+          if (pts >= 150) { tier = 'Diamond VIP'; discount = 5.0; }
+          else if (pts >= 100) { tier = 'Platinum'; discount = 3.0; }
+          else if (pts >= 50)  { tier = 'Gold';     discount = 2.0; }
+        }
 
         return {
-          id: c.id,
-          name: c.name,
-          phone: c.phone,
-          email: c.email || 'client@luxury.com',
-          address: c.address || 'Beverly Hills, CA',
+          id:             c.id,
+          name:           c.name,
+          phone:          c.phone,
+          email:          c.email || 'client@luxury.com',
+          address:        c.address || 'Beverly Hills, CA',
           loyalty_points: pts,
           tier,
-          discount_rate: discount,
-          total_spent: pts * 120
+          discount_rate:  discount,
+          total_spent:    dbTotalSpent || (pts * 120),
+          sales_count:    c.sales_count || 0,
         };
       });
     } catch (e) {
@@ -212,7 +253,27 @@ export const apiService = {
     }
   },
 
-  // 7. Sales & POS
+  updateCustomer: async (id, customerData) => {
+    try {
+      const res = await client.put(`/customers/${id}`, customerData);
+      return res.data;
+    } catch (e) {
+      console.error('Backend updateCustomer failed:', e.message);
+      throw e;
+    }
+  },
+
+  deleteCustomer: async (id) => {
+    try {
+      await client.delete(`/customers/${id}`);
+      return true;
+    } catch (e) {
+      console.error('Backend deleteCustomer failed:', e.message);
+      return false;
+    }
+  },
+
+  // 9. Sales & POS
   getSales: async () => {
     try {
       const res = await client.get('/sales');
@@ -222,45 +283,58 @@ export const apiService = {
         const rawPayments = s.payments || [];
         const primaryPayment = rawPayments[0] || null;
 
+        const grandTotalUsdVal = parseFloat(s.grand_total_usd ?? s.grand_total) || 0;
+        const totalPaidUsd = rawPayments.reduce((acc, p) => {
+          const amt = parseFloat(p.amount) || 0;
+          return p.currency === 'KHR' ? acc + (amt / 4100) : acc + amt;
+        }, 0);
+        const balanceDueUsd = Math.max(0, Math.round((grandTotalUsdVal - totalPaidUsd) * 100) / 100);
+
         return {
           id: s.id,
           invoice_no: s.invoice_no,
           customer_id: s.customer_id,
-          customer_name: s.customer?.name || (s.customer_id ? `Customer #${s.customer_id}` : 'Walk-in Guest'),
-          customer_phone: s.customer?.phone || '',
+          customer_name: s.customer?.name || s.customer_name || (s.customer_id ? `Customer #${s.customer_id}` : 'Walk-in Guest'),
+          customer_phone: s.customer?.phone || s.customer_phone || '',
           customer_email: s.customer?.email || '',
           customer_address: s.customer?.address || '',
           user_id: s.user_id,
-          user_name: s.user?.name || 'Staff Jeweler',
-          sale_date: s.sale_date ? s.sale_date.split('T')[0] : 'Today',
-          items: rawItems.map(item => ({
+          user_name: s.user?.name || s.user_name || 'Staff Jeweler',
+          sale_date: s.sale_date ? s.sale_date.split('T')[0] : new Date().toISOString().split('T')[0],
+          items: (s.sale_items || s.saleItems || s.items || []).map(item => ({
             id: item.id,
             product_id: item.product_id,
             product_name: item.product?.name || item.product_name || `Jewelry Item #${item.product_id}`,
-            code_sku: item.product?.code_sku || item.code_sku || `SKU-${item.product_id}`,
-            metal_type_name: item.product?.metal_type?.name || '',
-            qty: parseInt(item.quantity ?? item.qty, 10) || 1,
-            weight_g: parseFloat(item.weight_sold ?? item.weight_g) || 0,
-            gold_rate_applied: parseFloat(item.gold_rate_applied ?? item.metal_rate) || 0,
-            labor_fee: parseFloat(item.labor_fee) || 0,
-            gemstone_price: parseFloat(item.gemstone_price) || 0,
+            metal_type_name: item.product?.metal_type?.name || item.product?.metalType?.name || '',
+            code_sku: item.product?.code_sku || item.code_sku || '',
+            qty: parseInt(item.quantity || item.qty, 10) || 1,
+            weight_chi: parseFloat(item.weight_sold || item.weight_chi) || 0,
+            weight_g: item.product?.net_weight || item.weight_g || 0,
+            rate_per_chi: parseFloat(item.gold_rate_applied || item.rate_per_chi) || 0,
+            metal_rate: parseFloat(item.product?.metal_rate || item.metal_rate) || 0,
             unit_price: parseFloat(item.unit_price) || 0,
-            total: parseFloat(item.subtotal ?? item.total) || 0,
-            status: item.status || 'completed'
+            total: parseFloat(item.subtotal || item.total) || 0
           })),
           total_amount: parseFloat(s.total_amount) || 0,
           discount: parseFloat(s.discount) || 0,
           tax: parseFloat(s.tax) || 0,
-          grand_total: parseFloat(s.grand_total) || 0,
+          grand_total: grandTotalUsdVal,
+          grand_total_usd: grandTotalUsdVal,
+          grand_total_khr: parseFloat(s.grand_total_khr) || Math.round(grandTotalUsdVal * 4100),
+          paid_amount: Math.round(totalPaidUsd * 100) / 100,
+          balance_due: balanceDueUsd,
           payments: rawPayments.map(p => ({
             id: p.id,
             amount: parseFloat(p.amount) || 0,
             payment_method: p.payment_method || 'cash',
+            currency: p.currency || 'USD',
             payment_date: p.payment_date ? p.payment_date.split('T')[0] : '',
             reference_no: p.reference_no || '',
+            status: p.status || 'paid',
           })),
+          currency: primaryPayment?.currency || s.currency || 'USD',
           payment_method: primaryPayment?.payment_method || s.payment_method || 'cash',
-          payment_status: rawPayments.length > 0 ? 'Paid' : 'Pending',
+          payment_status: primaryPayment?.status ? (primaryPayment.status.charAt(0).toUpperCase() + primaryPayment.status.slice(1)) : (rawPayments.length > 0 ? 'Paid' : 'Pending'),
           payment_ref: primaryPayment?.reference_no || '',
           status: s.status || 'completed',
           notes: s.notes || ''
@@ -302,7 +376,17 @@ export const apiService = {
     }
   },
 
-  // 8. Buybacks
+  deleteSale: async (id) => {
+    try {
+      await client.delete(`/sales/${id}`);
+      return true;
+    } catch (e) {
+      console.error('Backend deleteSale failed:', e.message);
+      return false;
+    }
+  },
+
+  // 10. Buybacks
   getBuybacks: async () => {
     try {
       const res = await client.get('/buybacks');
@@ -313,7 +397,7 @@ export const apiService = {
         customer_name: b.customer?.name || 'Walk-in Customer',
         customer_phone: b.customer?.phone || 'N/A',
         buyback_date: b.buyback_date ? b.buyback_date.split('T')[0] : 'Today',
-        metal_name: b.metal_type?.name || '24K Gold',
+        metal_name: b.metal_type?.name || b.metalType?.name || '24K Gold',
         gross_weight: parseFloat(b.weight) || 10.0,
         net_weight: parseFloat(b.weight) * 0.98,
         buy_rate_per_gram: parseFloat(b.buyback_rate) || 80.0,
@@ -337,8 +421,9 @@ export const apiService = {
       throw e;
     }
   },
+  deleteBuyback: async (id) => { await client.delete(`/buybacks/${id}`); },
 
-  // 9. Suppliers
+  // 11. Suppliers
   getSuppliers: async () => {
     try {
       const res = await client.get('/suppliers');
@@ -356,8 +441,25 @@ export const apiService = {
       return [];
     }
   },
+  createSupplier: async (data) => (await client.post('/suppliers', data)).data,
+  updateSupplier: async (id, data) => (await client.put(`/suppliers/${id}`, data)).data,
+  deleteSupplier: async (id) => { await client.delete(`/suppliers/${id}`); },
 
-  // 10. Live Gold Price & Cambodian Measurements API
+  // 12. Purchases
+  getPurchases: async () => {
+    try {
+      const res = await client.get('/purchases');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getPurchases error:', e);
+      return [];
+    }
+  },
+  createPurchase: async (data) => (await client.post('/purchases', data)).data,
+  updatePurchase: async (id, data) => (await client.put(`/purchases/${id}`, data)).data,
+  deletePurchase: async (id) => { await client.delete(`/purchases/${id}`); },
+
+  // 13. Live Gold Price & Cambodian Measurements API
   getSpotPrice: async (symbol = 'XAU', currency = 'USD', forceFresh = false) => {
     try {
       const res = await client.get('/gold-price/spot', { params: { symbol, currency, force_fresh: forceFresh } });
@@ -398,7 +500,7 @@ export const apiService = {
     }
   },
 
-  // 11. Live USD to KHR Exchange Rate API
+  // 14. Live USD to KHR Exchange Rate API
   getExchangeRate: async (base = 'USD', target = 'KHR', forceFresh = false) => {
     try {
       const res = await client.get('/exchange-rate', { params: { base, target, force_fresh: forceFresh } });
@@ -416,6 +518,59 @@ export const apiService = {
         display_english: '1 USD = 4,045 KHR',
         source: 'Standard Benchmark (Offline)'
       };
+    }
+  },
+
+  // 15. Promotions API
+  getPromotions: async () => {
+    try {
+      const res = await client.get('/promotions');
+      return Array.isArray(res.data) ? res.data : [];
+    } catch (e) {
+      console.error('API getPromotions error:', e);
+      return [];
+    }
+  },
+
+  createPromotion: async (data) => {
+    try {
+      const res = await client.post('/promotions', data);
+      return res.data;
+    } catch (e) {
+      console.error('Backend createPromotion failed:', e.message);
+      throw e;
+    }
+  },
+
+  updatePromotion: async (id, data) => {
+    try {
+      const res = await client.put(`/promotions/${id}`, data);
+      return res.data;
+    } catch (e) {
+      console.error('Backend updatePromotion failed:', e.message);
+      throw e;
+    }
+  },
+
+  deletePromotion: async (id) => {
+    try {
+      await client.delete(`/promotions/${id}`);
+      return true;
+    } catch (e) {
+      console.error('Backend deletePromotion failed:', e.message);
+      return false;
+    }
+  },
+
+  getApplicablePromotion: async ({ tier = 'Standard', productId = null, cartTotal = 0 }) => {
+    try {
+      const params = { tier, cart_total: cartTotal };
+      if (productId) params.product_id = productId;
+      const res = await client.get('/promotions/applicable', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getApplicablePromotion error:', e);
+      return { found: false, promotion: null };
     }
   },
 };

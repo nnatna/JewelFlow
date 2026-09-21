@@ -23,8 +23,10 @@ class PaymentFactory extends Factory
             'payable_id' => Sale::factory(),
             'amount' => fake()->randomFloat(2, 50, 3000),
             'payment_method' => fake()->randomElement(['cash', 'credit_card', 'bank_transfer', 'khqr']),
+            'currency' => fake()->randomElement(['USD', 'KHR']),
             'payment_date' => fake()->date(),
             'reference_no' => fake()->bothify('PAY-#####'),
+            'status' => fake()->randomElement(['paid', 'pending', 'partial', 'refunded']),
         ];
     }
 }

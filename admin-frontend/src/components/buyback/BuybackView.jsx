@@ -7,7 +7,7 @@ import { faArrowsRotate, faScaleBalanced, faFileLines, faFilter, faXmark } from 
 
 export const BuybackView = () => {
   const { t, i18n } = useTranslation();
-  const { buybacks, goldRates, processBuyback, searchQuery, setSearchQuery } = useApp();
+  const { buybacks, goldRates, processBuyback, searchQuery, setSearchQuery, showToast } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
 
@@ -67,6 +67,7 @@ export const BuybackView = () => {
     });
 
     setIssuedVoucher(voucher);
+    setIsModalOpen(false);
     setCustomerName('');
     setCustomerPhone('');
   };
@@ -100,7 +101,7 @@ export const BuybackView = () => {
 
           <form onSubmit={handleProcess} className="space-y-3">
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.clientName', 'Client Full Name')}</label>
+              <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.clientName', 'Customer Full Name')}</label>
               <input
                 type="text"
                 required
@@ -112,7 +113,7 @@ export const BuybackView = () => {
             </div>
 
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.clientPhone', 'Client Phone / Contact')}</label>
+              <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.clientPhone', 'Customer Phone / Contact')}</label>
               <input
                 type="text"
                 placeholder="+1 (555) 000-0000"
@@ -252,7 +253,7 @@ export const BuybackView = () => {
               <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
                 <tr>
                   <th className="p-3">Voucher No</th>
-                  <th className="p-3">{t('buybacks.customer', 'Client')}</th>
+                  <th className="p-3">{t('buybacks.customer', 'Customer')}</th>
                   <th className="p-3">{t('buybacks.metalType', 'Metal')} & {t('buybacks.chiWeight', 'Wt.')}</th>
                   <th className="p-3">Rate</th>
                   <th className="p-3 text-right">{t('buybacks.payout', 'Net Payout')}</th>

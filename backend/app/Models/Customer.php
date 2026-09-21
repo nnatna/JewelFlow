@@ -15,6 +15,14 @@ class Customer extends Model
         'email',
         'address',
         'loyalty_points',
+        'total_spent',
+        'tier',
+        'discount_rate',
+    ];
+
+    protected $casts = [
+        'total_spent' => 'decimal:2',
+        'discount_rate' => 'decimal:2',
     ];
 
     public function sales()

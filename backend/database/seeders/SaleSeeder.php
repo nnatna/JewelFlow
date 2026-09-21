@@ -55,7 +55,8 @@ class SaleSeeder extends Seeder
                 'total_amount' => 0,
                 'discount' => 0,
                 'tax' => 0,
-                'grand_total' => 0,
+                'grand_total_usd' => 0,
+                'grand_total_khr' => 0,
                 'sale_date' => $saleDate,
                 'status' => $saleStatus,
             ]);
@@ -97,12 +98,14 @@ class SaleSeeder extends Seeder
             $taxable = $subtotalSum - $discount;
             $tax = round($taxable * 0.08, 2);
             $grandTotal = round($taxable + $tax, 2);
+            $grandTotalKhr = round($grandTotal * 4100, 2);
 
             $sale->update([
                 'total_amount' => $subtotalSum,
                 'discount' => $discount,
                 'tax' => $tax,
-                'grand_total' => $grandTotal,
+                'grand_total_usd' => $grandTotal,
+                'grand_total_khr' => $grandTotalKhr,
             ]);
 
             // Record payment
@@ -112,8 +115,10 @@ class SaleSeeder extends Seeder
                 'payable_id' => $sale->id,
                 'amount' => $grandTotal,
                 'payment_method' => $method,
+                'currency' => 'USD',
                 'payment_date' => $saleDate,
-                'reference_no' => 'PAY-' . rand(10000, 99999),
+                'reference_no' => 'PAY-'.rand(10000, 99999),
+                'status' => 'paid',
             ]);
         }
     }

@@ -217,6 +217,9 @@ export const initialSales = [
     discount: 228.00, // 5% VIP discount
     tax: 346.56, // 8%
     grand_total: 4678.56,
+    grand_total_usd: 4678.56,
+    grand_total_khr: 19182096,
+    currency: 'USD',
     payment_method: 'Credit Card',
     payment_status: 'Paid'
   },
@@ -242,6 +245,9 @@ export const initialSales = [
     discount: 100.50,
     tax: 259.96,
     grand_total: 3509.46,
+    grand_total_usd: 3509.46,
+    grand_total_khr: 14388786,
+    currency: 'USD',
     payment_method: 'Bank Wire',
     payment_status: 'Paid'
   }

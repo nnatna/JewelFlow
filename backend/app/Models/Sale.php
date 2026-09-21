@@ -17,6 +17,8 @@ class Sale extends Model
         'discount',
         'tax',
         'grand_total',
+        'grand_total_usd',
+        'grand_total_khr',
         'sale_date',
         'status',
     ];
@@ -25,9 +27,35 @@ class Sale extends Model
         'total_amount' => 'decimal:2',
         'discount' => 'decimal:2',
         'tax' => 'decimal:2',
-        'grand_total' => 'decimal:2',
+        'grand_total_usd' => 'decimal:2',
+        'grand_total_khr' => 'decimal:2',
         'sale_date' => 'date',
     ];
+
+    protected $appends = [
+        'grand_total',
+    ];
+
+    public function getGrandTotalAttribute()
+    {
+        return $this->grand_total_usd;
+    }
+
+    public function setGrandTotalAttribute($value)
+    {
+        $this->attributes['grand_total_usd'] = $value;
+        if (! isset($this->attributes['grand_total_khr']) || empty($this->attributes['grand_total_khr'])) {
+            $this->attributes['grand_total_khr'] = round(((float) $value) * 4100, 2);
+        }
+    }
+
+    public function setGrandTotalUsdAttribute($value)
+    {
+        $this->attributes['grand_total_usd'] = $value;
+        if (! isset($this->attributes['grand_total_khr']) || empty($this->attributes['grand_total_khr'])) {
+            $this->attributes['grand_total_khr'] = round(((float) $value) * 4100, 2);
+        }
+    }
 
     public function customer()
     {

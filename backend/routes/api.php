@@ -1,234 +1,116 @@
 <?php
 
+use App\Http\Controllers\Api\BuybackController;
+use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\CustomerController;
+use App\Http\Controllers\Api\GemstoneController;
 use App\Http\Controllers\Api\GoldPriceController;
+use App\Http\Controllers\Api\GoldRateController;
+use App\Http\Controllers\Api\ImageController;
+use App\Http\Controllers\Api\MetalTypeController;
+use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PostController;
+use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\ProductGemstoneController;
+use App\Http\Controllers\Api\ProfileController;
+use App\Http\Controllers\Api\PromotionController;
+use App\Http\Controllers\Api\PurchaseController;
 use App\Http\Controllers\Api\ReportController;
-use App\Http\Controllers\ImageController;
-use App\Http\Controllers\ProductController;
-use App\Models\Buyback;
-use App\Models\Category;
-use App\Models\Customer;
-use App\Models\Gemstone;
-use App\Models\GoldRate;
-use App\Models\MetalType;
-use App\Models\Product;
-use App\Models\Sale;
-use App\Models\Supplier;
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\SaleController;
+use App\Http\Controllers\Api\SaleItemController;
+use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\SupplierController;
+use App\Http\Controllers\Api\TierController;
+use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+|
+| Here is where you can register API routes for your application.
+| All routes are configured with dedicated API Controllers under App\Http\Controllers\Api.
+|
+*/
+
+// Authenticated User
 Route::get('/user', function (Request $request) {
     return $request->user();
 })->middleware('auth:sanctum');
 
-// Posts
-Route::get('/posts', [PostController::class, 'index']);
-Route::post('/posts', [PostController::class, 'store']);
-Route::get('/posts/{id}', [PostController::class, 'show']);
-Route::put('/posts/{id}', [PostController::class, 'update']);
-Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+// User Profile
+Route::get('/profile', [ProfileController::class, 'show'])->middleware('auth:sanctum');
+Route::put('/profile', [ProfileController::class, 'update'])->middleware('auth:sanctum');
+Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware('auth:sanctum');
+
+// Posts API
+Route::apiResource('posts', PostController::class);
 
 // Images API
-Route::get('/images', [ImageController::class, 'index']);
-Route::post('/images', [ImageController::class, 'store']);
-Route::get('/images/{id}', [ImageController::class, 'show']);
-Route::put('/images/{id}', [ImageController::class, 'update']);
-Route::delete('/images/{id}', [ImageController::class, 'destroy']);
+Route::apiResource('images', ImageController::class);
 
 // Products API
-Route::get('/products', [ProductController::class, 'index']);
-Route::post('/products', [ProductController::class, 'store']);
-Route::get('/products/{id}', [ProductController::class, 'show']);
-Route::put('/products/{id}', [ProductController::class, 'update']);
-Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-
-// Gold Rates API
-Route::get('/gold-rates', function (Request $request) {
-    $query = GoldRate::with('metalType')->latest();
-    if ($request->has('page') || $request->query('paginate')) {
-        return response()->json($query->paginate(10));
-    }
-    return response()->json($query->get());
-});
-
-Route::put('/gold-rates/{id}', function (Request $request, $id) {
-    $rate = GoldRate::findOrFail($id);
-    $rate->update($request->only(['buy_rate', 'sell_rate', 'effective_date']));
-    return response()->json($rate->load('metalType'));
-});
+Route::apiResource('products', ProductController::class);
 
 // Categories API
-Route::get('/categories', function () {
-    return response()->json(Category::all());
-});
+Route::apiResource('categories', CategoryController::class);
 
 // Metal Types API
-Route::get('/metal-types', function (Request $request) {
-    $search = $request->query('search');
-    $query = MetalType::query()->when($search, function ($q, $search) {
-        $q->where('name', 'like', "%{$search}%");
-    })->latest();
-
-    if ($request->has('page') || $request->query('paginate')) {
-        return response()->json($query->paginate(10));
-    }
-    return response()->json($query->get());
-});
+Route::apiResource('metal-types', MetalTypeController::class);
 
 // Gemstones API
-Route::get('/gemstones', function () {
-    return response()->json(Gemstone::all());
-});
+Route::apiResource('gemstones', GemstoneController::class);
+
+// Product Gemstone Attachments API
+Route::apiResource('product-gemstones', ProductGemstoneController::class);
+
+// Gold Rates API
+Route::apiResource('gold-rates', GoldRateController::class);
 
 // Customers API
-Route::get('/customers', function () {
-    return response()->json(Customer::withCount('sales')->get());
-});
+Route::apiResource('customers', CustomerController::class);
 
-Route::post('/customers', function (Request $request) {
-    $validated = $request->validate([
-        'name' => 'required|string|max:255',
-        'phone' => 'required|string|max:50',
-        'email' => 'nullable|email',
-        'address' => 'nullable|string',
-        'loyalty_points' => 'nullable|integer',
-    ]);
+// Sales & POS API
+Route::put('/sales/{id}/status', [SaleController::class, 'updateStatus']);
+Route::apiResource('sales', SaleController::class);
 
-    $customer = Customer::create($validated);
-    return response()->json($customer, 201);
-});
-
-// Sales & Invoices API
-Route::get('/sales', function () {
-    return response()->json(
-        Sale::with(['customer', 'saleItems.product.metalType', 'user', 'payments'])
-            ->orderBy('sale_date', 'desc')
-            ->orderBy('id', 'desc')
-            ->get()
-    );
-});
-
-Route::get('/sales/{id}', function ($id) {
-    return response()->json(
-        Sale::with(['customer', 'saleItems.product.metalType', 'user', 'payments'])->findOrFail($id)
-    );
-});
-
-Route::post('/sales', function (Request $request) {
-    $validated = $request->validate([
-        'invoice_no' => 'required|string|unique:sales,invoice_no',
-        'customer_id' => 'nullable|exists:customers,id',
-        'total_amount' => 'required|numeric',
-        'discount' => 'nullable|numeric',
-        'tax' => 'nullable|numeric',
-        'grand_total' => 'required|numeric',
-        'sale_date' => 'required|date',
-    ]);
-
-    $validated['user_id'] = $request->user_id ?? 1;
-
-    $sale = Sale::create($validated);
-
-    if ($request->has('items') && is_array($request->items)) {
-        foreach ($request->items as $item) {
-            $sale->saleItems()->create([
-                'product_id'        => $item['product_id'] ?? 1,
-                'quantity'          => $item['quantity'] ?? $item['qty'] ?? 1,
-                'weight_sold'       => $item['weight_sold'] ?? $item['weight_g'] ?? 0,
-                'gold_rate_applied' => $item['gold_rate_applied'] ?? $item['metal_rate'] ?? 0,
-                'labor_fee'         => $item['labor_fee'] ?? 0,
-                'gemstone_price'    => $item['gemstone_price'] ?? 0,
-                'unit_price'        => $item['unit_price'] ?? 0,
-                'subtotal'          => $item['subtotal'] ?? $item['total'] ?? 0,
-                'status'            => $item['status'] ?? 'completed',
-            ]);
-        }
-    }
-
-    // Record Payment
-    $paymentMethod = $request->payment_method ?? 'cash';
-    $sale->payments()->create([
-        'amount' => $sale->grand_total,
-        'payment_method' => $paymentMethod,
-        'payment_date' => $sale->sale_date,
-        'reference_no' => 'PAY-' . rand(10000, 99999),
-    ]);
-
-    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']), 201);
-});
-
-Route::put('/sales/{id}/status', function (Request $request, $id) {
-    $status = $request->input('status') ?? $request->json('status');
-    if (!in_array($status, ['pending', 'completed', 'cancelled'])) {
-        return response()->json(['message' => 'Invalid status. Must be pending, completed, or cancelled.'], 422);
-    }
-
-    $sale = Sale::findOrFail($id);
-    $sale->update(['status' => $status]);
-    $sale->saleItems()->update(['status' => $status]);
-
-    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']));
-});
-
-Route::put('/sales/{id}', function (Request $request, $id) {
-    $sale = Sale::findOrFail($id);
-    $status = $request->input('status') ?? $request->json('status');
-    if ($status && in_array($status, ['pending', 'completed', 'cancelled'])) {
-        $sale->update(['status' => $status]);
-        $sale->saleItems()->update(['status' => $status]);
-    }
-    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']));
-});
-
-Route::put('/sale-items/{id}/status', function (Request $request, $id) {
-    $status = $request->input('status') ?? $request->json('status');
-    if (!in_array($status, ['pending', 'completed', 'cancelled'])) {
-        return response()->json(['message' => 'Invalid status. Must be pending, completed, or cancelled.'], 422);
-    }
-
-    $item = \App\Models\SaleItem::findOrFail($id);
-    $item->update(['status' => $status]);
-
-    $sale = $item->sale;
-    $distinctStatuses = $sale->saleItems()->pluck('status')->unique();
-    if ($distinctStatuses->count() === 1) {
-        $sale->update(['status' => $distinctStatuses->first()]);
-    } elseif ($distinctStatuses->contains('pending')) {
-        $sale->update(['status' => 'pending']);
-    }
-
-    return response()->json($sale->load(['customer', 'saleItems.product.metalType', 'user', 'payments']));
-});
+// Sale Items API
+Route::put('/sale-items/{id}/status', [SaleItemController::class, 'updateStatus']);
+Route::apiResource('sale-items', SaleItemController::class);
 
 // Buybacks API
-Route::get('/buybacks', function () {
-    return response()->json(
-        Buyback::with(['customer', 'metalType'])->latest()->get()
-    );
-});
-
-Route::post('/buybacks', function (Request $request) {
-    $validated = $request->validate([
-        'customer_id' => 'nullable|exists:customers,id',
-        'metal_type_id' => 'required|exists:metal_types,id',
-        'weight' => 'required|numeric',
-        'buyback_rate' => 'required|numeric',
-        'deduction_rate' => 'nullable|numeric',
-        'labor_deduction' => 'nullable|numeric',
-        'total_refund' => 'required|numeric',
-        'buyback_date' => 'required|date',
-    ]);
-
-    $buyback = Buyback::create($validated);
-    return response()->json($buyback->load(['customer', 'metalType']), 201);
-});
+Route::apiResource('buybacks', BuybackController::class);
 
 // Suppliers API
-Route::get('/suppliers', function () {
-    return response()->json(Supplier::all());
-});
+Route::apiResource('suppliers', SupplierController::class);
 
-// Live Gold Price & Conversion APIs (GoldPriceController)
+// Purchases API
+Route::apiResource('purchases', PurchaseController::class);
+
+// Payments API
+Route::apiResource('payments', PaymentController::class);
+
+// VIP Membership Tiers API
+Route::apiResource('tiers', TierController::class);
+
+// Store Settings API
+Route::get('/settings', [SettingController::class, 'index']);
+Route::put('/settings', [SettingController::class, 'update']);
+
+// Promotions & Discounts API
+Route::get('/promotions/applicable', [PromotionController::class, 'applicable']);
+Route::apiResource('promotions', PromotionController::class);
+
+// Users Management API
+Route::apiResource('users', UserController::class);
+
+// Roles API
+Route::apiResource('roles', RoleController::class);
+
+// Live Gold Spot Price & Conversion APIs (GoldPriceController)
 Route::prefix('gold-price')->group(function () {
     Route::get('/spot', [GoldPriceController::class, 'getSpotPrice']);
     Route::get('/cambodia', [GoldPriceController::class, 'getCambodianGoldPrice']);
@@ -238,11 +120,10 @@ Route::prefix('gold-price')->group(function () {
     Route::get('/exchange-rate', [GoldPriceController::class, 'getExchangeRate']);
 });
 
-<<<<<<< HEAD
 // Live FX & Currency Exchange Rate APIs (USD to KHR)
 Route::get('/exchange-rate', [GoldPriceController::class, 'getExchangeRate']);
 Route::get('/exchange-rate/usd-khr', [GoldPriceController::class, 'getUsdKhrRate']);
-=======
+
 // Reports & Analytics APIs (ReportController)
 Route::prefix('reports')->group(function () {
     Route::get('/summary', [ReportController::class, 'getSummary']);
@@ -252,6 +133,3 @@ Route::prefix('reports')->group(function () {
     Route::get('/cashflow', [ReportController::class, 'getCashFlowReport']);
     Route::get('/gold-rates-history', [ReportController::class, 'getGoldRateHistoryReport']);
 });
-
->>>>>>> 8b6dce2b0f96e35d068bb5e8b25bc9042deb5373
-

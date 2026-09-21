@@ -23,15 +23,14 @@ export const GoldRatesView = () => {
   const {
     goldRates,
     updateGoldRate,
-    cambodianGold,
     liveSpot,
     refreshSpotPrice,
-    CAMBODIAN_STANDARDS,
     convertGramsToChi,
     convertGramsToDamlung,
-    addNotification,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    confirmDialog,
+    showToast
   } = useApp();
 
   const [selectedRateId, setSelectedRateId] = useState(goldRates[0]?.metal_type_id || 1);
@@ -110,12 +109,44 @@ export const GoldRatesView = () => {
   const khrRate = 4100;
   const totalValueKHR = Math.round(totalValueUSD * khrRate);
 
-  const handleUpdate = (e) => {
+  const handleUpdate = async (e) => {
     e.preventDefault();
     if (!newSellRate || !newBuyRate) return;
-    updateGoldRate(Number(selectedRateId), parseFloat(newSellRate), parseFloat(newBuyRate));
-    setNewSellRate('');
-    setNewBuyRate('');
+    const targetRate = goldRates.find(r => r.metal_type_id === Number(selectedRateId));
+    const metalName = targetRate ? targetRate.name : 'Metal Rate';
+
+    const confirmed = await confirmDialog({
+      title: isKhmer ? 'បញ្ជាក់ការកែប្រែតម្លៃមាស?' : 'Update Daily Gold Rate?',
+      html: `
+        <div class="text-center">
+          <p class="text-xs text-slate-600 mb-3">
+            ${isKhmer ? `តើអ្នកពិតជាចង់កំណត់តម្លៃថ្មីសម្រាប់ <strong>${metalName}</strong> មែនទេ?` : `Apply new Atelier bullion pricing for <strong>${metalName}</strong>?`}
+          </p>
+          <div class="grid grid-cols-2 gap-2 p-3 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-center font-mono">
+            <div>
+              <span class="text-[10px] text-slate-500 block font-sans">${isKhmer ? 'តម្លៃលក់ចេញថ្មី' : 'New Sell Rate'}</span>
+              <span class="font-bold text-emerald-700 text-sm">$${parseFloat(newSellRate).toFixed(2)}/g</span>
+            </div>
+            <div>
+              <span class="text-[10px] text-slate-500 block font-sans">${isKhmer ? 'តម្លៃទិញចូលថ្មី' : 'New Buyback Rate'}</span>
+              <span class="font-bold text-amber-800 text-sm">$${parseFloat(newBuyRate).toFixed(2)}/g</span>
+            </div>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-2.5">
+            ${isKhmer ? 'តម្លៃស្តុកទំនិញទាំងអស់នឹងត្រូវគណនាឡើងវិញដោយស្វ័យប្រវត្តិ។' : 'Live catalog inventory will be re-priced according to this fix.'}
+          </p>
+        </div>
+      `,
+      confirmButtonText: isKhmer ? 'យល់ព្រមអនុវត្ត' : 'Apply New Rates',
+      cancelButtonText: isKhmer ? 'បោះបង់' : 'Cancel',
+      icon: 'question'
+    });
+
+    if (confirmed) {
+      await updateGoldRate(Number(selectedRateId), parseFloat(newSellRate), parseFloat(newBuyRate));
+      setNewSellRate('');
+      setNewBuyRate('');
+    }
   };
 
   const handleCopyQuote = () => {
@@ -126,7 +157,7 @@ export const GoldRatesView = () => {
     const text = `JewelFlow Quote (${basisLabel}): ${calcWeight} ${unitLabel} (${calcPurity.toUpperCase()}) = $${totalValueUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD (${totalValueKHR.toLocaleString()} KHR)`;
     navigator.clipboard?.writeText(text);
     setCopied(true);
-    addNotification(isKhmer ? `បានចម្លងសម្រង់តម្លៃ (${basisLabel})!` : `Gold valuation quote (${basisLabel}) copied to clipboard!`, 'info');
+    showToast(isKhmer ? `បានចម្លងសម្រង់តម្លៃ (${basisLabel})!` : `Gold valuation quote (${basisLabel}) copied to clipboard!`, 'info');
     setTimeout(() => setCopied(false), 2500);
   };
 

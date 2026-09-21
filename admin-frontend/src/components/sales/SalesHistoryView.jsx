@@ -109,7 +109,7 @@ export const SalesHistoryView = () => {
 
   // KPI Calculations
   const metrics = useMemo(() => {
-    const totalRev = sales.reduce((acc, s) => acc + (parseFloat(s.grand_total) || 0), 0);
+    const totalRev = sales.reduce((acc, s) => acc + (parseFloat(s.grand_total_usd ?? s.grand_total) || 0), 0);
     const totalCount = sales.length;
     const completedCount = sales.filter(s => (s.status || 'completed') === 'completed').length;
     const pendingCount = sales.filter(s => s.status === 'pending').length;
@@ -169,7 +169,7 @@ export const SalesHistoryView = () => {
   const handleExportCsv = () => {
     if (!filteredSales.length) return;
 
-    const headers = ['Invoice No', 'Date', 'Customer Name', 'Phone', 'Items Count', 'Subtotal ($)', 'Discount ($)', 'Tax ($)', 'Grand Total ($)', 'Payment Method', 'Status', 'Staff'];
+    const headers = ['Invoice No', 'Date', 'Customer Name', 'Phone', 'Items Count', 'Subtotal ($)', 'Discount ($)', 'Tax ($)', 'Grand Total (USD)', 'Grand Total (KHR)', 'Currency', 'Payment Method', 'Status', 'Staff'];
     const rows = filteredSales.map(s => [
       `"${s.invoice_no}"`,
       `"${s.sale_date}"`,
@@ -179,7 +179,9 @@ export const SalesHistoryView = () => {
       (s.total_amount || 0).toFixed(2),
       (s.discount || 0).toFixed(2),
       (s.tax || 0).toFixed(2),
-      (s.grand_total || 0).toFixed(2),
+      (parseFloat(s.grand_total_usd ?? s.grand_total) || 0).toFixed(2),
+      (parseFloat(s.grand_total_khr) || Math.round((parseFloat(s.grand_total_usd ?? s.grand_total) || 0) * 4100)),
+      `"${s.currency || 'USD'}"`,
       `"${s.payment_method || 'Credit Card'}"`,
       `"${s.payment_status || 'Paid'}"`,
       `"${s.user_name || ''}"`
@@ -477,10 +479,31 @@ export const SalesHistoryView = () => {
                         <td className="py-3.5 px-4">
                           <div className="space-y-1">
                             {getPaymentBadge(sale.payment_method)}
-                            <div className="flex items-center gap-1 text-[11px] text-emerald-700 font-semibold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              {sale.payment_status || t('salesHistory.paid', 'Paid')}
+                            <div className="flex items-center gap-1.5 text-[11px] font-semibold">
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                (sale.payment_status || '').toLowerCase() === 'partial'
+                                  ? 'bg-amber-500'
+                                  : (sale.payment_status || '').toLowerCase() === 'pending'
+                                  ? 'bg-slate-400'
+                                  : 'bg-emerald-500'
+                              }`}></span>
+                              <span className={`${
+                                (sale.payment_status || '').toLowerCase() === 'partial'
+                                  ? 'text-amber-800 font-bold'
+                                  : (sale.payment_status || '').toLowerCase() === 'pending'
+                                  ? 'text-slate-600'
+                                  : 'text-emerald-700'
+                              }`}>
+                                {(sale.payment_status || '').toLowerCase() === 'partial'
+                                  ? (isKhmer ? 'លុយកក់ (Deposit)' : 'Deposit')
+                                  : (sale.payment_status || t('salesHistory.paid', 'Paid'))}
+                              </span>
                             </div>
+                            {((sale.payment_status || '').toLowerCase() === 'partial' || (parseFloat(sale.balance_due) || 0) > 0) && (
+                              <div className="text-[10px] text-rose-700 font-mono font-bold">
+                                {isKhmer ? 'នៅខ្វះ: ' : 'Due: '}${parseFloat(sale.balance_due || 0).toFixed(2)}
+                              </div>
+                            )}
                           </div>
                         </td>
 
@@ -516,8 +539,11 @@ export const SalesHistoryView = () => {
 
                         {/* Grand Total */}
                         <td className="py-3.5 px-4 text-right">
-                          <span className="text-base font-bold font-mono text-slate-900">
-                            ${(sale.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          <span className="text-base font-bold font-mono text-slate-900 block">
+                            ${(parseFloat(sale.grand_total_usd ?? sale.grand_total) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="text-xs font-mono font-medium text-slate-500 block">
+                            ៛{(parseFloat(sale.grand_total_khr) || Math.round((parseFloat(sale.grand_total_usd ?? sale.grand_total) || 0) * 4100)).toLocaleString()}
                           </span>
                         </td>
 
@@ -627,13 +653,27 @@ export const SalesHistoryView = () => {
                                       <span key={pIdx} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px]">
                                         <strong className="capitalize">{p.payment_method?.replace(/_/g, ' ')}</strong>
                                         {p.reference_no && <span className="text-slate-400">({p.reference_no})</span>}
-                                        <strong className="text-slate-900">${(parseFloat(p.amount) || 0).toFixed(2)}</strong>
+                                        <strong className="text-slate-900">
+                                          {p.currency === 'KHR'
+                                            ? `៛${Math.round(parseFloat(p.amount) || 0).toLocaleString()}`
+                                            : `$${(parseFloat(p.amount) || 0).toFixed(2)}`}
+                                        </strong>
+                                        <span className="text-[10px] font-bold px-1 rounded bg-amber-100 text-amber-900">{p.currency || sale.currency || 'USD'}</span>
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                          (p.status || 'paid').toLowerCase() === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                        }`}>
+                                          {p.status || 'paid'}
+                                        </span>
                                       </span>
                                     ))
                                   ) : (
                                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 font-mono text-[11px]">
                                       <strong className="capitalize">{sale.payment_method?.replace(/_/g, ' ') || 'Cash'}</strong>
-                                      <strong className="text-slate-900">${(parseFloat(sale.grand_total) || 0).toFixed(2)}</strong>
+                                      <strong className="text-slate-900">${(parseFloat(sale.grand_total_usd ?? sale.grand_total) || 0).toFixed(2)}</strong>
+                                      <span className="text-[10px] font-bold px-1 rounded bg-amber-100 text-amber-900">{sale.currency || 'USD'}</span>
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+                                        {sale.payment_status || 'paid'}
+                                      </span>
                                     </span>
                                   )}
                                 </div>

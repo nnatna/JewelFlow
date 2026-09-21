@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { ProductModal } from './ProductModal';
 import { Pagination } from '../common/Pagination';
+import { Alert } from '../common/Alert';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faPlus,
@@ -18,7 +19,7 @@ import {
 const fallbackImg = 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80';
 
 export const ProductList = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     products,
     categories,
@@ -26,7 +27,9 @@ export const ProductList = () => {
     deleteProduct,
     calculateProductPrice,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    confirmDialog,
+    showToast
   } = useApp();
 
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -68,8 +71,52 @@ export const ProductList = () => {
     setIsModalOpen(true);
   };
 
+  const handleDeleteProduct = async (product) => {
+    const isKhmer = (i18n.language || 'km').startsWith('km');
+    const confirmed = await confirmDialog({
+      title: isKhmer ? 'តើអ្នកពិតជាចង់លុបគ្រឿងអលង្ការនេះមែនទេ?' : 'Delete Jewelry Piece?',
+      html: `
+        <div class="text-center">
+          <p class="text-sm text-slate-600 mb-3">
+            ${isKhmer ? 'តើអ្នកចង់លុបធាតុនេះចេញពីបញ្ជីសារពើភណ្ឌមែនទេ?' : 'Are you sure you want to remove this piece from inventory?'}
+          </p>
+          <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl inline-block text-left text-xs text-slate-800">
+            <span class="font-bold text-slate-900 block">${product.name}</span>
+            <span class="font-mono text-slate-500">SKU: ${product.code_sku || 'N/A'}</span>
+          </div>
+          <p class="text-xs text-rose-500 mt-3 font-medium">
+            ${isKhmer ? 'សកម្មភាពនេះមិនអាចត្រឡប់វិញបានទេ!' : 'This action cannot be undone.'}
+          </p>
+        </div>
+      `,
+      confirmButtonText: isKhmer ? 'យល់ព្រមលុប' : 'Yes, Delete It',
+      cancelButtonText: isKhmer ? 'បោះបង់' : 'Cancel',
+      isDanger: true,
+      icon: 'warning'
+    });
+
+    if (confirmed) {
+      await deleteProduct(product.id);
+    }
+  };
+
+  const [showLowStockAlert, setShowLowStockAlert] = useState(true);
+  const lowStockCount = products.filter(p => Number(p.stock_qty) <= 3).length;
+
   return (
     <div className="space-y-6 w-full">
+      {/* Low Stock Alert Banner */}
+      {showLowStockAlert && lowStockCount > 0 && !cleanQ && (
+        <Alert
+          type="warning"
+          variant="standard"
+          title={t('dashboard.lowStockAlert', 'Low Stock Warning')}
+          message={`${lowStockCount} jewelry piece(s) in catalog have fallen to critical stock levels (≤ 3 units). Restock is recommended to maintain active POS operations.`}
+          dismissible
+          onClose={() => setShowLowStockAlert(false)}
+        />
+      )}
+
       {/* Top Controls */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 w-full">
         <div>
@@ -241,7 +288,7 @@ export const ProductList = () => {
                             <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
                           </button>
                           <button
-                            onClick={() => deleteProduct(product.id)}
+                            onClick={() => handleDeleteProduct(product)}
                             className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-800 cursor-pointer transition-colors"
                             title={t('common.delete', 'Delete')}
                           >
@@ -334,7 +381,7 @@ export const ProductList = () => {
                         <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
                       </button>
                       <button
-                        onClick={() => deleteProduct(product.id)}
+                        onClick={() => handleDeleteProduct(product)}
                         className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-400 hover:text-rose-600 cursor-pointer"
                         title={t('common.delete', 'Delete')}
                       >

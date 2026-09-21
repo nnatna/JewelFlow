@@ -13,7 +13,8 @@ import {
   faUsers,
   faTruck,
   faShieldHalved,
-  faScaleBalanced
+  faScaleBalanced,
+  faTag, faGear
 } from '@fortawesome/free-solid-svg-icons';
 
 export const Sidebar = () => {
@@ -23,15 +24,17 @@ export const Sidebar = () => {
   const totalGoldWeight = products.reduce((acc, p) => acc + (Number(p.net_weight) * Number(p.stock_qty)), 0);
 
   const navItems = [
-    { id: 'dashboard', label: t('nav.dashboard', 'Dashboard'), icon: faTableColumns },
-    { id: 'pos', label: t('nav.pos', 'POS Terminal'), icon: faBagShopping, badge: cart.length > 0 ? `${cart.length} in cart` : null },
-    { id: 'sales_history', label: t('nav.salesHistory', 'History Sales'), icon: faClockRotateLeft, badge: sales?.length > 0 ? `${sales.length}` : null },
-    { id: 'products', label: t('nav.catalog', 'Jewelry Catalog'), icon: faGem, badge: `${products.length}` },
-    { id: 'goldrates', label: t('nav.goldRates', 'Daily Metal Fix'), icon: faArrowTrendUp },
-    { id: 'buyback', label: t('nav.buybacks', 'Scrap Gold Buybacks'), icon: faArrowsRotate },
-    { id: 'gemstones', label: t('nav.gemstones', 'Gemstones Vault'), icon: faWandMagicSparkles },
-    { id: 'customers', label: t('nav.customers', 'Clientèle CRM'), icon: faUsers },
-    { id: 'suppliers', label: t('nav.suppliers', 'Suppliers Directory'), icon: faTruck },
+    { id: 'dashboard',    label: t('nav.dashboard', 'Dashboard'),           icon: faTableColumns },
+    { id: 'pos',          label: t('nav.pos', 'POS Terminal'),               icon: faBagShopping, badge: cart.length > 0 ? `${cart.length}` : null },
+    { id: 'sales_history',label: t('nav.salesHistory', 'History Sales'),     icon: faClockRotateLeft, badge: sales?.length > 0 ? `${sales.length}` : null },
+    { id: 'products',     label: t('nav.catalog', 'Jewelry Catalog'),        icon: faGem, badge: `${products.length}` },
+    { id: 'goldrates',    label: t('nav.goldRates', 'Daily Metal Fix'),      icon: faArrowTrendUp },
+    { id: 'buyback',      label: t('nav.buybacks', 'Scrap Gold Buybacks'),   icon: faArrowsRotate },
+    { id: 'gemstones',    label: t('nav.gemstones', 'Gemstones Vault'),      icon: faWandMagicSparkles },
+    { id: 'customers',    label: t('nav.customers', 'Customers CRM'),        icon: faUsers },
+    { id: 'promotions',   label: t('nav.promotions', 'Promotions'),          icon: faTag },
+    { id: 'suppliers',    label: t('nav.suppliers', 'Suppliers Directory'),  icon: faTruck },
+    { id: 'settings',     label: t('nav.settings', 'Settings'),              icon: faGear },
   ];
 
   return (
@@ -63,20 +66,18 @@ export const Sidebar = () => {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
-                isActive
-                  ? 'bg-amber-50 text-amber-900 border border-amber-300/80 shadow-xs font-semibold'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
-              }`}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${isActive
+                ? 'bg-amber-50 text-amber-900 border border-amber-300/80 shadow-xs font-semibold'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-transparent'
+                }`}
             >
               <div className="flex items-center gap-3">
                 <FontAwesomeIcon icon={item.icon} className={`w-4 h-4 ${isActive ? 'text-amber-600' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
               </div>
               {item.badge && (
-                <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                  isActive ? 'bg-amber-500 text-white font-bold' : 'bg-slate-100 text-slate-600'
-                }`}>
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${isActive ? 'bg-amber-500 text-white font-bold' : 'bg-slate-100 text-slate-600'
+                  }`}>
                   {item.badge}
                 </span>
               )}

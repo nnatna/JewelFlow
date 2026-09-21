@@ -5,9 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Buyback;
 use App\Models\Category;
-use App\Models\Customer;
 use App\Models\GoldRate;
-use App\Models\MetalType;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -28,12 +26,12 @@ class ReportController extends Controller
         $startDate = $request->query('start_date');
         $endDate = $request->query('end_date');
 
-        if (!$startDate) {
+        if (! $startDate) {
             // Default to start of current month or 30 days ago
             $startDate = Carbon::now()->startOfMonth()->toDateString();
         }
 
-        if (!$endDate) {
+        if (! $endDate) {
             $endDate = Carbon::now()->endOfDay()->toDateString();
         }
 
@@ -58,7 +56,7 @@ class ReportController extends Controller
             'chi' => round($chi, 2),
             'damlung' => round($damlung, 3),
             'hun' => round($hun, 1),
-            'display_kh' => round($chi, 2) . ' ជី (' . round($grams, 2) . ' ក្រាម)',
+            'display_kh' => round($chi, 2).' ជី ('.round($grams, 2).' ក្រាម)',
         ];
     }
 
@@ -76,7 +74,7 @@ class ReportController extends Controller
         $grossSales = (clone $salesQuery)->sum('total_amount') ?? 0;
         $totalDiscount = (clone $salesQuery)->sum('discount') ?? 0;
         $totalTax = (clone $salesQuery)->sum('tax') ?? 0;
-        $netSales = (clone $salesQuery)->sum('grand_total') ?? 0;
+        $netSales = (float) ((clone $salesQuery)->sum('grand_total_usd') ?? 0);
 
         // Sale items totals (Weight sold, labor fee, gemstone sales)
         $saleItemsInPeriod = SaleItem::whereHas('sale', function ($q) use ($startDate, $endDate) {
@@ -112,7 +110,7 @@ class ReportController extends Controller
         $latestRates = GoldRate::orderBy('effective_date', 'desc')
             ->get()
             ->groupBy('metal_type_id')
-            ->map(fn($rates) => $rates->first());
+            ->map(fn ($rates) => $rates->first());
 
         foreach ($products as $p) {
             $qty = (int) $p->stock_qty;
@@ -212,7 +210,7 @@ class ReportController extends Controller
         $grossTotal = (float) $allSales->sum('total_amount');
         $totalDiscount = (float) $allSales->sum('discount');
         $totalTax = (float) $allSales->sum('tax');
-        $grandTotal = (float) $allSales->sum('grand_total');
+        $grandTotal = (float) $allSales->sum('grand_total_usd');
         $avgTicket = $totalInvoices > 0 ? ($grandTotal / $totalInvoices) : 0;
 
         // Sale items aggregates
@@ -226,10 +224,13 @@ class ReportController extends Controller
             return Carbon::parse($sale->sale_date)->toDateString();
         })->map(function ($daySales, $date) {
             $dayItems = $daySales->flatMap->saleItems;
+
             return [
                 'date' => $date,
                 'invoices_count' => $daySales->count(),
-                'grand_total' => round($daySales->sum('grand_total'), 2),
+                'grand_total' => round($daySales->sum('grand_total_usd'), 2),
+                'grand_total_usd' => round($daySales->sum('grand_total_usd'), 2),
+                'grand_total_khr' => round($daySales->sum('grand_total_khr'), 2),
                 'gross_total' => round($daySales->sum('total_amount'), 2),
                 'weight_sold_g' => round($dayItems->sum('weight_sold'), 2),
                 'weight_sold_chi' => round($dayItems->sum('weight_sold') / 3.75, 2),
@@ -241,6 +242,7 @@ class ReportController extends Controller
             return $item->product?->metalType?->name ?? 'Other Metal';
         })->map(function ($items, $metalName) {
             $weightG = (float) $items->sum('weight_sold');
+
             return [
                 'metal_type' => $metalName,
                 'items_sold_count' => $items->count(),
@@ -272,8 +274,8 @@ class ReportController extends Controller
 
             return [
                 'product_id' => $firstItem->product_id,
-                'code_sku' => $product?->code_sku ?? ('SKU-' . $firstItem->product_id),
-                'name' => $product?->name ?? ('Product #' . $firstItem->product_id),
+                'code_sku' => $product?->code_sku ?? ('SKU-'.$firstItem->product_id),
+                'name' => $product?->name ?? ('Product #'.$firstItem->product_id),
                 'metal_type' => $product?->metalType?->name ?? 'Gold',
                 'category' => $product?->category?->name ?? 'Jewelry',
                 'quantity_sold' => (int) $qtySold,
@@ -286,11 +288,12 @@ class ReportController extends Controller
         // 6. Sales by Staff/Cashier
         $salesByStaff = $allSales->groupBy('user_id')->map(function ($staffSales) {
             $user = $staffSales->first()->user;
+
             return [
                 'user_id' => $user?->id ?? 0,
                 'name' => $user?->name ?? 'Cashier Staff',
                 'invoices_count' => $staffSales->count(),
-                'total_revenue' => round($staffSales->sum('grand_total'), 2),
+                'total_revenue' => round($staffSales->sum('grand_total_usd'), 2),
             ];
         })->values();
 
@@ -367,6 +370,7 @@ class ReportController extends Controller
         $buybacksByMetal = $allBuybacks->groupBy('metal_type_id')->map(function ($items) {
             $metal = $items->first()->metalType;
             $weightG = (float) $items->sum('weight');
+
             return [
                 'metal_type_id' => $metal?->id ?? 0,
                 'metal_name' => $metal?->name ?? 'Scrap Gold',
@@ -425,7 +429,7 @@ class ReportController extends Controller
         $latestRates = GoldRate::orderBy('effective_date', 'desc')
             ->get()
             ->groupBy('metal_type_id')
-            ->map(fn($rates) => $rates->first());
+            ->map(fn ($rates) => $rates->first());
 
         $totalUnits = 0;
         $totalNetWeightG = 0;
@@ -467,7 +471,7 @@ class ReportController extends Controller
         $stockByMetal = $allProducts->groupBy('metal_type_id')->map(function ($items) use ($latestRates) {
             $metal = $items->first()->metalType;
             $qty = $items->sum('stock_qty');
-            $weightG = $items->reduce(fn($acc, $p) => $acc + ($p->net_weight * $p->stock_qty), 0);
+            $weightG = $items->reduce(fn ($acc, $p) => $acc + ($p->net_weight * $p->stock_qty), 0);
 
             $rateObj = $latestRates->get($metal?->id);
             $sellRate = $rateObj ? (float) $rateObj->sell_rate : 85.50;
@@ -488,7 +492,7 @@ class ReportController extends Controller
         $stockByCategory = $allProducts->groupBy('category_id')->map(function ($items) use ($latestRates) {
             $category = $items->first()->category;
             $qty = $items->sum('stock_qty');
-            $weightG = $items->reduce(fn($acc, $p) => $acc + ($p->net_weight * $p->stock_qty), 0);
+            $weightG = $items->reduce(fn ($acc, $p) => $acc + ($p->net_weight * $p->stock_qty), 0);
             $categoryValuation = 0;
 
             foreach ($items as $p) {
@@ -511,7 +515,7 @@ class ReportController extends Controller
         })->values();
 
         // 3. Low stock alerts
-        $lowStockItems = $allProducts->filter(fn($p) => $p->stock_qty <= 3)->map(function ($p) {
+        $lowStockItems = $allProducts->filter(fn ($p) => $p->stock_qty <= 3)->map(function ($p) {
             return [
                 'id' => $p->id,
                 'name' => $p->name,
@@ -556,7 +560,7 @@ class ReportController extends Controller
 
         // Inflows (Sales)
         $sales = Sale::whereBetween('sale_date', [$startDate, $endDate])->get();
-        $totalInflow = (float) $sales->sum('grand_total');
+        $totalInflow = (float) $sales->sum('grand_total_usd');
 
         // Outflows (Buybacks + Purchases)
         $buybacks = Buyback::whereBetween('buyback_date', [$startDate, $endDate])->get();
@@ -597,11 +601,11 @@ class ReportController extends Controller
         $uniqueDates = $allDates->unique()->sort()->values();
 
         $dailyTimeline = $uniqueDates->map(function ($date) use ($sales, $buybacks, $purchases) {
-            $daySales = $sales->filter(fn($s) => Carbon::parse($s->sale_date)->toDateString() === $date);
-            $dayBuybacks = $buybacks->filter(fn($b) => Carbon::parse($b->buyback_date)->toDateString() === $date);
-            $dayPurchases = $purchases->filter(fn($p) => Carbon::parse($p->purchase_date)->toDateString() === $date);
+            $daySales = $sales->filter(fn ($s) => Carbon::parse($s->sale_date)->toDateString() === $date);
+            $dayBuybacks = $buybacks->filter(fn ($b) => Carbon::parse($b->buyback_date)->toDateString() === $date);
+            $dayPurchases = $purchases->filter(fn ($p) => Carbon::parse($p->purchase_date)->toDateString() === $date);
 
-            $inflow = (float) $daySales->sum('grand_total');
+            $inflow = (float) $daySales->sum('grand_total_usd');
             $outflow = (float) ($dayBuybacks->sum('total_refund') + $dayPurchases->sum('total_amount'));
 
             return [
@@ -657,7 +661,7 @@ class ReportController extends Controller
             return [
                 'id' => $r->id,
                 'metal_type_id' => $r->metal_type_id,
-                'metal_name' => $r->metalType?->name ?? ('Metal #' . $r->metal_type_id),
+                'metal_name' => $r->metalType?->name ?? ('Metal #'.$r->metal_type_id),
                 'sell_rate' => $sell,
                 'buy_rate' => $buy,
                 'spread' => round($spread, 2),

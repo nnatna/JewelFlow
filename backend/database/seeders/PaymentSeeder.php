@@ -19,8 +19,10 @@ class PaymentSeeder extends Seeder
                 'payable_id' => $buyback->id,
                 'amount' => $buyback->total_refund,
                 'payment_method' => rand(0, 1) ? 'cash' : 'bank_transfer',
+                'currency' => 'USD',
                 'payment_date' => $buyback->buyback_date,
-                'reference_no' => 'PAY-BB-' . rand(10000, 99999),
+                'reference_no' => 'PAY-BB-'.rand(10000, 99999),
+                'status' => 'paid',
             ]);
         }
 
@@ -30,10 +32,12 @@ class PaymentSeeder extends Seeder
             Payment::create([
                 'payable_type' => Sale::class,
                 'payable_id' => $sale->id,
-                'amount' => $sale->grand_total,
+                'amount' => $sale->grand_total_usd ?? $sale->grand_total,
                 'payment_method' => 'credit_card',
+                'currency' => 'USD',
                 'payment_date' => $sale->sale_date,
-                'reference_no' => 'PAY-' . rand(10000, 99999),
+                'reference_no' => 'PAY-'.rand(10000, 99999),
+                'status' => 'paid',
             ]);
         }
     }
