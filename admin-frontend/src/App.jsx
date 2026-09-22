@@ -11,13 +11,26 @@ import { BuybackView } from './components/buyback/BuybackView';
 import { GemstonesView } from './components/gemstones/GemstonesView';
 import { CustomersView } from './components/customers/CustomersView';
 import { SuppliersView } from './components/suppliers/SuppliersView';
+import { PurchasesView } from './components/purchases/PurchasesView';
 import { PromotionsView } from './components/promotions/PromotionsView';
+import { ReportsView } from './components/reports/ReportsView';
+import { CategoriesView } from './components/categories/CategoriesView';
 import { SettingsView } from './components/settings/SettingsView';
+import { LoginView } from './components/auth/LoginView';
 import { ToastContainer } from './components/common/ToastContainer';
 import './App.css';
 
 const MainLayout = () => {
-  const { activeTab } = useApp();
+  const { activeTab, currentUser } = useApp();
+
+  if (!currentUser) {
+    return (
+      <>
+        <LoginView />
+        <ToastContainer />
+      </>
+    );
+  }
 
   const renderContent = () => {
     switch (activeTab) {
@@ -30,6 +43,8 @@ const MainLayout = () => {
         return <SalesHistoryView />;
       case 'products':
         return <ProductList />;
+      case 'categories':
+        return <CategoriesView />;
       case 'goldrates':
         return <GoldRatesView />;
       case 'buyback':
@@ -40,6 +55,10 @@ const MainLayout = () => {
         return <CustomersView />;
       case 'promotions':
         return <PromotionsView />;
+      case 'reports':
+        return <ReportsView />;
+      case 'purchases':
+        return <PurchasesView />;
       case 'suppliers':
         return <SuppliersView />;
       case 'settings':
@@ -60,7 +79,7 @@ const MainLayout = () => {
         <Navbar />
 
         {/* Content View */}
-        <main className={`flex-1 min-h-0 w-full ${activeTab === 'pos' ? 'overflow-y-auto lg:overflow-hidden p-3 sm:p-4 lg:p-5' : 'overflow-y-auto p-6 lg:p-8'}`}>
+        <main className={`flex-1 min-h-0 w-full ${activeTab === 'pos' || activeTab === 'settings' ? 'overflow-hidden p-3 sm:p-4 lg:p-5' : 'overflow-y-auto p-6 lg:p-8'}`}>
           {renderContent()}
         </main>
       </div>

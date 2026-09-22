@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuybackController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CustomerController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Api\GoldRateController;
 use App\Http\Controllers\Api\ImageController;
 use App\Http\Controllers\Api\MetalTypeController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProductGemstoneController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\SaleController;
 use App\Http\Controllers\Api\SaleItemController;
 use App\Http\Controllers\Api\SettingController;
+use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\TierController;
 use App\Http\Controllers\Api\UserController;
@@ -35,6 +38,11 @@ use Illuminate\Support\Facades\Route;
 | All routes are configured with dedicated API Controllers under App\Http\Controllers\Api.
 |
 */
+
+// Authentication API
+Route::post('/login', [AuthController::class, 'login']);
+Route::post('/logout', [AuthController::class, 'logout']);
+Route::get('/me', [AuthController::class, 'me'])->middleware('auth:sanctum');
 
 // Authenticated User
 Route::get('/user', function (Request $request) {
@@ -88,6 +96,8 @@ Route::apiResource('buybacks', BuybackController::class);
 Route::apiResource('suppliers', SupplierController::class);
 
 // Purchases API
+Route::put('/purchases/{id}/confirm-arrival', [PurchaseController::class, 'confirmArrival']);
+Route::put('/purchases/{id}/cancel', [PurchaseController::class, 'cancelOrder']);
 Route::apiResource('purchases', PurchaseController::class);
 
 // Payments API
@@ -100,11 +110,21 @@ Route::apiResource('tiers', TierController::class);
 Route::get('/settings', [SettingController::class, 'index']);
 Route::put('/settings', [SettingController::class, 'update']);
 
+// Store Atelier & Branches Management API
+Route::get('/stores/primary', [StoreController::class, 'primary']);
+Route::post('/stores/{id}/logo', [StoreController::class, 'uploadLogo']);
+Route::apiResource('stores', StoreController::class);
+
 // Promotions & Discounts API
 Route::get('/promotions/applicable', [PromotionController::class, 'applicable']);
 Route::apiResource('promotions', PromotionController::class);
 
+// Permissions API
+Route::get('/permissions', [PermissionController::class, 'index']);
+
 // Users Management API
+Route::put('/users/{id}/status', [UserController::class, 'toggleStatus']);
+Route::put('/users/{id}/permissions', [UserController::class, 'syncPermissions']);
 Route::apiResource('users', UserController::class);
 
 // Roles API

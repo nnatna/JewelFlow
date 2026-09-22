@@ -20,8 +20,8 @@ class ProductGemstoneFactory extends Factory
     public function definition(): array
     {
         return [
-            'product_id' => Product::factory(),
-            'gemstone_id' => Gemstone::factory(),
+            'product_id' => Product::inRandomOrder()->value('id') ?? Product::factory(),
+            'gemstone_id' => Gemstone::inRandomOrder()->value('id') ?? Gemstone::factory(),
             'quantity' => fake()->numberBetween(1, 6),
             'total_carat' => fake()->randomFloat(2, 0.2, 4.0),
             'setting_cost' => fake()->randomFloat(2, 5, 50),

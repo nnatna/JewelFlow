@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import apiService from '../services/api';
-import { initialSales } from '../types/mockData';
 import swal, {
   confirmDialog,
   showSuccess,
@@ -34,11 +33,15 @@ export const AppProvider = ({ children }) => {
   const [categories, setCategories] = useState([]);
   const [gemstones, setGemstones] = useState([]);
   const [customers, setCustomers] = useState([]);
-  const [sales, setSales] = useState(initialSales);
+  const [sales, setSales] = useState([]);
   const [buybacks, setBuybacks] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
+  const [purchases, setPurchases] = useState([]);
   const [promotions, setPromotions] = useState([]);
   const [tiers, setTiers] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [permissions, setPermissions] = useState({ all: [], modules: {} });
   const [settings, setSettings] = useState({ language: 'km', low_stock_threshold: 3 });
   const [cambodianGold, setCambodianGold] = useState(null);
   const [liveSpot, setLiveSpot] = useState({
@@ -54,12 +57,73 @@ export const AppProvider = ({ children }) => {
     formatted: '4,045',
     base: 'USD',
     target: 'KHR',
-    symbol: '៛',
-    display_khmer: '១ USD = ៤,០៤៥ រៀល (៛)',
-    display_english: '1 USD = 4,045 KHR',
     source: 'Live FX',
     last_updated: ''
   });
+
+  // Authentication State
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem('jewelflow_auth_user');
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [authToken, setAuthToken] = useState(() => localStorage.getItem('jewelflow_auth_token') || null);
+
+  // Login handler
+  const login = async (email, password) => {
+    try {
+      const res = await apiService.login(email, password);
+      if (res && res.token) {
+        localStorage.setItem('jewelflow_auth_token', res.token);
+        localStorage.setItem('jewelflow_auth_user', JSON.stringify(res.user));
+        setAuthToken(res.token);
+        setCurrentUser(res.user);
+        return res;
+      }
+      throw new Error(res?.message || 'Login failed');
+    } catch (err) {
+      console.error('Login error in context:', err);
+      throw err;
+    }
+  };
+
+  // Logout handler
+  const logout = async () => {
+    try {
+      await apiService.logout();
+    } catch (e) {
+      console.error('Logout error:', e);
+    } finally {
+      localStorage.removeItem('jewelflow_auth_token');
+      localStorage.removeItem('jewelflow_auth_user');
+      setAuthToken(null);
+      setCurrentUser(null);
+    }
+  };
+
+  // Active Settings Sub-Tab State
+  const [settingsTab, setSettingsTab] = useState('profile');
+
+  // Update Current User Profile
+  const updateProfile = async (profileData) => {
+    try {
+      const res = await apiService.updateProfile(profileData);
+      if (res && res.user) {
+        setCurrentUser(res.user);
+        localStorage.setItem('jewelflow_auth_user', JSON.stringify(res.user));
+        setUsers(prev => prev.map(u => u.id === res.user.id ? { ...u, ...res.user } : u));
+        return res.user;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error in updateProfile:', err);
+      throw err;
+    }
+  };
+
   const [backendConnected, setBackendConnected] = useState(false);
 
   // POS Cart State
@@ -87,7 +151,7 @@ export const AppProvider = ({ children }) => {
         const isHealthy = await apiService.checkHealth();
         setBackendConnected(isHealthy);
 
-        const [prods, rates, cats, metals, gems, custs, sls, bbs, sups, promos, tierData, settingsData, camGold, spotData, fxData] = await Promise.all([
+        const [prods, rates, cats, metals, gems, custs, sls, bbs, sups, purchs, promos, tierData, usersData, rolesData, permsData, settingsData, camGold, spotData, fxData] = await Promise.all([
           apiService.getProducts(),
           apiService.getGoldRates(),
           apiService.getCategories(),
@@ -97,8 +161,12 @@ export const AppProvider = ({ children }) => {
           apiService.getSales(),
           apiService.getBuybacks(),
           apiService.getSuppliers(),
+          apiService.getPurchases(),
           apiService.getPromotions(),
           apiService.getTiers(),
+          apiService.getUsers(),
+          apiService.getRoles(),
+          apiService.getPermissions(),
           apiService.getSettings(),
           apiService.getCambodianGold(),
           apiService.getSpotPrice('XAU', 'USD', true),
@@ -111,11 +179,15 @@ export const AppProvider = ({ children }) => {
         setMetalTypes(metals);
         setGemstones(gems);
         setCustomers(custs);
-        setSales(sls && sls.length > 0 ? sls : initialSales);
+        setSales(sls || []);
         setBuybacks(bbs);
         setSuppliers(sups);
+        setPurchases(purchs || []);
         setPromotions(promos || []);
         setTiers(tierData || []);
+        setUsers(usersData || []);
+        setRoles(rolesData || []);
+        if (permsData) setPermissions(permsData);
         setSettings(prev => ({ ...prev, ...(settingsData || {}) }));
         if (camGold) setCambodianGold(camGold);
         if (spotData && spotData.spot_price_per_oz !== undefined) setLiveSpot(spotData);
@@ -535,8 +607,8 @@ export const AppProvider = ({ children }) => {
             const isKhmer = (i18n.language || 'km').startsWith('km');
             addNotification(
               isKhmer
-                ? `🎉 អតិថិជន "${updated.name}" ត្រូវបានដំឡើងកម្រិត VIP ស្វ័យប្រវត្តិទៅជា ${updated.tier} (បញ្ចុះតម្លៃ ${updated.discount_rate}%)!`
-                : `🎉 Customer "${updated.name}" upgraded to ${updated.tier} (${updated.discount_rate}% Privilege)!`,
+                ? `អតិថិជន "${updated.name}" ត្រូវបានដំឡើងកម្រិត VIP ស្វ័យប្រវត្តិទៅជា ${updated.tier} (បញ្ចុះតម្លៃ ${updated.discount_rate}%)!`
+                : `Customer "${updated.name}" upgraded to ${updated.tier} (${updated.discount_rate}% Privilege)!`,
               'success'
             );
           }
@@ -753,6 +825,167 @@ const removeTier = async (id) => {
   }
 };
 
+const addSupplier = async (supplierData) => {
+  try {
+    const created = await apiService.createSupplier(supplierData);
+    const newSupplier = {
+      id: created.id || Date.now(),
+      name: created.company_name || supplierData.company_name,
+      company_name: created.company_name || supplierData.company_name,
+      contact_name: created.contact_name || supplierData.contact_name,
+      contact: created.contact_name || supplierData.contact_name,
+      phone: created.phone || supplierData.phone,
+      email: created.email || supplierData.email || 'supply@refinery.com',
+      address: created.address || supplierData.address || '',
+      specialty: created.specialty || supplierData.specialty || 'Fine Bullion & Refined Alloys',
+      purchases_count: 0,
+      purchases: []
+    };
+    setSuppliers(prev => [newSupplier, ...prev]);
+    addNotification(`Supplier "${newSupplier.company_name}" added.`, 'success');
+    return newSupplier;
+  } catch (e) {
+    console.error('API createSupplier error, adding locally:', e);
+    const localSupplier = {
+      id: Date.now(),
+      name: supplierData.company_name,
+      company_name: supplierData.company_name,
+      contact_name: supplierData.contact_name,
+      contact: supplierData.contact_name,
+      phone: supplierData.phone,
+      email: supplierData.email || 'supply@refinery.com',
+      address: supplierData.address || '',
+      specialty: supplierData.specialty || 'Fine Bullion & Refined Alloys',
+      purchases_count: 0,
+      purchases: []
+    };
+    setSuppliers(prev => [localSupplier, ...prev]);
+    addNotification(`Supplier "${localSupplier.company_name}" added.`, 'success');
+    return localSupplier;
+  }
+};
+
+const updateSupplier = async (id, supplierData) => {
+  try {
+    const updated = await apiService.updateSupplier(id, supplierData);
+    setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...supplierData, company_name: supplierData.company_name || s.company_name, name: supplierData.company_name || s.name } : s));
+    addNotification(`Supplier updated.`, 'info');
+    return updated;
+  } catch (e) {
+    console.error('API updateSupplier error, updating locally:', e);
+    setSuppliers(prev => prev.map(s => s.id === id ? { ...s, ...supplierData, company_name: supplierData.company_name || s.company_name, name: supplierData.company_name || s.name } : s));
+    addNotification(`Supplier updated.`, 'info');
+    return supplierData;
+  }
+};
+
+const deleteSupplier = async (id) => {
+  try {
+    await apiService.deleteSupplier(id);
+  } catch (e) {
+    console.error('API deleteSupplier error:', e);
+  } finally {
+    setSuppliers(prev => prev.filter(s => s.id !== id));
+    addNotification('Supplier removed.', 'warning');
+  }
+};
+
+const addPurchase = async (purchaseData) => {
+  try {
+    const created = await apiService.createPurchase(purchaseData);
+    const supplierObj = suppliers.find(s => s.id === Number(purchaseData.supplier_id)) || null;
+    const newPurchase = {
+      id: created.id || Date.now(),
+      supplier_id: Number(purchaseData.supplier_id),
+      supplier: supplierObj,
+      supplier_name: supplierObj?.company_name || supplierObj?.name || `Supplier #${purchaseData.supplier_id}`,
+      invoice_no: created.invoice_no || purchaseData.invoice_no,
+      total_amount: parseFloat(purchaseData.total_amount) || 0,
+      purchase_date: purchaseData.purchase_date || new Date().toISOString().split('T')[0],
+      status: purchaseData.status || 'pending',
+      notes: purchaseData.notes || '',
+      created_at: new Date().toISOString()
+    };
+    setPurchases(prev => [newPurchase, ...prev]);
+    addNotification(`Purchase order "${newPurchase.invoice_no}" recorded.`, 'success');
+    return newPurchase;
+  } catch (e) {
+    console.error('API createPurchase error, saving locally:', e);
+    const supplierObj = suppliers.find(s => s.id === Number(purchaseData.supplier_id)) || null;
+    const localPurchase = {
+      id: Date.now(),
+      supplier_id: Number(purchaseData.supplier_id),
+      supplier: supplierObj,
+      supplier_name: supplierObj?.company_name || supplierObj?.name || `Supplier #${purchaseData.supplier_id}`,
+      invoice_no: purchaseData.invoice_no,
+      total_amount: parseFloat(purchaseData.total_amount) || 0,
+      purchase_date: purchaseData.purchase_date || new Date().toISOString().split('T')[0],
+      status: purchaseData.status || 'pending',
+      notes: purchaseData.notes || '',
+      created_at: new Date().toISOString()
+    };
+    setPurchases(prev => [localPurchase, ...prev]);
+    addNotification(`Purchase order "${localPurchase.invoice_no}" recorded.`, 'success');
+    return localPurchase;
+  }
+};
+
+const updatePurchase = async (id, purchaseData) => {
+  try {
+    const updated = await apiService.updatePurchase(id, purchaseData);
+    setPurchases(prev => prev.map(p => p.id === id ? { ...p, ...purchaseData } : p));
+    addNotification(`Purchase "${purchaseData.invoice_no || id}" updated.`, 'info');
+    return updated;
+  } catch (e) {
+    console.error('API updatePurchase error, updating locally:', e);
+    setPurchases(prev => prev.map(p => p.id === id ? { ...p, ...purchaseData } : p));
+    addNotification(`Purchase "${purchaseData.invoice_no || id}" updated.`, 'info');
+    return purchaseData;
+  }
+};
+
+const deletePurchase = async (id) => {
+  const prevPurchases = purchases;
+  setPurchases(prev => prev.filter(p => p.id !== id));
+  addNotification('Purchase order deleted.', 'warning');
+
+  try {
+    await apiService.deletePurchase(id);
+    return true;
+  } catch (e) {
+    console.error('API deletePurchase error:', e);
+    setPurchases(prevPurchases);
+    addNotification('Failed to delete purchase from server.', 'error');
+    return false;
+  }
+};
+
+const cancelPurchaseOrder = async (id) => {
+  setPurchases(prev => prev.map(p => p.id === id ? { ...p, status: 'cancelled' } : p));
+  addNotification('Purchase order cancelled.', 'info');
+
+  try {
+    await apiService.cancelPurchase(id);
+    return true;
+  } catch (e) {
+    console.error('API cancelPurchase error:', e);
+    return false;
+  }
+};
+
+const confirmPurchaseArrival = async (id) => {
+  setPurchases(prev => prev.map(p => p.id === id ? { ...p, status: 'completed' } : p));
+  addNotification(`Shipment received & inventory stock updated!`, 'success');
+
+  try {
+    await apiService.confirmPurchaseArrival(id);
+    return true;
+  } catch (e) {
+    console.error('API confirmPurchaseArrival error, updating locally:', e);
+    return true;
+  }
+};
+
 const saveSettings = async (nextSettings) => {
   try {
     const saved = await apiService.updateSettings(nextSettings);
@@ -769,7 +1002,172 @@ const saveSettings = async (nextSettings) => {
   }
 };
 
-// Cambodian Gold Measurement Standards & Conversions
+const addUser = async (userData) => {
+  try {
+    const created = await apiService.createUser(userData);
+    setUsers(prev => [created, ...prev]);
+    addNotification(`Staff member "${userData.name}" added successfully.`, 'success');
+    return created;
+  } catch (e) {
+    console.error('API createUser error:', e);
+    throw e;
+  }
+};
+
+const updateUser = async (id, userData) => {
+  try {
+    const updated = await apiService.updateUser(id, userData);
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, ...updated } : u));
+    addNotification(`Staff member "${userData.name || id}" updated.`, 'info');
+    return updated;
+  } catch (e) {
+    console.error('API updateUser error:', e);
+    throw e;
+  }
+};
+
+const deleteUser = async (id) => {
+  const prevUsers = users;
+  setUsers(prev => prev.filter(u => u.id !== id));
+  addNotification('User account deleted.', 'warning');
+
+  try {
+    await apiService.deleteUser(id);
+    return true;
+  } catch (e) {
+    console.error('API deleteUser error:', e);
+    setUsers(prevUsers);
+    addNotification(e.response?.data?.message || 'Failed to delete user.', 'error');
+    throw e;
+  }
+};
+
+const toggleUserStatus = async (id) => {
+  setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' } : u));
+
+  try {
+    const res = await apiService.toggleUserStatus(id);
+    addNotification(`User account is now ${res.status}.`, 'info');
+    return res;
+  } catch (e) {
+    console.error('API toggleUserStatus error:', e);
+    // rollback
+    setUsers(prev => prev.map(u => u.id === id ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' } : u));
+    throw e;
+  }
+};
+
+const syncUserPermissions = async (id, permsList) => {
+  try {
+    const res = await apiService.syncUserPermissions(id, permsList);
+    setUsers(prev => prev.map(u => u.id === id ? {
+      ...u,
+      all_permissions: res.all_permissions,
+      direct_permissions: res.direct_permissions
+    } : u));
+    addNotification('Permissions updated successfully.', 'success');
+    return res;
+  } catch (e) {
+    console.error('API syncUserPermissions error:', e);
+    throw e;
+  }
+};
+
+const addRole = async (roleData) => {
+  try {
+    const created = await apiService.createRole(roleData);
+    setRoles(prev => [created, ...prev]);
+    addNotification(`Role "${roleData.name}" created.`, 'success');
+    return created;
+  } catch (e) {
+    console.error('API createRole error:', e);
+    throw e;
+  }
+};
+
+const updateRole = async (id, roleData) => {
+  try {
+    const updated = await apiService.updateRole(id, roleData);
+    setRoles(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r));
+    addNotification(`Role "${roleData.name || id}" updated.`, 'info');
+    return updated;
+  } catch (e) {
+    console.error('API updateRole error:', e);
+    throw e;
+  }
+};
+
+const deleteRole = async (id) => {
+  const prevRoles = roles;
+  setRoles(prev => prev.filter(r => r.id !== id));
+
+  try {
+    await apiService.deleteRole(id);
+    addNotification('Role deleted.', 'warning');
+    return true;
+  } catch (e) {
+    console.error('API deleteRole error:', e);
+    setRoles(prevRoles);
+    addNotification(e.response?.data?.message || 'Failed to delete role.', 'error');
+    throw e;
+  }
+};
+
+  const addCategory = async (categoryData) => {
+    try {
+      const created = await apiService.createCategory(categoryData);
+      const newCat = {
+        ...created,
+        products_count: 0,
+        products: []
+      };
+      setCategories(prev => [newCat, ...prev]);
+      addNotification(`Category "${categoryData.name}" created successfully.`, 'success');
+      return newCat;
+    } catch (e) {
+      console.error('API createCategory error:', e);
+      throw e;
+    }
+  };
+
+  const updateCategory = async (id, categoryData) => {
+    try {
+      const updated = await apiService.updateCategory(id, categoryData);
+      setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
+      addNotification(`Category "${categoryData.name || id}" updated.`, 'info');
+      return updated;
+    } catch (e) {
+      console.error('API updateCategory error:', e);
+      throw e;
+    }
+  };
+
+  const deleteCategory = async (id) => {
+    const prevCategories = categories;
+    setCategories(prev => prev.filter(c => c.id !== id));
+    addNotification('Category deleted.', 'warning');
+
+    try {
+      await apiService.deleteCategory(id);
+      return true;
+    } catch (e) {
+      console.error('API deleteCategory error:', e);
+      setCategories(prevCategories);
+      addNotification(e.response?.data?.message || 'Failed to delete category.', 'error');
+      throw e;
+    }
+  };
+
+  const refreshCategories = async () => {
+    try {
+      const cats = await apiService.getCategories();
+      if (cats) setCategories(cats);
+    } catch (e) {
+      console.error('API refreshCategories error:', e);
+    }
+  };
+
+  // Cambodian Gold Measurement Standards & Conversions
 const CAMBODIAN_STANDARDS = {
   TROY_OUNCE_GRAMS: 31.1034768,
   CHI_GRAMS: 3.75,
@@ -818,6 +1216,10 @@ return (
     updateGoldRate,
     metalTypes,
     categories,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    refreshCategories,
     gemstones,
     customers,
     addCustomer,
@@ -828,6 +1230,16 @@ return (
     buybacks,
     processBuyback,
     suppliers,
+    addSupplier,
+    updateSupplier,
+    deleteSupplier,
+    purchases,
+    setPurchases,
+    addPurchase,
+    updatePurchase,
+    deletePurchase,
+    confirmPurchaseArrival,
+    cancelPurchaseOrder,
     promotions,
     addPromotion,
     editPromotion,
@@ -836,6 +1248,19 @@ return (
     addTier,
     editTier,
     removeTier,
+    users,
+    setUsers,
+    roles,
+    setRoles,
+    permissions,
+    addUser,
+    updateUser,
+    deleteUser,
+    toggleUserStatus,
+    syncUserPermissions,
+    addRole,
+    updateRole,
+    deleteRole,
     settings,
     saveSettings,
     cart,
@@ -885,7 +1310,15 @@ return (
     formatChi,
     formatKhmerWeight,
     searchQuery,
-    setSearchQuery
+    setSearchQuery,
+    currentUser,
+    setCurrentUser,
+    authToken,
+    login,
+    logout,
+    settingsTab,
+    setSettingsTab,
+    updateProfile
   }}>
     {children}
   </AppContext.Provider>

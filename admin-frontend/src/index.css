@@ -109,15 +109,15 @@ html.lang-km body,
 
 
 /* ==========================================================================
-   A5 PRINT INVOICE STYLING (148mm x 210mm) - ZERO ROUNDED CORNERS, ZERO SHADOWS
+   PRINT STYLING (A5 Receipt Invoices & A4 Reports Ledger Tables)
    ========================================================================== */
 @page {
-  size: A5 portrait;
-  margin: 6mm 8mm 6mm 8mm;
+  size: auto;
+  margin: 8mm 10mm;
 }
 
 @media print {
-  /* CRITICAL: When the invoice modal is open, completely hide #root so background pages NEVER print */
+  /* Hide #root ONLY when Invoice Modal is open (since Invoice Modal renders via portal outside root) */
   body.invoice-modal-open > #root,
   body:has(.invoice-modal-overlay) > #root,
   body:has(.printable-invoice) > #root {
@@ -155,7 +155,9 @@ html.lang-km body,
   aside,
   header,
   nav,
-  button {
+  button,
+  input,
+  select {
     display: none !important;
   }
 
@@ -180,7 +182,7 @@ html.lang-km body,
     background: transparent !important;
   }
 
-  /* Flatten modal overlay to normal flow */
+  /* ── 1. Invoice Modal Print (A5) ────────────────────────────────────────── */
   .invoice-modal-overlay {
     position: static !important;
     display: block !important;
@@ -194,7 +196,6 @@ html.lang-km body,
     z-index: auto !important;
   }
 
-  /* Flatten modal container: absolutely NO outer page rounded borders or drop shadows */
   .invoice-modal-container {
     position: static !important;
     width: 100% !important;
@@ -208,7 +209,6 @@ html.lang-km body,
     overflow: visible !important;
   }
 
-  /* A5 Sheet Layout with full RGB preservation */
   .printable-invoice {
     width: 100% !important;
     max-width: 100% !important;
@@ -225,7 +225,6 @@ html.lang-km body,
     print-color-adjust: exact !important;
   }
 
-  /* Table styling for crisp A5 receipt print in full RGB */
   .printable-invoice table {
     width: 100% !important;
     border-collapse: collapse !important;
@@ -233,10 +232,10 @@ html.lang-km body,
   }
 
   .printable-invoice th {
-    background-color: #fffbeb !important; /* amber-50 */
-    color: #78350f !important;            /* amber-900 */
+    background-color: #fffbeb !important;
+    color: #78350f !important;
     font-weight: 700 !important;
-    border-bottom: 2px solid #f59e0b !important; /* amber-500 gold line */
+    border-bottom: 2px solid #f59e0b !important;
     padding: 5px 6px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
@@ -249,7 +248,7 @@ html.lang-km body,
 
   .printable-invoice td {
     padding: 5px 6px !important;
-    border-bottom: 1px solid #fef3c7 !important; /* subtle gold amber divider */
+    border-bottom: 1px solid #fef3c7 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -259,109 +258,262 @@ html.lang-km body,
     break-inside: avoid !important;
   }
 
-  /* Certificate box with rich gold RGB styling */
   .printable-invoice .guarantee-box {
-    border: 1px solid #fcd34d !important; /* amber-300 */
+    border: 1px solid #fcd34d !important;
     border-radius: 8px !important;
-    background-color: #fffdf5 !important; /* warm gold amber tint */
+    background-color: #fffdf5 !important;
     padding: 10px 14px !important;
     margin-top: 14px !important;
     page-break-inside: avoid !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  /* ── 2. Reports Table Print (A4 Landscape / Portrait) ───────────────────── */
+  .report-modal-overlay {
+    position: static !important;
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    z-index: auto !important;
+  }
+
+  .printable-report-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 10px !important;
+    line-height: 1.4 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Table styling for crisp report print */
+  .report-print-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .report-print-table th {
+    background-color: #fef3c7 !important; /* amber-100 */
+    color: #451a03 !important;            /* amber-950 */
+    font-weight: 700 !important;
+    border: 1px solid #d97706 !important; /* amber-600 border */
+    padding: 5px 7px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-print-table td {
+    padding: 4.5px 6px !important;
+    border: 1px solid #e2e8f0 !important; /* light slate grid */
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-print-table tfoot td {
+    background-color: #fffbeb !important; /* amber-50 */
+    border-top: 2px solid #b45309 !important;
+    font-weight: 700 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .report-print-table tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 }
 
 /* ==========================================================================
-   JewelFlow Atelier - SweetAlert2 Custom Luxury Theme
+   JewelFlow Atelier - SweetAlert2 Custom Luxury & Primary Color Theme
    ========================================================================== */
 
+/* Full Modal Dialog Backdrop (Only for Confirmation/Alert Modals, NEVER for Toasts) */
+div:where(.swal2-container):has(.jewelflow-swal-popup) {
+  z-index: 10000 !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+  background-color: rgba(15, 23, 42, 0.45) !important;
+}
+
+/* Toast Container must ALWAYS be 100% transparent with NO background and NO backdrop blur */
+body.swal2-toast-shown .swal2-container,
+div:where(.swal2-container).swal2-top-end,
+div:where(.swal2-container).swal2-top-right,
+div:where(.swal2-container).swal2-top,
+div:where(.swal2-container).jewelflow-swal-toast-container,
+div:where(.swal2-container):has(.swal2-toast),
+div:where(.swal2-container):has(.jewelflow-swal-toast) {
+  background-color: transparent !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
 div:where(.swal2-container) .jewelflow-swal-popup {
-  border-radius: 1.25rem !important;
-  padding: 1.75rem 1.5rem !important;
-  background: rgba(255, 255, 255, 0.98) !important;
-  border: 1px solid #f1f5f9 !important;
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.22) !important;
-  backdrop-filter: blur(8px) !important;
+  border-radius: 1.5rem !important;
+  padding: 2rem 1.75rem !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
   font-family: var(--font-sans) !important;
 }
 
 div:where(.swal2-container) .jewelflow-swal-gold-card {
   background: linear-gradient(150deg, #ffffff 0%, #fffdf7 50%, #fef9ed 100%) !important;
   border: 1px solid #fde68a !important;
-  box-shadow: 0 25px 50px -12px rgba(180, 140, 30, 0.2) !important;
+  box-shadow: 0 25px 50px -12px rgba(217, 119, 6, 0.25) !important;
 }
 
 div:where(.swal2-container) .jewelflow-swal-title {
   font-family: var(--font-sans) !important;
-  font-weight: 700 !important;
+  font-weight: 800 !important;
   color: #0f172a !important;
   font-size: 1.25rem !important;
-  padding: 0.5rem 1rem 0 !important;
+  padding: 0.75rem 1rem 0 !important;
+  line-height: 1.4 !important;
 }
 
 div:where(.swal2-container) .jewelflow-swal-content {
   color: #475569 !important;
   font-size: 0.925rem !important;
-  line-height: 1.55 !important;
+  line-height: 1.6 !important;
   margin-top: 0.5rem !important;
+  font-family: var(--font-sans) !important;
 }
 
 div:where(.swal2-container) .jewelflow-swal-actions {
   display: flex !important;
   gap: 0.75rem !important;
-  margin-top: 1.5rem !important;
+  margin-top: 1.75rem !important;
   justify-content: center !important;
   align-items: center !important;
+  width: 100% !important;
 }
 
+/* Primary Amber Gold Confirm Button */
 div:where(.swal2-container) button.jewelflow-swal-confirm {
-  background: linear-gradient(135deg, #b48c1e 0%, #d4af37 100%) !important;
-  color: #0f172a !important;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  color: #ffffff !important;
   font-weight: 700 !important;
   font-size: 0.875rem !important;
-  padding: 0.65rem 1.4rem !important;
-  border-radius: 0.75rem !important;
-  box-shadow: 0 4px 14px rgba(212, 175, 55, 0.3) !important;
-  border: none !important;
+  padding: 0.7rem 1.6rem !important;
+  border-radius: 0.875rem !important;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.35) !important;
+  border: 1px solid rgba(245, 158, 11, 0.3) !important;
   cursor: pointer !important;
-  transition: all 0.2s ease !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  font-family: var(--font-sans) !important;
+  letter-spacing: 0.01em !important;
 }
 
 div:where(.swal2-container) button.jewelflow-swal-confirm:hover {
-  background: linear-gradient(135deg, #a07a16 0%, #c49f2b 100%) !important;
-  transform: translateY(-1px) !important;
-  box-shadow: 0 6px 18px rgba(212, 175, 55, 0.38) !important;
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%) !important;
+  transform: translateY(-1.5px) !important;
+  box-shadow: 0 6px 20px rgba(217, 119, 6, 0.45) !important;
 }
 
+div:where(.swal2-container) button.jewelflow-swal-confirm:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+/* Danger / Delete Destructive Confirm Button */
 div:where(.swal2-container) button.jewelflow-swal-danger {
-  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%) !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.3) !important;
+  box-shadow: 0 4px 14px rgba(225, 29, 72, 0.35) !important;
+  border: 1px solid rgba(244, 63, 94, 0.3) !important;
 }
 
 div:where(.swal2-container) button.jewelflow-swal-danger:hover {
-  background: linear-gradient(135deg, #be123c 0%, #9f1239 100%) !important;
-  box-shadow: 0 6px 18px rgba(225, 29, 72, 0.4) !important;
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+  box-shadow: 0 6px 20px rgba(225, 29, 72, 0.45) !important;
+  transform: translateY(-1.5px) !important;
 }
 
+/* Cancel / Dismiss Button */
 div:where(.swal2-container) button.jewelflow-swal-cancel {
-  background: #f8fafc !important;
+  background: #ffffff !important;
   color: #475569 !important;
   font-weight: 600 !important;
   font-size: 0.875rem !important;
-  padding: 0.65rem 1.25rem !important;
-  border-radius: 0.75rem !important;
+  padding: 0.7rem 1.4rem !important;
+  border-radius: 0.875rem !important;
   border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
   cursor: pointer !important;
-  transition: all 0.2s ease !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  font-family: var(--font-sans) !important;
 }
 
 div:where(.swal2-container) button.jewelflow-swal-cancel:hover {
-  background: #e2e8f0 !important;
+  background: #f8fafc !important;
   color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  transform: translateY(-1px) !important;
 }
 
+/* SweetAlert Icons Customization matching JewelFlow Theme */
+div:where(.swal2-container) .swal2-icon {
+  margin: 1.25rem auto 0.5rem !important;
+  transform: scale(0.95) !important;
+}
+
+div:where(.swal2-container) .swal2-icon.swal2-warning {
+  border-color: #f59e0b !important;
+  color: #f59e0b !important;
+  background-color: rgba(254, 243, 199, 0.3) !important;
+}
+
+div:where(.swal2-container) .swal2-icon.swal2-error {
+  border-color: #f43f5e !important;
+  color: #f43f5e !important;
+  background-color: rgba(255, 228, 230, 0.3) !important;
+}
+
+div:where(.swal2-container) .swal2-icon.swal2-success {
+  border-color: #10b981 !important;
+  color: #10b981 !important;
+  background-color: rgba(209, 250, 229, 0.3) !important;
+}
+
+div:where(.swal2-container) .swal2-icon.swal2-success .swal2-success-ring {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+div:where(.swal2-container) .swal2-icon.swal2-info {
+  border-color: #0ea5e9 !important;
+  color: #0ea5e9 !important;
+  background-color: rgba(224, 242, 254, 0.3) !important;
+}
+
+div:where(.swal2-container) .swal2-icon.swal2-question {
+  border-color: #f59e0b !important;
+  color: #f59e0b !important;
+  background-color: rgba(254, 243, 199, 0.3) !important;
+}
+
+/* Toast Customization */
 div:where(.swal2-container) .jewelflow-swal-toast {
   border-radius: 1rem !important;
   padding: 0.75rem 1.25rem !important;
@@ -376,6 +528,7 @@ div:where(.swal2-container) .jewelflow-swal-toast-title {
   font-size: 0.85rem !important;
   font-weight: 600 !important;
   color: #0f172a !important;
+  font-family: var(--font-sans) !important;
 }
 
 div:where(.swal2-container) .jewelflow-swal-gold-icon {
@@ -384,6 +537,6 @@ div:where(.swal2-container) .jewelflow-swal-gold-icon {
   align-items: center !important;
   justify-content: center !important;
   margin: 1.25rem auto 0.5rem !important;
-  filter: drop-shadow(0 4px 8px rgba(212, 175, 55, 0.35));
+  filter: drop-shadow(0 4px 8px rgba(245, 158, 11, 0.35));
 }
 

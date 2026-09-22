@@ -14,7 +14,8 @@ import {
   faCircleCheck,
   faCopy,
   faFilter,
-  faXmark
+  faXmark,
+  faCircleExclamation
 } from '@fortawesome/free-solid-svg-icons';
 
 export const GoldRatesView = () => {
@@ -36,6 +37,7 @@ export const GoldRatesView = () => {
   const [selectedRateId, setSelectedRateId] = useState(goldRates[0]?.metal_type_id || 1);
   const [newSellRate, setNewSellRate] = useState('');
   const [newBuyRate, setNewBuyRate] = useState('');
+  const [rateErrors, setRateErrors] = useState({});
 
   // Metal Rates Table Pagination (10 per page)
   const [currentPage, setCurrentPage] = useState(1);
@@ -111,7 +113,19 @@ export const GoldRatesView = () => {
 
   const handleUpdate = async (e) => {
     e.preventDefault();
-    if (!newSellRate || !newBuyRate) return;
+    const newErrors = {};
+    if (!newSellRate || parseFloat(newSellRate) <= 0) {
+      newErrors.sellRate = isKhmer ? 'សូមបញ្ចូលតម្លៃលក់ចេញ' : 'Please enter valid sell rate';
+    }
+    if (!newBuyRate || parseFloat(newBuyRate) <= 0) {
+      newErrors.buyRate = isKhmer ? 'សូមបញ្ចូលតម្លៃទិញចូល' : 'Please enter valid buy rate';
+    }
+    if (Object.keys(newErrors).length > 0) {
+      setRateErrors(newErrors);
+      return;
+    }
+    setRateErrors({});
+
     const targetRate = goldRates.find(r => r.metal_type_id === Number(selectedRateId));
     const metalName = targetRate ? targetRate.name : 'Metal Rate';
 
@@ -146,6 +160,7 @@ export const GoldRatesView = () => {
       await updateGoldRate(Number(selectedRateId), parseFloat(newSellRate), parseFloat(newBuyRate));
       setNewSellRate('');
       setNewBuyRate('');
+      setRateErrors({});
     }
   };
 
@@ -517,7 +532,7 @@ export const GoldRatesView = () => {
                 <span className="text-[10px] text-amber-700 group-open:rotate-180 transition-transform">▼</span>
               </summary>
 
-              <form onSubmit={handleUpdate} className="space-y-3 mt-3 text-xs">
+              <form noValidate onSubmit={handleUpdate} className="space-y-3 mt-3 text-xs">
                 <div>
                   <label className="block text-slate-600 font-medium mb-0.5">{t('cambodiaGold.targetMetal', 'Target Metal')}</label>
                   <select
@@ -537,24 +552,44 @@ export const GoldRatesView = () => {
                     <input
                       type="number"
                       step="0.01"
-                      required
                       placeholder={currentRate.rate_per_gram?.toString()}
                       value={newSellRate}
-                      onChange={(e) => setNewSellRate(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono"
+                      onChange={(e) => {
+                        setNewSellRate(e.target.value);
+                        if (rateErrors.sellRate) setRateErrors(prev => ({ ...prev, sellRate: null }));
+                      }}
+                      className={`w-full bg-white border rounded-lg px-2.5 py-1.5 font-mono transition-colors ${
+                        rateErrors.sellRate ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50' : 'border-slate-200'
+                      }`}
                     />
+                    {rateErrors.sellRate && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-rose-600 mt-1 font-medium animate-fadeIn">
+                        <FontAwesomeIcon icon={faCircleExclamation} className="w-3 h-3 text-rose-500 shrink-0" />
+                        <span>{rateErrors.sellRate}</span>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-slate-600 font-medium mb-0.5">{t('cambodiaGold.buyRate', 'Buy Rate ($/g)')}</label>
                     <input
                       type="number"
                       step="0.01"
-                      required
                       placeholder={currentRate.buy_rate_per_gram?.toString()}
                       value={newBuyRate}
-                      onChange={(e) => setNewBuyRate(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 font-mono"
+                      onChange={(e) => {
+                        setNewBuyRate(e.target.value);
+                        if (rateErrors.buyRate) setRateErrors(prev => ({ ...prev, buyRate: null }));
+                      }}
+                      className={`w-full bg-white border rounded-lg px-2.5 py-1.5 font-mono transition-colors ${
+                        rateErrors.buyRate ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50' : 'border-slate-200'
+                      }`}
                     />
+                    {rateErrors.buyRate && (
+                      <div className="flex items-center gap-1.5 text-[11px] text-rose-600 mt-1 font-medium animate-fadeIn">
+                        <FontAwesomeIcon icon={faCircleExclamation} className="w-3 h-3 text-rose-500 shrink-0" />
+                        <span>{rateErrors.buyRate}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

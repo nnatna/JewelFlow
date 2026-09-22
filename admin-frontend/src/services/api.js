@@ -11,6 +11,15 @@ const client = axios.create({
   }
 });
 
+// Attach Authorization Bearer Token on outgoing requests
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem('jewelflow_auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // Jewelry display photos pool for items without uploaded pictures
 const jewelryImages = [
   'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80',
@@ -431,10 +440,15 @@ export const apiService = {
       return data.map(s => ({
         id: s.id,
         name: s.company_name || s.name,
-        contact: s.contact_name || 'Vendor Rep',
-        phone: s.phone || '+41 22 555 0199',
-        email: 'supply@refinery.com',
-        specialty: 'Fine Bullion & Refined Alloys'
+        company_name: s.company_name || s.name,
+        contact_name: s.contact_name || s.contact || 'Vendor Rep',
+        contact: s.contact_name || s.contact || 'Vendor Rep',
+        phone: s.phone || '+855 (0) 23 888 999',
+        email: s.email || `${(s.company_name || 'vendor').toLowerCase().replace(/[^a-z0-9]/g, '')}@supplier.com`,
+        address: s.address || 'Phnom Penh, Cambodia',
+        specialty: s.specialty || 'Fine Bullion & Refined Alloys',
+        purchases_count: s.purchases_count || (s.purchases?.length ?? 0),
+        purchases: s.purchases || []
       }));
     } catch (e) {
       console.error('API getSuppliers error:', e);
@@ -449,7 +463,19 @@ export const apiService = {
   getPurchases: async () => {
     try {
       const res = await client.get('/purchases');
-      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      return data.map(p => ({
+        id: p.id,
+        supplier_id: p.supplier_id,
+        supplier: p.supplier || null,
+        supplier_name: p.supplier?.company_name || p.supplier?.name || `Supplier #${p.supplier_id}`,
+        invoice_no: p.invoice_no,
+        total_amount: parseFloat(p.total_amount) || 0,
+        purchase_date: p.purchase_date,
+        status: p.status || 'pending',
+        notes: p.notes || '',
+        created_at: p.created_at
+      }));
     } catch (e) {
       console.error('API getPurchases error:', e);
       return [];
@@ -458,6 +484,24 @@ export const apiService = {
   createPurchase: async (data) => (await client.post('/purchases', data)).data,
   updatePurchase: async (id, data) => (await client.put(`/purchases/${id}`, data)).data,
   deletePurchase: async (id) => { await client.delete(`/purchases/${id}`); },
+  confirmPurchaseArrival: async (id) => {
+    try {
+      const res = await client.put(`/purchases/${id}/confirm-arrival`);
+      return res.data?.data || res.data;
+    } catch {
+      const res = await client.put(`/purchases/${id}`, { status: 'completed' });
+      return res.data?.data || res.data;
+    }
+  },
+  cancelPurchase: async (id) => {
+    try {
+      const res = await client.put(`/purchases/${id}/cancel`);
+      return res.data?.data || res.data;
+    } catch {
+      const res = await client.put(`/purchases/${id}`, { status: 'cancelled' });
+      return res.data?.data || res.data;
+    }
+  },
 
   // 13. Live Gold Price & Cambodian Measurements API
   getSpotPrice: async (symbol = 'XAU', currency = 'USD', forceFresh = false) => {
@@ -571,6 +615,290 @@ export const apiService = {
     } catch (e) {
       console.error('API getApplicablePromotion error:', e);
       return { found: false, promotion: null };
+    }
+  },
+
+  // Users & Staff
+  getUsers: async () => {
+    try {
+      const res = await client.get('/users');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getUsers error:', e);
+      return [];
+    }
+  },
+
+  // 16. Reports & Analytics API
+  getReportSummary: async (params = {}) => {
+    try {
+      const res = await client.get('/reports/summary', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getReportSummary error:', e);
+      return null;
+    }
+  },
+
+  getReportSales: async (params = {}) => {
+    try {
+      const res = await client.get('/reports/sales', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getReportSales error:', e);
+      return null;
+    }
+  },
+
+  getReportBuybacks: async (params = {}) => {
+    try {
+      const res = await client.get('/reports/buybacks', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getReportBuybacks error:', e);
+      return null;
+    }
+  },
+
+  getReportInventory: async (params = {}) => {
+    try {
+      const res = await client.get('/reports/inventory', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getReportInventory error:', e);
+      return null;
+    }
+  },
+
+  getReportCashFlow: async (params = {}) => {
+    try {
+      const res = await client.get('/reports/cashflow', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getReportCashFlow error:', e);
+      return null;
+    }
+  },
+
+  getReportGoldRatesHistory: async (params = {}) => {
+    try {
+      const res = await client.get('/reports/gold-rates-history', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getReportGoldRatesHistory error:', e);
+      return null;
+    }
+  },
+
+  // 17. Store Profile & Brand Atelier APIs
+  getStores: async () => {
+    try {
+      const res = await client.get('/stores');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getStores error:', e);
+      return [];
+    }
+  },
+
+  getPrimaryStore: async () => {
+    try {
+      const res = await client.get('/stores/primary');
+      return res.data;
+    } catch (e) {
+      console.error('API getPrimaryStore error:', e);
+      return null;
+    }
+  },
+
+  createStore: async (data) => {
+    try {
+      const res = await client.post('/stores', data);
+      return res.data;
+    } catch (e) {
+      console.error('API createStore error:', e);
+      throw e;
+    }
+  },
+
+  updateStore: async (id, data) => {
+    try {
+      const res = await client.put(`/stores/${id}`, data);
+      return res.data;
+    } catch (e) {
+      console.error('API updateStore error:', e);
+      throw e;
+    }
+  },
+
+  uploadStoreLogo: async (id, formDataOrData) => {
+    try {
+      const isFormData = typeof FormData !== 'undefined' && formDataOrData instanceof FormData;
+      const headers = isFormData ? { 'Content-Type': 'multipart/form-data' } : {};
+      const res = await client.post(`/stores/${id}/logo`, formDataOrData, { headers });
+      return res.data;
+    } catch (e) {
+      console.error('API uploadStoreLogo error:', e);
+      throw e;
+    }
+  },
+
+  deleteStore: async (id) => {
+    try {
+      const res = await client.delete(`/stores/${id}`);
+      return res.data;
+    } catch (e) {
+      console.error('API deleteStore error:', e);
+      throw e;
+    }
+  },
+
+  // 18. Users Management & Permissions API
+  getUsers: async () => {
+    try {
+      const res = await client.get('/users');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getUsers error:', e);
+      return [];
+    }
+  },
+
+  createUser: async (data) => {
+    try {
+      const res = await client.post('/users', data);
+      return res.data;
+    } catch (e) {
+      console.error('API createUser error:', e);
+      throw e;
+    }
+  },
+
+  updateUser: async (id, data) => {
+    try {
+      const res = await client.put(`/users/${id}`, data);
+      return res.data;
+    } catch (e) {
+      console.error('API updateUser error:', e);
+      throw e;
+    }
+  },
+
+  deleteUser: async (id) => {
+    try {
+      const res = await client.delete(`/users/${id}`);
+      return res.data;
+    } catch (e) {
+      console.error('API deleteUser error:', e);
+      throw e;
+    }
+  },
+
+  toggleUserStatus: async (id) => {
+    try {
+      const res = await client.put(`/users/${id}/status`);
+      return res.data;
+    } catch (e) {
+      console.error('API toggleUserStatus error:', e);
+      throw e;
+    }
+  },
+
+  syncUserPermissions: async (id, permissions) => {
+    try {
+      const res = await client.put(`/users/${id}/permissions`, { permissions });
+      return res.data;
+    } catch (e) {
+      console.error('API syncUserPermissions error:', e);
+      throw e;
+    }
+  },
+
+  // 19. Roles & Permissions API
+  getRoles: async () => {
+    try {
+      const res = await client.get('/roles');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getRoles error:', e);
+      return [];
+    }
+  },
+
+  createRole: async (data) => {
+    try {
+      const res = await client.post('/roles', data);
+      return res.data;
+    } catch (e) {
+      console.error('API createRole error:', e);
+      throw e;
+    }
+  },
+
+  updateRole: async (id, data) => {
+    try {
+      const res = await client.put(`/roles/${id}`, data);
+      return res.data;
+    } catch (e) {
+      console.error('API updateRole error:', e);
+      throw e;
+    }
+  },
+
+  deleteRole: async (id) => {
+    try {
+      const res = await client.delete(`/roles/${id}`);
+      return res.data;
+    } catch (e) {
+      console.error('API deleteRole error:', e);
+      throw e;
+    }
+  },
+
+  getPermissions: async () => {
+    try {
+      const res = await client.get('/permissions');
+      return res.data;
+    } catch (e) {
+      console.error('API getPermissions error:', e);
+      return { all: [], modules: {} };
+    }
+  },
+
+  // 20. Authentication API
+  login: async (email, password) => {
+    const res = await client.post('/login', { email, password });
+    return res.data;
+  },
+
+  logout: async () => {
+    try {
+      const res = await client.post('/logout');
+      return res.data;
+    } catch (e) {
+      console.error('API logout error:', e);
+      return { success: true };
+    }
+  },
+
+  // 21. Profile API
+  getProfile: async () => {
+    try {
+      const res = await client.get('/profile');
+      return res.data;
+    } catch (e) {
+      console.error('API getProfile error:', e);
+      throw e;
+    }
+  },
+
+  updateProfile: async (data) => {
+    try {
+      const res = await client.put('/profile', data);
+      return res.data;
+    } catch (e) {
+      console.error('API updateProfile error:', e);
+      throw e;
     }
   },
 };

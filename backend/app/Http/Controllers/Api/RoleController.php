@@ -10,14 +10,16 @@ use Illuminate\Http\Request;
 class RoleController extends Controller
 {
     /**
-     * Display a listing of roles.
+     * Display a listing of roles with permissions and user counts.
      */
     public function index(Request $request): JsonResponse
     {
         $search = $request->query('search');
-        $query = Role::query()
+        $query = Role::with(['permissions', 'userAccounts'])
+            ->withCount('userAccounts')
             ->when($search, function ($q, $search) {
-                $q->where('name', 'like', "%{$search}%");
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
             })
             ->latest();
 
@@ -36,11 +38,23 @@ class RoleController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:roles,name',
+            'description' => 'nullable|string|max:255',
+            'guard_name' => 'nullable|string',
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'string|exists:permissions,name',
         ]);
 
-        $role = Role::create($validated);
+        $role = Role::create([
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'guard_name' => $validated['guard_name'] ?? 'web',
+        ]);
 
-        return response()->json($role, 201);
+        if (!empty($validated['permissions'])) {
+            $role->syncPermissions($validated['permissions']);
+        }
+
+        return response()->json($role->load('permissions'), 201);
     }
 
     /**
@@ -48,7 +62,7 @@ class RoleController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $role = Role::findOrFail($id);
+        $role = Role::with(['permissions', 'userAccounts'])->findOrFail($id);
 
         return response()->json($role);
     }
@@ -62,11 +76,21 @@ class RoleController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255|unique:roles,name,' . $role->id,
+            'description' => 'nullable|string|max:255',
+            'permissions' => 'nullable|array',
+            'permissions.*' => 'string|exists:permissions,name',
         ]);
 
-        $role->update($validated);
+        $role->update([
+            'name' => $validated['name'] ?? $role->name,
+            'description' => $validated['description'] ?? $role->description,
+        ]);
 
-        return response()->json($role);
+        if (isset($validated['permissions'])) {
+            $role->syncPermissions($validated['permissions']);
+        }
+
+        return response()->json($role->load('permissions'));
     }
 
     /**
@@ -75,6 +99,15 @@ class RoleController extends Controller
     public function destroy($id): JsonResponse
     {
         $role = Role::findOrFail($id);
+
+        // Safeguard default system roles
+        if (in_array($role->name, ['admin', 'manager', 'cashier', 'goldsmith', 'accountant'])) {
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot delete standard system role '{$role->name}'.",
+            ], 422);
+        }
+
         $role->delete();
 
         return response()->json([

@@ -7,11 +7,12 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
-class ProfileController extends Controller
+class AuthController extends Controller
 {
     /**
-     * Helper to safely format user model.
+     * Format user response with permissions and roles.
      */
     protected function formatUserResponse(User $user): array
     {
@@ -25,6 +26,7 @@ class ProfileController extends Controller
                 $directPerms = $user->getDirectPermissions()->pluck('name')->toArray();
             }
         } catch (\Throwable $e) {
+            // fallback
             if ($user->role && $user->role->permissions) {
                 $allPerms = $user->role->permissions->pluck('name')->toArray();
             }
@@ -48,70 +50,80 @@ class ProfileController extends Controller
     }
 
     /**
-     * Get the authenticated user profile.
+     * Handle user login.
      */
-    public function show(Request $request): JsonResponse
+    public function login(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
-        $user->load(['role.permissions', 'permissions']);
-
-        return response()->json([
-            'success' => true,
-            'user' => $this->formatUserResponse($user),
-        ]);
-    }
-
-    /**
-     * Update the authenticated user profile.
-     */
-    public function update(Request $request): JsonResponse
-    {
-        $user = $request->user();
-        if (!$user) {
-            return response()->json(['message' => 'Unauthenticated.'], 401);
-        }
-
         $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . $user->id,
-            'phone' => 'nullable|string|max:50',
-            'photo' => 'nullable|string',
-            'password' => 'nullable|string|min:6',
+            'email' => 'required|string|email',
+            'password' => 'required|string',
         ]);
 
-        if (!empty($validated['password'])) {
-            $validated['password'] = Hash::make($validated['password']);
-        } else {
-            unset($validated['password']);
+        $user = User::with(['role.permissions', 'permissions'])
+            ->where('email', $validated['email'])
+            ->first();
+
+        if (!$user || !Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid email credentials or incorrect password.',
+                'errors' => [
+                    'email' => ['The provided credentials do not match our records.']
+                ]
+            ], 422);
         }
 
-        $user->update($validated);
+        if ($user->status !== 'active') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Your staff account has been deactivated. Please contact your administrator.',
+            ], 403);
+        }
+
+        // Generate Sanctum plain text token
+        $token = $user->createToken('jewelflow_auth_token')->plainTextToken;
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Signed in successfully to JewelFlow Atelier ERP.',
+            'user' => $this->formatUserResponse($user),
+            'token' => $token,
+        ]);
+    }
+
+    /**
+     * Return authenticated user details.
+     */
+    public function me(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthenticated.'
+            ], 401);
+        }
+
         $user->load(['role.permissions', 'permissions']);
 
         return response()->json([
             'success' => true,
-            'message' => 'Profile updated successfully.',
             'user' => $this->formatUserResponse($user),
         ]);
     }
 
     /**
-     * Delete the authenticated user account.
+     * Handle user logout.
      */
-    public function destroy(Request $request): JsonResponse
+    public function logout(Request $request): JsonResponse
     {
-        $user = $request->user();
-        if ($user) {
-            if ($user->role?->name === 'super_admin' || $user->email === 'superadmin@jewelflow.com') {
-                return response()->json(['success' => false, 'message' => 'Cannot delete SuperAdmin profile.'], 422);
-            }
-            $user->delete();
+        if ($request->user()) {
+            $request->user()->currentAccessToken()?->delete();
         }
 
-        return response()->json(['success' => true, 'message' => 'Account deleted successfully.']);
+        return response()->json([
+            'success' => true,
+            'message' => 'Logged out successfully.',
+        ]);
     }
 }

@@ -24,8 +24,8 @@ class SaleItemFactory extends Factory
         $subtotal = $unitPrice * $quantity;
 
         return [
-            'sale_id' => Sale::factory(),
-            'product_id' => Product::factory(),
+            'sale_id' => Sale::inRandomOrder()->value('id') ?? Sale::factory(),
+            'product_id' => Product::inRandomOrder()->value('id') ?? Product::factory(),
             'gold_rate_applied' => fake()->randomFloat(2, 60, 95),
             'weight_sold' => fake()->randomFloat(2, 1, 15),
             'labor_fee' => fake()->randomFloat(2, 10, 60),

@@ -12,7 +12,7 @@ import { useApp } from '../../context/AppContext';
 
 export const InvoiceModal = ({ invoice, onClose }) => {
   const { t, i18n } = useTranslation();
-  const { exchangeRate } = useApp();
+  const { exchangeRate, settings } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
   const [data, setData] = useState(() => (invoice && typeof invoice.then !== 'function' ? invoice : null));
@@ -100,13 +100,15 @@ export const InvoiceModal = ({ invoice, onClose }) => {
   };
 
   const modalContent = (
-    <div className="invoice-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto print:p-0 print:m-0 print:bg-transparent print:static print:overflow-visible">
-      <div className="invoice-modal-container relative w-full max-w-2xl bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden my-6 print:border-none print:rounded-none print:shadow-none print:my-0 print:w-full print:max-w-none print:static print:overflow-visible">
+    <div className="invoice-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto print:p-0 print:m-0 print:bg-transparent print:static print:overflow-visible animate-fadeIn">
+      <div className="invoice-modal-container relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-6 print:border-none print:rounded-none print:shadow-none print:my-0 print:w-full print:max-w-none print:static print:overflow-visible">
         
         {/* Modal Top Actions (no-print) */}
-        <div className="no-print p-3 sm:p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-emerald-700 font-bold text-xs sm:text-sm">
-            <FontAwesomeIcon icon={faCircleCheck} className="w-4 h-4 text-emerald-600" />
+        <div className="no-print p-4 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5 text-emerald-700 font-bold text-xs sm:text-sm">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <FontAwesomeIcon icon={faCircleCheck} className="w-4 h-4" />
+            </div>
             <span>{isKhmer ? 'ការលក់ត្រូវបានកត់ត្រាជោគជ័យ' : t('invoiceModal.finalized', 'Sale Finalized & Recorded')}</span>
           </div>
 
@@ -114,7 +116,7 @@ export const InvoiceModal = ({ invoice, onClose }) => {
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold px-3.5 py-1.5 rounded-lg text-xs cursor-pointer shadow-sm active:scale-95 transition-all"
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
             >
               <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5" />
               <span>{isKhmer ? 'បោះពុម្ពវិក្កយបត្រ' : t('invoiceModal.printInvoice', 'Print Invoice')}</span>
@@ -122,7 +124,7 @@ export const InvoiceModal = ({ invoice, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 cursor-pointer"
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer text-sm"
               title={t('common.close', 'Close')}
             >
               <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
@@ -135,16 +137,26 @@ export const InvoiceModal = ({ invoice, onClose }) => {
           {/* Header */}
           <div className="border-b-2 border-amber-400 pb-4 print:pb-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs print:rounded-md print:bg-amber-500 print:text-white">
-                  <FontAwesomeIcon icon={faGem} className="w-4 h-4 text-white" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shadow-xs print:rounded-md print:bg-amber-500 print:text-white shrink-0 overflow-hidden">
+                  {settings?.store_logo ? (
+                    <img src={settings.store_logo} alt="Store Logo" className="w-full h-full object-contain p-0.5" />
+                  ) : (
+                    <FontAwesomeIcon icon={faGem} className="w-5 h-5 text-white" />
+                  )}
                 </div>
-                <h1 className="text-xl print:text-lg font-serif font-bold text-slate-900 tracking-wider">
-                  JEWELFLOW ATELIER
-                </h1>
+                <div>
+                  <h1 className="text-xl print:text-lg font-serif font-bold text-slate-900 tracking-wider">
+                    {settings?.store_name || 'JEWELFLOW ATELIER'}
+                  </h1>
+                  <p className="text-xs print:text-[10px] text-amber-800 font-semibold">
+                    {settings?.vat_tin ? `VAT TIN: ${settings.vat_tin}` : 'Haute Joaillerie & Precious Bullion'}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs print:text-[10px] text-amber-800 font-semibold mt-1">Haute Joaillerie & Precious Bullion</p>
-              <p className="text-[11px] print:text-[9.5px] text-slate-500">Phnom Penh Atelier Studio • Tel: +855 23 999 888</p>
+              <p className="text-[11px] print:text-[9.5px] text-slate-500 mt-1">
+                {settings?.store_address || '#88 Preah Norodom Blvd, Phnom Penh, Cambodia'} • Tel: {settings?.store_phone || '+855 23 999 888'}
+              </p>
             </div>
 
             <div className="text-left sm:text-right">
@@ -235,10 +247,10 @@ export const InvoiceModal = ({ invoice, onClose }) => {
                                 : 'bg-rose-50 text-rose-800 border-rose-300 print:bg-rose-50 print:text-rose-800')
                           }`}>
                             {item.status === 'completed'
-                              ? (isKhmer ? '✓ យកភ្លាម' : '✓ Ready')
+                              ? (isKhmer ? 'យកភ្លាម' : 'Ready')
                               : (item.status === 'pending'
-                                ? (isKhmer ? '⏱ រង់ចាំកែ' : '⏱ Pending')
-                                : (isKhmer ? '✕ បោះបង់' : '✕ Cancelled'))}
+                                ? (isKhmer ? 'រង់ចាំកែ' : 'Pending')
+                                : (isKhmer ? 'បោះបង់' : 'Cancelled'))}
                           </span>
                         )}
                       </div>
@@ -273,12 +285,10 @@ export const InvoiceModal = ({ invoice, onClose }) => {
                 <span>{t('invoiceModal.subtotal', 'Subtotal:')}</span>
                 <span>${totalAmount.toFixed(2)}</span>
               </div>
-              {discount > 0 && (
-                <div className="flex justify-between text-emerald-700 font-semibold">
-                  <span>{t('invoiceModal.vipDiscount', 'VIP Privilege Discount:')}</span>
-                  <span>-${discount.toFixed(2)}</span>
-                </div>
-              )}
+              <div className={`flex justify-between ${discount > 0 ? 'text-emerald-700 font-semibold' : 'text-slate-500'}`}>
+                <span>{t('invoiceModal.vipDiscount', isKhmer ? 'បញ្ចុះតម្លៃ (Discount / Promo):' : 'Discount / Promo:')}</span>
+                <span>-${discount.toFixed(2)}</span>
+              </div>
               <div className="flex justify-between text-slate-500">
                 <span>{t('invoiceModal.salesTax', 'Sales Tax:')}</span>
                 <span>+${tax.toFixed(2)}</span>
@@ -324,6 +334,13 @@ export const InvoiceModal = ({ invoice, onClose }) => {
               <strong className="text-amber-900 block mb-0.5">{isKhmer ? 'កំណត់សម្គាល់ / កាលបរិច្ឆេទមកយក:' : 'Deposit & Pickup Notes:'}</strong>
               <span>{notes}</span>
             </div>
+          )}
+
+          {/* Invoice Disclaimer Policy Footer */}
+          {settings?.invoice_disclaimer && (
+            <p className="mt-2 text-[10px] print:text-[8.5px] text-slate-500 italic text-center">
+              * {settings.invoice_disclaimer}
+            </p>
           )}
 
           {/* Official Signature Lines (Print Only) */}

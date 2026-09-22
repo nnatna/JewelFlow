@@ -19,7 +19,7 @@ class PurchaseFactory extends Factory
     public function definition(): array
     {
         return [
-            'supplier_id' => Supplier::factory(),
+            'supplier_id' => Supplier::inRandomOrder()->value('id') ?? Supplier::factory(),
             'invoice_no' => fake()->unique()->bothify('PUR-#####'),
             'total_amount' => fake()->randomFloat(2, 500, 20000),
             'purchase_date' => fake()->date(),

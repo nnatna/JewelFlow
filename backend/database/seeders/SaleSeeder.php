@@ -121,5 +121,31 @@ class SaleSeeder extends Seeder
                 'status' => 'paid',
             ]);
         }
+
+        // Auto-recalculate Customer VIP Tier & total spent based on seeded sales
+        foreach (Customer::all() as $customer) {
+            $totalSpent = (float) Sale::where('customer_id', $customer->id)
+                ->where('status', 'completed')
+                ->sum('grand_total_usd');
+
+            $tier = 'Standard';
+            $discountRate = 0.00;
+            if ($totalSpent >= 10000) {
+                $tier = 'Diamond VIP';
+                $discountRate = 5.00;
+            } elseif ($totalSpent >= 5000) {
+                $tier = 'Platinum';
+                $discountRate = 3.00;
+            } elseif ($totalSpent >= 1000) {
+                $tier = 'Gold';
+                $discountRate = 2.00;
+            }
+
+            $customer->update([
+                'total_spent' => $totalSpent,
+                'tier' => $tier,
+                'discount_rate' => $discountRate,
+            ]);
+        }
     }
 }

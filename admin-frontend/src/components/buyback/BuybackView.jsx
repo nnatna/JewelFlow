@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
+import { BuybackVoucherModal } from './BuybackVoucherModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowsRotate, faScaleBalanced, faFileLines, faFilter, faXmark } from '@fortawesome/free-solid-svg-icons';
+import { faArrowsRotate, faScaleBalanced, faFileLines, faFilter, faXmark, faPrint, faCircleExclamation } from '@fortawesome/free-solid-svg-icons';
 
 export const BuybackView = () => {
   const { t, i18n } = useTranslation();
@@ -21,6 +22,7 @@ export const BuybackView = () => {
   const [notes, setNotes] = useState('Tested via XRF assay spectrometer. Good purity.');
   const [issuedVoucher, setIssuedVoucher] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [errors, setErrors] = useState({});
   const pageSize = 10;
 
   const selectedRate = goldRates.find(r => r.metal_type_id === Number(selectedMetalId)) || goldRates[0];
@@ -48,12 +50,24 @@ export const BuybackView = () => {
 
   const paginatedBuybacks = filteredBuybacks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const handleProcess = (e) => {
+  const handleProcess = async (e) => {
     e.preventDefault();
-    if (!customerName || grossWeight <= 0) return;
+    const newErrors = {};
+    if (!customerName || !customerName.trim()) {
+      newErrors.customerName = isKhmer ? 'សូមបញ្ចូលឈ្មោះអតិថិជន' : 'Please enter customer name';
+    }
+    if (!grossWeight || parseFloat(grossWeight) <= 0) {
+      newErrors.grossWeight = isKhmer ? 'សូមបញ្ចូលទម្ងន់ត្រឹមត្រូវ' : 'Please enter valid scrap weight';
+    }
 
-    const voucher = processBuyback({
-      customer_name: customerName,
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+
+    const voucher = await processBuyback({
+      customer_name: customerName.trim(),
       customer_phone: customerPhone,
       metal_name: selectedRate.name,
       gross_weight: parseFloat(grossWeight),
@@ -67,9 +81,9 @@ export const BuybackView = () => {
     });
 
     setIssuedVoucher(voucher);
-    setIsModalOpen(false);
     setCustomerName('');
     setCustomerPhone('');
+    setErrors({});
   };
 
   return (
@@ -99,17 +113,27 @@ export const BuybackView = () => {
             </span>
           </div>
 
-          <form onSubmit={handleProcess} className="space-y-3">
+          <form noValidate onSubmit={handleProcess} className="space-y-3">
             <div>
-              <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.clientName', 'Customer Full Name')}</label>
+              <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.clientName', 'Customer Full Name')} <span className="text-rose-500">*</span></label>
               <input
                 type="text"
-                required
                 placeholder="e.g. Arthur Pendelton"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none"
+                onChange={(e) => {
+                  setCustomerName(e.target.value);
+                  if (errors.customerName) setErrors(prev => ({ ...prev, customerName: null }));
+                }}
+                className={`w-full bg-slate-50 border rounded-lg px-3 py-2 text-slate-900 focus:outline-none transition-colors ${
+                  errors.customerName ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50' : 'border-slate-200 focus:border-amber-500 focus:bg-white'
+                }`}
               />
+              {errors.customerName && (
+                <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1 font-medium animate-fadeIn">
+                  <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span>{errors.customerName}</span>
+                </div>
+              )}
             </div>
 
             <div>
@@ -140,15 +164,25 @@ export const BuybackView = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.grossWeight', 'Gross Scrap Weight (g)')}</label>
+                <label className="block text-slate-700 font-semibold mb-1">{t('buybacks.grossWeight', 'Gross Scrap Weight (g)')} <span className="text-rose-500">*</span></label>
                 <input
                   type="number"
                   step="0.01"
-                  required
                   value={grossWeight}
-                  onChange={(e) => setGrossWeight(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 font-mono focus:border-amber-500 focus:bg-white focus:outline-none"
+                  onChange={(e) => {
+                    setGrossWeight(parseFloat(e.target.value) || 0);
+                    if (errors.grossWeight) setErrors(prev => ({ ...prev, grossWeight: null }));
+                  }}
+                  className={`w-full bg-slate-50 border rounded-lg px-3 py-2 text-slate-900 font-mono focus:outline-none transition-colors ${
+                    errors.grossWeight ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50' : 'border-slate-200 focus:border-amber-500 focus:bg-white'
+                  }`}
                 />
+                {errors.grossWeight && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1 font-medium animate-fadeIn">
+                    <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>{errors.grossWeight}</span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -258,6 +292,7 @@ export const BuybackView = () => {
                   <th className="p-3">Rate</th>
                   <th className="p-3 text-right">{t('buybacks.payout', 'Net Payout')}</th>
                   <th className="p-3 text-center">{t('common.status', 'Status')}</th>
+                  <th className="p-3 text-center">{t('salesHistory.actions', 'Actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
@@ -288,6 +323,16 @@ export const BuybackView = () => {
                         {bb.status}
                       </span>
                     </td>
+                    <td className="p-3 text-center font-sans">
+                      <button
+                        onClick={() => setIssuedVoucher(bb)}
+                        className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 font-bold px-2.5 py-1 rounded-lg text-xs cursor-pointer transition-all shadow-2xs"
+                        title={isKhmer ? 'មើលប័ណ្ណទិញចូល / បោះពុម្ព' : 'View / Print Voucher'}
+                      >
+                        <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
+                        <span className="hidden sm:inline">{isKhmer ? 'ប័ណ្ណ' : 'Voucher'}</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -303,6 +348,14 @@ export const BuybackView = () => {
           </div>
         </div>
       </div>
+
+      {/* Luxury Buyback Voucher Modal */}
+      {issuedVoucher && (
+        <BuybackVoucherModal
+          voucher={issuedVoucher}
+          onClose={() => setIssuedVoucher(null)}
+        />
+      )}
     </div>
   );
 };

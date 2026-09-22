@@ -24,7 +24,14 @@ import {
   faCheck,
   faArrowRight,
   faArrowLeft,
-  faUserPlus
+  faUserPlus,
+  faTag,
+  faGift,
+  faCrown,
+  faWandMagicSparkles,
+  faTriangleExclamation,
+  faCircleInfo,
+  faCircleExclamation
 } from '@fortawesome/free-solid-svg-icons';
 
 const fallbackImg = 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80';
@@ -78,9 +85,10 @@ export const PosTerminal = () => {
     phone: '',
     email: '',
     address: '',
-    tier: 'Gold',
-    discount_rate: 2.0
+    tier: 'Standard',
+    discount_rate: 0.0
   });
+  const [custModalErrors, setCustModalErrors] = useState({});
   const [activeInvoice, setActiveInvoice] = useState(null);
 
   // Held Tickets Tray State
@@ -151,6 +159,9 @@ export const PosTerminal = () => {
     }
   };
 
+  // Active Promotion Selection ('auto' | 'vip' | 'none' | 'custom' | promo_id)
+  const [selectedPromotionId, setSelectedPromotionId] = useState('auto');
+
   // Filter products using global searchQuery
   const cleanQ = (searchQuery || '').toLowerCase().trim();
   const filteredProducts = products.filter(p => {
@@ -164,12 +175,75 @@ export const PosTerminal = () => {
     return matchesSearch && matchesCategory && matchesMetal;
   });
 
-  // Calculate totals
+  // Calculate base item totals
   const subtotal = cart.reduce((acc, item) => acc + (item.calculatedPrice * item.qty), 0);
   const totalWeightGrams = cart.reduce((acc, item) => acc + ((Number(item.net_weight) || 0) * item.qty), 0);
   const totalWeightChi = totalWeightGrams / 3.75;
+
+  // Live Promotion matching: matches active promotions based on customer tier, min purchase, cart items, and valid dates
+  const applicablePromotions = React.useMemo(() => {
+    if (!promotions || promotions.length === 0) return [];
+    const today = new Date().toISOString().split('T')[0];
+    const customerTier = selectedCustomer?.tier || 'Standard';
+
+    return promotions.filter(p => {
+      if (!p.is_active) return false;
+      if (p.start_date && p.start_date.split('T')[0] > today) return false;
+      if (p.end_date && p.end_date.split('T')[0] < today) return false;
+      if (p.tier_requirement && p.tier_requirement !== '' && p.tier_requirement !== customerTier) return false;
+      if (p.product_id && !cart.some(item => Number(item.id) === Number(p.product_id))) return false;
+      if (Number(p.min_purchase) > 0 && subtotal < Number(p.min_purchase)) return false;
+      return true;
+    });
+  }, [promotions, selectedCustomer, cart, subtotal]);
+
+  // Determine active promotion based on selectedPromotionId or auto-best
+  const activePromotion = React.useMemo(() => {
+    if (selectedPromotionId === 'none' || selectedPromotionId === 'vip' || selectedPromotionId === 'custom') return null;
+    if (selectedPromotionId !== 'auto') {
+      return applicablePromotions.find(p => String(p.id) === String(selectedPromotionId)) || null;
+    }
+    if (applicablePromotions.length === 0) return null;
+    // Auto mode: find promotion giving highest discount percent / value
+    return applicablePromotions.slice().sort((a, b) => {
+      const valA = a.discount_type === 'percent' ? Number(a.discount_value) : (subtotal > 0 ? (Number(a.discount_value) / subtotal) * 100 : 0);
+      const valB = b.discount_type === 'percent' ? Number(b.discount_value) : (subtotal > 0 ? (Number(b.discount_value) / subtotal) * 100 : 0);
+      return valB - valA;
+    })[0];
+  }, [selectedPromotionId, applicablePromotions, subtotal]);
+
+  // Dynamically synchronize discountPercent whenever active promotion, customer tier, or subtotal updates in auto mode
+  React.useEffect(() => {
+    if (selectedPromotionId === 'auto') {
+      if (activePromotion) {
+        const promoRate = activePromotion.discount_type === 'percent'
+          ? Number(activePromotion.discount_value)
+          : (subtotal > 0 ? Math.min(100, Math.round(((Number(activePromotion.discount_value) / subtotal) * 100) * 100) / 100) : 0);
+        const vipRate = Number(selectedCustomer?.discount_rate || 0);
+        setDiscountPercent(Math.max(promoRate, vipRate));
+      } else if (selectedCustomer) {
+        setDiscountPercent(Number(selectedCustomer.discount_rate || 0));
+      } else {
+        setDiscountPercent(0);
+      }
+    } else if (selectedPromotionId === 'vip') {
+      setDiscountPercent(Number(selectedCustomer?.discount_rate || 0));
+    } else if (selectedPromotionId === 'none') {
+      setDiscountPercent(0);
+    } else if (selectedPromotionId !== 'custom') {
+      const promo = applicablePromotions.find(p => String(p.id) === String(selectedPromotionId));
+      if (promo) {
+        const promoRate = promo.discount_type === 'percent'
+          ? Number(promo.discount_value)
+          : (subtotal > 0 ? Math.min(100, Math.round(((Number(promo.discount_value) / subtotal) * 100) * 100) / 100) : 0);
+        setDiscountPercent(promoRate);
+      }
+    }
+  }, [selectedPromotionId, activePromotion, selectedCustomer, subtotal]);
+
+  // Final ledger values
   const discountAmount = subtotal * (discountPercent / 100);
-  const taxableTotal = subtotal - discountAmount;
+  const taxableTotal = Math.max(0, subtotal - discountAmount);
   const taxAmount = taxableTotal * (taxRate / 100);
   const grandTotal = taxableTotal + taxAmount;
   const currentFxRate = Number(exchangeRate?.rate) || 4100;
@@ -237,8 +311,8 @@ export const PosTerminal = () => {
           setDiscountPercent(promoDiscount);
           showToast(
             isKhmer
-              ? `🎁 ប្រម៉ូសិន "${promo.name}" ត្រូវបានអនុវត្ត (-${promo.discount_value}${promo.discount_type === 'percent' ? '%' : '$'})!`
-              : `🎁 Promotion "${promo.name}" auto-applied (-${promo.discount_value}${promo.discount_type === 'percent' ? '%' : '$'})!`,
+              ? `ប្រម៉ូសិន "${promo.name}" ត្រូវបានអនុវត្ត (-${promo.discount_value}${promo.discount_type === 'percent' ? '%' : '$'})!`
+              : `Promotion "${promo.name}" auto-applied (-${promo.discount_value}${promo.discount_type === 'percent' ? '%' : '$'})!`,
             'success'
           );
         }
@@ -275,16 +349,13 @@ export const PosTerminal = () => {
       setShowAddCustomerModal(true);
       return;
     }
+    setSelectedPromotionId('auto');
     if (!customerId) {
       setSelectedCustomer(null);
-      setDiscountPercent(0);
       return;
     }
     const customer = customers.find(c => String(c.id) === String(customerId));
     setSelectedCustomer(customer || null);
-    if (customer) {
-      setDiscountPercent(customer.discount_rate || 0);
-    }
   };
 
   const handleTierSelect = (tier) => {
@@ -298,14 +369,19 @@ export const PosTerminal = () => {
 
   const handleSaveNewCustomer = async (e) => {
     if (e) e.preventDefault();
-    if (!newCustomerForm.name.trim()) {
-      showToast(isKhmer ? 'សូមបញ្ចូលឈ្មោះអតិថិជន!' : 'Please enter customer name!', 'warning');
+    const newErrors = {};
+    if (!newCustomerForm.name || !newCustomerForm.name.trim()) {
+      newErrors.name = isKhmer ? 'សូមបញ្ចូលឈ្មោះអតិថិជន' : 'Please enter customer name';
+    }
+    if (!newCustomerForm.phone || !newCustomerForm.phone.trim()) {
+      newErrors.phone = isKhmer ? 'សូមបញ្ចូលលេខទូរស័ព្ទ' : 'Please enter phone number';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setCustModalErrors(newErrors);
       return;
     }
-    if (!newCustomerForm.phone.trim()) {
-      showToast(isKhmer ? 'សូមបញ្ចូលលេខទូរស័ព្ទ!' : 'Please enter customer phone number!', 'warning');
-      return;
-    }
+    setCustModalErrors({});
 
     setSavingCustomer(true);
     try {
@@ -314,8 +390,8 @@ export const PosTerminal = () => {
         phone: newCustomerForm.phone.trim(),
         email: newCustomerForm.email.trim() || null,
         address: newCustomerForm.address.trim() || null,
-        tier: newCustomerForm.tier || 'Gold',
-        discount_rate: Number(newCustomerForm.discount_rate) || 2.0,
+        tier: 'Standard',
+        discount_rate: 0.0,
         loyalty_points: 50
       });
 
@@ -327,9 +403,10 @@ export const PosTerminal = () => {
         phone: '',
         email: '',
         address: '',
-        tier: 'Gold',
-        discount_rate: 2.0
+        tier: 'Standard',
+        discount_rate: 0.0
       });
+      setCustModalErrors({});
       showToast(
         isKhmer ? `បានចុះឈ្មោះអតិថិជន "${created.name}" និងភ្ជាប់ការលក់ដោយជោគជ័យ!` : `Customer "${created.name}" registered and assigned to ticket!`,
         'success'
@@ -658,17 +735,38 @@ export const PosTerminal = () => {
           >
             <option value="">{t('pos.walkInGuest', 'Walk-in Guest')}</option>
             <option value="__NEW__" className="font-bold text-amber-700 bg-amber-50">
-              {isKhmer ? '➕ បញ្ចូលអតិថិជនថ្មី... (+ New Customer)' : '➕ Add New Customer...'}
+              {isKhmer ? '+ បញ្ចូលអតិថិជនថ្មី...' : '+ Add New Customer...'}
             </option>
-            {customers.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.name} — {c.tier} ({c.discount_rate}% Privilege)
-              </option>
-            ))}
+            {customers.map(c => {
+              const today = new Date().toISOString().split('T')[0];
+              const promo = (promotions || []).find(p => {
+                if (!p.is_active) return false;
+                if (p.start_date && p.start_date.split('T')[0] > today) return false;
+                if (p.end_date && p.end_date.split('T')[0] < today) return false;
+                return p.tier_requirement === c.tier;
+              });
+
+              return (
+                <option key={c.id} value={c.id}>
+                  {c.name} — {c.tier} {promo ? `(${promo.discount_value}% Promo: ${promo.name})` : `(${c.discount_rate}% Privilege)`}
+                </option>
+              );
+            })}
           </select>
           {selectedCustomer && (
-            <div className="mt-1.5 flex items-center justify-between text-[11px] text-amber-800 px-1 font-semibold">
-              <span>{isKhmer ? 'កម្រិត' : 'Tier'}: {selectedCustomer.tier}</span>
+            <div className="mt-1.5 flex items-center justify-between text-[11px] text-amber-800 px-1 font-semibold flex-wrap gap-1">
+              <span className="flex items-center gap-1.5">
+                <span>{isKhmer ? 'កម្រិត' : 'Tier'}:</span>
+                <strong className="text-amber-950">{selectedCustomer.tier}</strong>
+                {activePromotion ? (
+                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-300 font-bold shadow-2xs">
+                    <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                    <span>{activePromotion.name} (-{activePromotion.discount_value}{activePromotion.discount_type === 'percent' ? '%' : '$'})</span>
+                  </span>
+                ) : (
+                  <span className="text-slate-500 font-normal">({selectedCustomer.discount_rate}% Privilege)</span>
+                )}
+              </span>
               <span>{isKhmer ? 'ពិន្ទុសន្សំ' : 'Loyalty'}: {selectedCustomer.loyalty_points} {t('customers.pts', 'pts')}</span>
             </div>
           )}
@@ -781,14 +879,131 @@ export const PosTerminal = () => {
             <span>{t('pos.subtotal', 'Metal & Labor Subtotal')}:</span>
             <span>${subtotal.toFixed(2)}</span>
           </div>
-          {discountPercent > 0 && (
-            <div className="flex justify-between text-emerald-700 font-semibold">
-              <span className="flex items-center gap-1">
-                <FontAwesomeIcon icon={faPercent} className="w-3 h-3" /> {t('pos.vipDiscount', 'VIP Privilege')} ({discountPercent}%):
-              </span>
-              <span>-${discountAmount.toFixed(2)}</span>
+
+          {/* Always-Visible & Interactive Discount / Promotion Section */}
+          <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-50/90 to-amber-100/50 border border-amber-300/80 space-y-2">
+            <div className="flex justify-between items-center text-slate-700">
+              <div className="flex items-center gap-1.5 font-sans min-w-0 flex-1 mr-2">
+                <FontAwesomeIcon icon={faPercent} className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="font-bold text-slate-800 text-[11.5px] truncate">
+                  {isKhmer ? 'បញ្ចុះតម្លៃ / ប្រម៉ូសិន:' : 'Discount / Promo:'}
+                </span>
+                {activePromotion ? (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-2xs truncate">
+                    <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                    <span className="truncate">{activePromotion.name} (-{activePromotion.discount_value}{activePromotion.discount_type === 'percent' ? '%' : '$'})</span>
+                  </span>
+                ) : (
+                  selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-200/90 text-amber-950 border border-amber-300 shadow-2xs shrink-0">
+                      {selectedCustomer.tier} VIP ({selectedCustomer.discount_rate}%)
+                    </span>
+                  )
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="inline-flex items-center gap-0.5 bg-white border border-amber-300 rounded-md px-1.5 py-0.5 shadow-2xs">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.5"
+                    value={discountPercent}
+                    onChange={(e) => {
+                      setSelectedPromotionId('custom');
+                      const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                      setDiscountPercent(val);
+                    }}
+                    className="w-10 bg-transparent text-center font-mono font-bold text-xs text-slate-900 focus:outline-none"
+                    title={isKhmer ? 'ភាគរយបញ្ចុះតម្លៃ (%)' : 'Discount percentage (%)'}
+                  />
+                  <span className="text-[10px] font-bold text-amber-800 font-mono">%</span>
+                </div>
+                <span className={`font-mono font-bold text-xs ${discountPercent > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                  -${discountAmount.toFixed(2)}
+                </span>
+              </div>
             </div>
-          )}
+
+            {/* Applicable Promotions Quick Selector */}
+            <div className="space-y-1.5 pt-1.5 border-t border-amber-200/70 text-[11px]">
+              {applicablePromotions.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] font-sans font-bold text-amber-900 flex items-center gap-1">
+                    <FontAwesomeIcon icon={faTag} className="w-2.5 h-2.5 text-amber-600" />
+                    <span>{isKhmer ? 'ប្រម៉ូសិន:' : 'Promos:'}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPromotionId('auto')}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                      selectedPromotionId === 'auto'
+                        ? 'bg-emerald-600 text-white shadow-2xs ring-1 ring-emerald-500'
+                        : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-300'
+                    }`}
+                    title={isKhmer ? 'អនុវត្តប្រម៉ូសិនដែលល្អបំផុតដោយស្វ័យប្រវត្តិ' : 'Auto-apply best matching promotion'}
+                  >
+                    <FontAwesomeIcon icon={faWandMagicSparkles} className="w-2.5 h-2.5" />
+                    <span>{isKhmer ? 'ស្វ័យប្រវត្តិ' : 'Auto Best'}</span>
+                  </button>
+                  {applicablePromotions.map(promo => (
+                    <button
+                      key={promo.id}
+                      type="button"
+                      onClick={() => setSelectedPromotionId(promo.id)}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                        String(selectedPromotionId) === String(promo.id)
+                          ? 'bg-amber-600 text-white shadow-2xs ring-1 ring-amber-500'
+                          : 'bg-white text-amber-900 hover:bg-amber-50 border border-amber-300'
+                      }`}
+                      title={promo.description || promo.name}
+                    >
+                      <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5" />
+                      <span>{promo.name} (-{promo.discount_value}{promo.discount_type === 'percent' ? '%' : '$'})</span>
+                    </button>
+                  ))}
+                  {selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPromotionId('vip')}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
+                        selectedPromotionId === 'vip'
+                          ? 'bg-amber-500 text-white shadow-2xs'
+                          : 'bg-white text-slate-700 hover:bg-amber-50 border border-slate-200'
+                      }`}
+                    >
+                      <FontAwesomeIcon icon={faCrown} className="w-2.5 h-2.5 text-amber-600" />
+                      <span>{selectedCustomer.tier} ({selectedCustomer.discount_rate}%)</span>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Quick % chips */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-[10px] font-sans font-medium text-slate-500 mr-0.5">{isKhmer ? 'ជ្រើសរើស:' : 'Quick %:'}</span>
+                {[0, 2, 3, 5, 10].map(pct => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPromotionId('custom');
+                      setDiscountPercent(pct);
+                    }}
+                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                      discountPercent === pct && selectedPromotionId === 'custom'
+                        ? 'bg-amber-500 text-white shadow-2xs'
+                        : 'bg-white text-slate-700 hover:bg-amber-100 border border-slate-200 hover:border-amber-300'
+                    }`}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-between text-slate-600">
             <span>{t('pos.tax', 'Sales Tax')} ({taxRate}%):</span>
             <span>+${taxAmount.toFixed(2)}</span>
@@ -821,7 +1036,7 @@ export const PosTerminal = () => {
               <span>{isKhmer ? 'ស្ថានភាព' : 'Status'}</span>
             </span>
             <span className="text-[10px] text-amber-800 font-normal truncate max-w-full px-1">
-              {cart.some(i => i.status === 'pending') ? (isKhmer ? '⏱ រង់ចាំកែ' : 'Pending') : (isKhmer ? '✓ រួចរាល់' : 'Ready')}
+              {cart.some(i => i.status === 'pending') ? (isKhmer ? 'រង់ចាំកែ' : 'Pending') : (isKhmer ? 'រួចរាល់' : 'Ready')}
             </span>
           </button>
 
@@ -841,189 +1056,189 @@ export const PosTerminal = () => {
       {/* MODAL 1: ស្ថានភាពការលក់ & មុខទំនិញ (Sale & Item Status Modal)              */}
       {/* ========================================================================= */}
       {showStatusModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
             {/* Header with Step Indicator */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-xs flex items-center justify-center font-mono">
-                  1/2
+            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
+                  <span className="font-mono text-xs font-black">1/2</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 font-serif leading-tight">
+                  <h3 className="font-serif text-base sm:text-lg font-bold text-slate-900 leading-tight">
                     {isKhmer ? 'ស្ថានភាពការលក់ & មុខទំនិញ' : 'Order & Item Statuses'}
                   </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     {isKhmer ? 'ជំហានទី ១: កំណត់ស្ថានភាពការលក់ និងទំនិញនីមួយៗ' : 'Step 1 of 2: Set overall order & individual item statuses'}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowStatusModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer text-sm"
               >
-                <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
 
-            {/* 1. Overall Sale Order Status */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-700 font-bold flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faBoxesStacked} className="w-3.5 h-3.5 text-amber-600" />
-                  <span>{isKhmer ? 'ស្ថានភាពការលក់សរុប (Overall Sale Status):' : 'Overall Sale Status:'}</span>
-                </label>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                  saleStatus === 'completed'
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : (saleStatus === 'pending'
-                      ? 'bg-amber-50 text-amber-900 border-amber-300'
-                      : 'bg-rose-50 text-rose-800 border-rose-300')
-                }`}>
-                  {saleStatus === 'completed'
-                    ? (isKhmer ? 'បានបញ្ចប់' : 'Completed')
-                    : (saleStatus === 'pending'
-                      ? (isKhmer ? 'កំពុងរង់ចាំ' : 'Pending')
-                      : (isKhmer ? 'បានបោះបង់' : 'Cancelled'))}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setSaleStatus('completed')}
-                  className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+              {/* 1. Overall Sale Order Status */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-slate-700 font-bold flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faBoxesStacked} className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{isKhmer ? 'ស្ថានភាពការលក់សរុប (Overall Sale Status):' : 'Overall Sale Status:'}</span>
+                  </label>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                     saleStatus === 'completed'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-xs ring-1 ring-emerald-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faCircleCheck} className={`w-4 h-4 ${saleStatus === 'completed' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <span className="text-[11px]">{isKhmer ? 'បានបញ្ចប់ (Completed)' : 'Completed'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSaleStatus('pending')}
-                  className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
-                    saleStatus === 'pending'
-                      ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold shadow-xs ring-1 ring-amber-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faClock} className={`w-4 h-4 ${saleStatus === 'pending' ? 'text-amber-600' : 'text-slate-400'}`} />
-                  <span className="text-[11px]">{isKhmer ? 'រង់ចាំ (Pending)' : 'Pending'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSaleStatus('cancelled')}
-                  className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
-                    saleStatus === 'cancelled'
-                      ? 'border-rose-500 bg-rose-50 text-rose-950 font-bold shadow-xs ring-1 ring-rose-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faXmark} className={`w-4 h-4 ${saleStatus === 'cancelled' ? 'text-rose-600' : 'text-slate-400'}`} />
-                  <span className="text-[11px]">{isKhmer ? 'បោះបង់ (Cancelled)' : 'Cancelled'}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* 2. Individual Item Statuses (ទៅនីមួយៗ) */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-700 font-bold flex items-center gap-1.5">
-                  <FontAwesomeIcon icon={faCheck} className="w-3.5 h-3.5 text-amber-600" />
-                  <span>{isKhmer ? 'ស្ថានភាពមុខទំនិញនីមួយៗ (ទៅនីមួយៗ):' : 'Individual Item Statuses:'}</span>
-                </label>
-                {/* Bulk status shortcuts */}
-                <div className="flex items-center gap-1.5">
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : (saleStatus === 'pending'
+                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                        : 'bg-rose-50 text-rose-800 border-rose-300')
+                  }`}>
+                    {saleStatus === 'completed'
+                      ? (isKhmer ? 'បានបញ្ចប់' : 'Completed')
+                      : (saleStatus === 'pending'
+                        ? (isKhmer ? 'កំពុងរង់ចាំ' : 'Pending')
+                        : (isKhmer ? 'បានបោះបង់' : 'Cancelled'))}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    onClick={() => handleSetAllItemsStatus('completed')}
-                    className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSaleStatus('completed');
+                      setCart(prev => prev.map(i => ({ ...i, status: 'completed' })));
+                    }}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      saleStatus === 'completed'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-emerald-50 hover:border-emerald-300'
+                    }`}
                   >
-                    {isKhmer ? 'យកភ្លាមទាំងអស់' : 'All Ready'}
+                    <FontAwesomeIcon icon={faCircleCheck} className="w-3.5 h-3.5" />
+                    <span>{isKhmer ? 'បានបញ្ចប់' : 'Completed'}</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleSetAllItemsStatus('pending')}
-                    className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200 cursor-pointer transition-colors"
+                    onClick={() => {
+                      setSaleStatus('pending');
+                      setCart(prev => prev.map(i => ({ ...i, status: 'pending' })));
+                    }}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      saleStatus === 'pending'
+                        ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-50 hover:border-amber-300'
+                    }`}
                   >
-                    {isKhmer ? 'រង់ចាំកែទាំងអស់' : 'All Pending'}
+                    <FontAwesomeIcon icon={faHourglassHalf} className="w-3.5 h-3.5" />
+                    <span>{isKhmer ? 'កំពុងរង់ចាំ' : 'Pending'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSaleStatus('cancelled');
+                      setCart(prev => prev.map(i => ({ ...i, status: 'cancelled' })));
+                    }}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      saleStatus === 'cancelled'
+                        ? 'bg-rose-600 text-white border-rose-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-rose-50 hover:border-rose-300'
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={faBan} className="w-3.5 h-3.5" />
+                    <span>{isKhmer ? 'បានបោះបង់' : 'Cancelled'}</span>
                   </button>
                 </div>
               </div>
 
-              {/* Scrollable Items List */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 max-h-56 overflow-y-auto space-y-1.5" style={{ scrollbarWidth: 'thin' }}>
-                {cart.map(item => (
-                  <div key={item.id} className="flex items-center justify-between gap-2.5 p-2 bg-white rounded-lg border border-slate-200 shadow-2xs text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                      <img
-                        src={item.image || fallbackImg}
-                        alt={item.name}
-                        className="w-8 h-8 rounded-md object-cover border border-slate-200 shrink-0 bg-slate-100"
-                        onError={(e) => { e.target.src = fallbackImg; }}
-                      />
+              {/* 2. Individual Item Statuses */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs text-slate-700 font-bold flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faGem} className="w-3.5 h-3.5 text-amber-600" />
+                    <span>{isKhmer ? 'ស្ថានភាពមុខទំនិញនីមួយៗ (Per-Item Status):' : 'Per-Item Status:'}</span>
+                  </label>
+                  <span className="text-[10px] text-slate-600">({cart.length} {isKhmer ? 'មុខទំនិញ' : 'items'})</span>
+                </div>
+                <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                  {cart.map((item, idx) => (
+                    <div key={item.id || idx} className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <div className="font-bold text-slate-900 truncate text-[11px]">{item.name}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">
-                          x{item.qty} • {((item.net_weight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'} (${(item.calculatedPrice * item.qty).toFixed(2)})
+                        <div className="font-semibold text-xs text-slate-800 truncate">{item.name}</div>
+                        <div className="text-[10px] text-slate-600 font-mono flex items-center gap-2">
+                          <span>{item.code || `PROD-${item.id}`}</span>
+                          <span>•</span>
+                          <span>{item.qty} {item.unit || 'pcs'}</span>
+                          <span>•</span>
+                          <span className="font-bold text-amber-700">${Number(item.subtotal || item.price * item.qty).toFixed(2)}</span>
                         </div>
                       </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCart(prev => prev.map((ci, cidx) => cidx === idx ? { ...ci, status: 'completed' } : ci));
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            (item.status || 'completed') === 'completed'
+                              ? 'bg-emerald-600 text-white border-emerald-600'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-emerald-50'
+                          }`}
+                        >
+                          {isKhmer ? 'រួចរាល់' : 'Completed'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCart(prev => prev.map((ci, cidx) => cidx === idx ? { ...ci, status: 'pending' } : ci));
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            item.status === 'pending'
+                              ? 'bg-amber-600 text-white border-amber-600'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-amber-50'
+                          }`}
+                        >
+                          {isKhmer ? 'រង់ចាំ' : 'Pending'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCart(prev => prev.map((ci, cidx) => cidx === idx ? { ...ci, status: 'cancelled' } : ci));
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${
+                            item.status === 'cancelled'
+                              ? 'bg-rose-600 text-white border-rose-600'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-rose-50'
+                          }`}
+                        >
+                          {isKhmer ? 'បោះបង់' : 'Cancelled'}
+                        </button>
+                      </div>
                     </div>
-
-                    {/* Quick Toggle Buttons for each item */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => updateCartItemStatus(item.id, 'completed')}
-                        className={`px-2 py-1 rounded-md text-[10.5px] font-bold border cursor-pointer transition-all ${
-                          (item.status || 'completed') === 'completed'
-                            ? 'bg-emerald-500 text-white border-emerald-600 shadow-2xs'
-                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                        }`}
-                      >
-                        ✓ {isKhmer ? 'យកភ្លាម' : 'Ready'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          updateCartItemStatus(item.id, 'pending');
-                          if (saleStatus === 'completed') setSaleStatus('pending');
-                        }}
-                        className={`px-2 py-1 rounded-md text-[10.5px] font-bold border cursor-pointer transition-all ${
-                          item.status === 'pending'
-                            ? 'bg-amber-500 text-white border-amber-600 shadow-2xs'
-                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-                        }`}
-                      >
-                        ⏱ {isKhmer ? 'រង់ចាំកែ' : 'Pending'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Modal 1 Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowStatusModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer transition-colors"
-              >
-                {t('common.cancel', 'Cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={handleProceedToPayment}
-                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white text-xs font-bold rounded-lg cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
-              >
-                <span>{isKhmer ? 'បន្តទៅការទូទាត់ប្រាក់' : 'Next: Payment Tender'}</span>
-                <FontAwesomeIcon icon={faArrowRight} className="w-3 h-3" />
-              </button>
+              {/* Modal 1 Footer */}
+              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowStatusModal(false)}
+                  className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
+                >
+                  {t('common.cancel', 'Cancel')}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleProceedToPayment}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+                >
+                  <span>{isKhmer ? 'បន្តទៅការទូទាត់ប្រាក់' : 'Next: Payment Tender'}</span>
+                  <FontAwesomeIcon icon={faArrowRight} className="w-3 h-3" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1033,28 +1248,29 @@ export const PosTerminal = () => {
       {/* MODAL 2: ការទូទាត់ប្រាក់ & លុយកក់ (Payment & Deposit Modal)                */}
       {/* ========================================================================= */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-lg bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl my-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
             {/* Header with Step Indicator */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-900 border border-emerald-300 font-extrabold text-xs flex items-center justify-center font-mono">
-                  2/2
+            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 via-emerald-400 to-teal-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-emerald-500/20 shrink-0">
+                  <span className="font-mono text-xs font-black">2/2</span>
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 font-serif leading-tight">
+                  <h3 className="font-serif text-base sm:text-lg font-bold text-slate-900 leading-tight">
                     {t('pos.finalizePayment', 'Payment Tender & Deposit')}
                   </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  <p className="text-xs text-slate-500 mt-0.5">
                     {isKhmer ? 'ជំហានទី ២: ជ្រើសរើសរូបិយប័ណ្ណ លុយកក់ និងវិធីទូទាត់ប្រាក់' : 'Step 2 of 2: Select currency, deposit & tender method'}
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowPaymentModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer text-sm"
               >
-                <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
 
@@ -1070,10 +1286,10 @@ export const PosTerminal = () => {
                       : 'bg-rose-50 text-rose-800 border-rose-300')
                 }`}>
                   {saleStatus === 'completed'
-                    ? (isKhmer ? '✓ បានបញ្ចប់ (Completed)' : 'Completed')
+                    ? (isKhmer ? 'បានបញ្ចប់ (Completed)' : 'Completed')
                     : (saleStatus === 'pending'
-                      ? (isKhmer ? '⏱ កំពុងរង់ចាំ (Pending)' : 'Pending')
-                      : (isKhmer ? '✕ បានបោះបង់ (Cancelled)' : 'Cancelled'))}
+                      ? (isKhmer ? 'កំពុងរង់ចាំ (Pending)' : 'Pending')
+                      : (isKhmer ? 'បានបោះបង់ (Cancelled)' : 'Cancelled'))}
                 </span>
                 {cart.some(i => i.status === 'pending') && (
                   <span className="text-[10px] text-amber-800 font-medium hidden sm:inline">
@@ -1090,18 +1306,38 @@ export const PosTerminal = () => {
               </button>
             </div>
 
-            {/* Total Due Banner */}
-            <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100/60 border border-amber-200 text-center">
-              <span className="text-xs text-amber-900/80 uppercase font-semibold tracking-wider block">
-                {t('pos.totalDue', 'Total Amount Due')}
-              </span>
-              <div className="mt-1">
-                <span className="text-3xl font-mono font-extrabold text-amber-950 block">
-                  ${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {/* Total Due Banner with Financial Summary Breakdown */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100/60 border border-amber-200">
+              <div className="text-center pb-2 border-b border-amber-200/80">
+                <span className="text-xs text-amber-900/80 uppercase font-semibold tracking-wider block">
+                  {t('pos.totalDue', 'Total Amount Due')}
                 </span>
-                <span className="text-sm font-mono font-bold text-amber-800 block mt-0.5">
-                  ≈ ៛{grandTotalKhr.toLocaleString()} KHR
-                </span>
+                <div className="mt-0.5">
+                  <span className="text-2xl sm:text-3xl font-mono font-extrabold text-amber-950 block">
+                    ${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-amber-800 block mt-0.5">
+                    ≈ ៛{grandTotalKhr.toLocaleString()} KHR
+                  </span>
+                </div>
+              </div>
+
+              {/* Subtotal / Discount / Tax Ledger */}
+              <div className="pt-2 grid grid-cols-3 gap-2 text-center text-[11px] font-mono">
+                <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                  <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'សរុបដើម' : 'Subtotal'}</span>
+                  <span className="font-bold text-slate-800">${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                  <span className="text-[10px] text-emerald-700 block font-sans font-semibold">
+                    {isKhmer ? 'បញ្ចុះ' : 'Discount'} ({discountPercent}%)
+                  </span>
+                  <span className="font-bold text-emerald-700">-${discountAmount.toFixed(2)}</span>
+                </div>
+                <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                  <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'ពន្ធ' : 'Tax'} ({taxRate}%)</span>
+                  <span className="font-bold text-slate-800">+${taxAmount.toFixed(2)}</span>
+                </div>
               </div>
             </div>
 
@@ -1226,8 +1462,9 @@ export const PosTerminal = () => {
 
                 {!selectedCustomer && (
                   <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 p-2.5 rounded-xl font-sans flex items-center justify-between gap-2">
-                    <span className="leading-tight">
-                      ⚠️ {isKhmer ? 'ចំណាំ: សម្រាប់លុយកក់ សូមជ្រើសរើស ឬចុះឈ្មោះអតិថិជន ដើម្បីងាយស្រួលតាមដាន' : 'Note: Assigning a customer is strongly recommended for deposit tracking.'}
+                    <span className="leading-tight flex items-start gap-1.5">
+                      <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                      <span>{isKhmer ? 'ចំណាំ: សម្រាប់លុយកក់ សូមជ្រើសរើស ឬចុះឈ្មោះអតិថិជន ដើម្បីងាយស្រួលតាមដាន' : 'Note: Assigning a customer is strongly recommended for deposit tracking.'}</span>
                     </span>
                     <button
                       type="button"
@@ -1312,11 +1549,11 @@ export const PosTerminal = () => {
             </div>
 
             {/* Modal 2 Footer */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+            <div className="flex items-center justify-between gap-3 pt-5 mt-5 border-t border-slate-100">
               <button
                 type="button"
                 onClick={handleBackToStatus}
-                className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg cursor-pointer transition-colors"
+                className="flex items-center gap-1.5 px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
               >
                 <FontAwesomeIcon icon={faArrowLeft} className="w-3 h-3" />
                 <span>{isKhmer ? 'ត្រឡប់ក្រោយ (Back)' : 'Back to Status'}</span>
@@ -1324,7 +1561,7 @@ export const PosTerminal = () => {
               <button
                 type="button"
                 onClick={handleCheckout}
-                className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white text-xs font-bold rounded-lg cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+                className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
               >
                 {paymentStatus === 'partial'
                   ? (isKhmer ? 'កក់លុយ & ចេញវិក្កយបត្រ' : 'Record Deposit & Print')
@@ -1341,19 +1578,19 @@ export const PosTerminal = () => {
       {/* MODAL: ចុះឈ្មោះអតិថិជនថ្មីក្នុង POS (Add New Customer Modal)               */}
       {/* ========================================================================= */}
       {showAddCustomerModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs overflow-y-auto">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-2xl my-8 animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto">
             {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 border border-amber-300 flex items-center justify-center">
-                  <FontAwesomeIcon icon={faUserPlus} className="w-4 h-4" />
+            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
+                  <FontAwesomeIcon icon={faUserPlus} className="w-5 h-5 text-slate-950" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-slate-900 font-serif leading-tight">
+                  <h2 className="font-serif text-base sm:text-lg font-bold text-slate-900 leading-tight">
                     {isKhmer ? 'ចុះឈ្មោះអតិថិជនថ្មី (POS)' : 'New Customer Registration'}
-                  </h3>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
                     {isKhmer ? 'បញ្ចូលព័ត៌មានអតិថិជនដើម្បីទទួលបាន VIP Discount & ពិន្ទុ' : 'Create profile and assign directly to active POS ticket.'}
                   </p>
                 </div>
@@ -1361,76 +1598,98 @@ export const PosTerminal = () => {
               <button
                 type="button"
                 onClick={() => setShowAddCustomerModal(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg cursor-pointer hover:bg-slate-100 transition-colors"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer"
+                title={isKhmer ? 'បិទ' : 'Close'}
               >
                 <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSaveNewCustomer} className="space-y-3.5 text-xs">
+            <form noValidate onSubmit={handleSaveNewCustomer} className="p-5 sm:p-6 space-y-4 text-xs">
               {/* Name */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block font-bold text-slate-700 mb-1.5">
                   {isKhmer ? 'ឈ្មោះអតិថិជន (Customer Name)' : 'Customer Name'} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   value={newCustomerForm.name}
-                  onChange={(e) => setNewCustomerForm(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => {
+                    setNewCustomerForm(prev => ({ ...prev, name: e.target.value }));
+                    if (custModalErrors.name) setCustModalErrors(prev => ({ ...prev, name: null }));
+                  }}
                   placeholder={isKhmer ? 'ឧ: លោកស្រី សុខ ម៉ាលី' : 'e.g. Eleanor Vance'}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-hidden font-medium"
+                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
+                    custModalErrors.name
+                      ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
+                      : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
+                  }`}
                 />
+                {custModalErrors.name && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
+                    <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>{custModalErrors.name}</span>
+                  </div>
+                )}
               </div>
 
               {/* Phone */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block font-bold text-slate-700 mb-1.5">
                   {isKhmer ? 'លេខទូរស័ព្ទ (Contact Phone)' : 'Phone Number'} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
-                  required
                   value={newCustomerForm.phone}
-                  onChange={(e) => setNewCustomerForm(prev => ({ ...prev, phone: e.target.value }))}
+                  onChange={(e) => {
+                    setNewCustomerForm(prev => ({ ...prev, phone: e.target.value }));
+                    if (custModalErrors.phone) setCustModalErrors(prev => ({ ...prev, phone: null }));
+                  }}
                   placeholder={isKhmer ? 'ឧ: 012 888 999' : 'e.g. +855 12 888 999'}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-hidden font-mono"
+                  className={`w-full rounded-xl px-3.5 py-2.5 font-mono text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
+                    custModalErrors.phone
+                      ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
+                      : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
+                  }`}
                 />
+                {custModalErrors.phone && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
+                    <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>{custModalErrors.phone}</span>
+                  </div>
+                )}
               </div>
 
-              {/* VIP Tier Selector */}
+              {/* VIP Tier Auto-Upgrade Indicator */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
-                  {isKhmer ? 'កម្រិត VIP & ការបញ្ចុះតម្លៃ (VIP Privilege Tier):' : 'VIP Tier & Discount Privilege:'}
+                <label className="block font-bold text-slate-700 mb-1.5">
+                  {isKhmer ? 'កម្រិតសមាជិកភាព VIP (VIP Privilege Tier):' : 'VIP Privilege Tier:'}
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { tier: 'Gold', discount: 2.0, label: 'Gold (2%)', desc: 'Default VIP' },
-                    { tier: 'Platinum', discount: 3.0, label: 'Platinum (3%)', desc: 'High Spender' },
-                    { tier: 'Diamond VIP', discount: 5.0, label: 'Diamond (5%)', desc: 'Elite Collector' },
-                    { tier: 'Standard', discount: 0.0, label: 'Standard (0%)', desc: 'Regular Guest' }
-                  ].map((item) => (
-                    <button
-                      key={item.tier}
-                      type="button"
-                      onClick={() => handleTierSelect(item.tier)}
-                      className={`p-2 rounded-xl border text-left cursor-pointer transition-all ${
-                        newCustomerForm.tier === item.tier
-                          ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold ring-1 ring-amber-400 shadow-2xs'
-                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="font-bold text-[11px]">{item.label}</div>
-                      <div className="text-[10px] text-slate-400 font-normal">{item.desc}</div>
-                    </button>
-                  ))}
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-800 border border-slate-200 shadow-2xs">
+                      <FontAwesomeIcon icon={faUser} className="text-amber-600 w-3 h-3" />
+                      <span>{isKhmer ? 'កម្រិតចាប់ផ្តើម: Standard (0%)' : 'Starting Level: Standard (0%)'}</span>
+                    </span>
+                    <span className="text-[10px] text-amber-900 font-bold bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md">
+                      {isKhmer ? 'ដំឡើងស្វ័យប្រវត្តិតាមការទិញ' : 'Auto Upgrade on Purchase'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-normal flex items-start gap-1.5">
+                    <FontAwesomeIcon icon={faCircleInfo} className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                    <span>
+                      {isKhmer
+                        ? 'កម្រិត VIP និងការបញ្ចុះតម្លៃត្រូវបានដំឡើងស្វ័យប្រវត្តិតាមរយៈទំហំនៃការទិញជាក់ស្តែង៖ Gold ($1k+ = 2%), Platinum ($5k+ = 3%), Diamond VIP ($10k+ = 5%)។'
+                        : 'VIP tier level automatically unlocks & upgrades based on cumulative purchases: Gold ($1,000+ = 2%), Platinum ($5,000+ = 3%), Diamond VIP ($10,000+ = 5%).'}
+                    </span>
+                  </p>
                 </div>
               </div>
 
               {/* Email (Optional) */}
               <div>
-                <label className="block font-medium text-slate-600 mb-1">
+                <label className="block font-bold text-slate-700 mb-1.5">
                   {isKhmer ? 'អ៊ីមែល (Email - ស្រេចចិត្ត)' : 'Email (Optional)'}
                 </label>
                 <input
@@ -1438,13 +1697,13 @@ export const PosTerminal = () => {
                   value={newCustomerForm.email}
                   onChange={(e) => setNewCustomerForm(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="customer@example.com"
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-hidden"
+                  className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 font-mono text-xs text-slate-900 font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
                 />
               </div>
 
               {/* Address / Studio Notes (Optional) */}
               <div>
-                <label className="block font-medium text-slate-600 mb-1">
+                <label className="block font-bold text-slate-700 mb-1.5">
                   {isKhmer ? 'អាសយដ្ឋាន / កំណត់ចំណាំ (Address / Note)' : 'Address / Boutique Note'}
                 </label>
                 <input
@@ -1452,23 +1711,23 @@ export const PosTerminal = () => {
                   value={newCustomerForm.address}
                   onChange={(e) => setNewCustomerForm(prev => ({ ...prev, address: e.target.value }))}
                   placeholder={isKhmer ? 'ឧ: ភ្នំពេញ...' : 'e.g. Phnom Penh, Cambodia'}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-hidden"
+                  className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 text-xs font-semibold text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
                 />
               </div>
 
               {/* Actions */}
-              <div className="flex items-center justify-between pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowAddCustomerModal(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl cursor-pointer transition-colors"
+                  className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
                 >
                   {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={savingCustomer}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all disabled:opacity-50"
+                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all disabled:opacity-50"
                 >
                   <FontAwesomeIcon icon={faUserPlus} className="w-3.5 h-3.5" />
                   <span>{savingCustomer ? (isKhmer ? 'កំពុងរក្សាទុក...' : 'Saving...') : (isKhmer ? 'រក្សាទុក & ជ្រើសរើស' : 'Save & Select')}</span>

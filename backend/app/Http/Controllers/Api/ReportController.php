@@ -27,19 +27,18 @@ class ReportController extends Controller
         $endDate = $request->query('end_date');
 
         if (! $startDate) {
-            // Default to start of current month or 30 days ago
             $startDate = Carbon::now()->startOfMonth()->toDateString();
+        } else {
+            $startDate = Carbon::parse($startDate)->toDateString();
         }
 
         if (! $endDate) {
-            $endDate = Carbon::now()->endOfDay()->toDateString();
+            $endDate = Carbon::now()->toDateString();
+        } else {
+            $endDate = Carbon::parse($endDate)->toDateString();
         }
 
-        // Format dates safely
-        $start = Carbon::parse($startDate)->startOfDay();
-        $end = Carbon::parse($endDate)->endOfDay();
-
-        return [$start, $end];
+        return [$startDate, $endDate];
     }
 
     /**
@@ -67,9 +66,42 @@ class ReportController extends Controller
     public function getSummary(Request $request): JsonResponse
     {
         [$startDate, $endDate] = $this->getDateRange($request);
+        $startDateTime = "{$startDate} 00:00:00";
+        $endDateTime = "{$endDate} 23:59:59";
 
         // --- Sales Aggregates in Date Range ---
-        $salesQuery = Sale::whereBetween('sale_date', [$startDate, $endDate]);
+        $salesQuery = Sale::whereBetween('sale_date', [$startDateTime, $endDateTime]);
+
+        if ($request->filled('customer_id')) {
+            $salesQuery->where('customer_id', $request->customer_id);
+        }
+        if ($request->filled('user_id')) {
+            $salesQuery->where('user_id', $request->user_id);
+        }
+        if ($request->filled('status')) {
+            $salesQuery->where('status', $request->status);
+        }
+        if ($request->filled('category_id')) {
+            $salesQuery->whereHas('saleItems.product', function ($q) use ($request) {
+                $q->where('category_id', $request->category_id);
+            });
+        }
+        if ($request->filled('metal_type_id')) {
+            $salesQuery->whereHas('saleItems.product', function ($q) use ($request) {
+                $q->where('metal_type_id', $request->metal_type_id);
+            });
+        }
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $salesQuery->where(function ($q) use ($search) {
+                $q->where('invoice_no', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
+            });
+        }
+
         $totalSalesCount = (clone $salesQuery)->count();
         $grossSales = (clone $salesQuery)->sum('total_amount') ?? 0;
         $totalDiscount = (clone $salesQuery)->sum('discount') ?? 0;
@@ -77,28 +109,66 @@ class ReportController extends Controller
         $netSales = (float) ((clone $salesQuery)->sum('grand_total_usd') ?? 0);
 
         // Sale items totals (Weight sold, labor fee, gemstone sales)
-        $saleItemsInPeriod = SaleItem::whereHas('sale', function ($q) use ($startDate, $endDate) {
-            $q->whereBetween('sale_date', [$startDate, $endDate]);
+        $saleItemsInPeriod = SaleItem::whereHas('sale', function ($q) use ($startDateTime, $endDateTime, $request) {
+            $q->whereBetween('sale_date', [$startDateTime, $endDateTime]);
+            if ($request->filled('customer_id')) {
+                $q->where('customer_id', $request->customer_id);
+            }
+            if ($request->filled('user_id')) {
+                $q->where('user_id', $request->user_id);
+            }
+            if ($request->filled('status')) {
+                $q->where('status', $request->status);
+            }
         });
+
+        if ($request->filled('category_id')) {
+            $saleItemsInPeriod->whereHas('product', fn ($pq) => $pq->where('category_id', $request->category_id));
+        }
+        if ($request->filled('metal_type_id')) {
+            $saleItemsInPeriod->whereHas('product', fn ($pq) => $pq->where('metal_type_id', $request->metal_type_id));
+        }
 
         $totalWeightSoldGrams = (float) (clone $saleItemsInPeriod)->sum('weight_sold') ?? 0;
         $totalLaborFeeCollected = (float) (clone $saleItemsInPeriod)->sum('labor_fee') ?? 0;
         $totalGemstoneRevenue = (float) (clone $saleItemsInPeriod)->sum('gemstone_price') ?? 0;
 
         // --- Buybacks (Scrap Trade-ins) in Date Range ---
-        $buybacksQuery = Buyback::whereBetween('buyback_date', [$startDate, $endDate]);
+        $buybacksQuery = Buyback::whereBetween('buyback_date', [$startDateTime, $endDateTime]);
+        if ($request->filled('customer_id')) {
+            $buybacksQuery->where('customer_id', $request->customer_id);
+        }
+        if ($request->filled('metal_type_id')) {
+            $buybacksQuery->where('metal_type_id', $request->metal_type_id);
+        }
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $buybacksQuery->whereHas('customer', function ($cq) use ($search) {
+                $cq->where('name', 'like', "%{$search}%")
+                    ->orWhere('phone', 'like', "%{$search}%");
+            });
+        }
+
         $totalBuybacksCount = (clone $buybacksQuery)->count();
         $totalBuybacksPayout = (float) (clone $buybacksQuery)->sum('total_refund') ?? 0;
         $totalScrapWeightGrams = (float) (clone $buybacksQuery)->sum('weight') ?? 0;
         $totalDeductions = (float) (clone $buybacksQuery)->sum(DB::raw('COALESCE(deduction_rate, 0) + COALESCE(labor_deduction, 0)')) ?? 0;
 
         // --- Supplier Purchases in Date Range ---
-        $purchasesQuery = Purchase::whereBetween('purchase_date', [$startDate, $endDate]);
+        $purchasesQuery = Purchase::whereBetween('purchase_date', [$startDateTime, $endDateTime]);
         $totalPurchasesCount = (clone $purchasesQuery)->count();
         $totalPurchasesAmount = (float) (clone $purchasesQuery)->sum('total_amount') ?? 0;
 
         // --- Live Vault / Stock Snapshot ---
-        $products = Product::with('metalType')->get();
+        $productsQuery = Product::with('metalType');
+        if ($request->filled('category_id')) {
+            $productsQuery->where('category_id', $request->category_id);
+        }
+        if ($request->filled('metal_type_id')) {
+            $productsQuery->where('metal_type_id', $request->metal_type_id);
+        }
+
+        $products = $productsQuery->get();
         $totalProductsCount = $products->count();
         $totalStockUnits = $products->sum('stock_qty');
         $totalVaultWeightGrams = 0;
@@ -143,8 +213,8 @@ class ReportController extends Controller
 
         return response()->json([
             'date_range' => [
-                'start_date' => $startDate->toDateString(),
-                'end_date' => $endDate->toDateString(),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ],
             'sales' => [
                 'count' => $totalSalesCount,
@@ -191,9 +261,11 @@ class ReportController extends Controller
     public function getSalesReport(Request $request): JsonResponse
     {
         [$startDate, $endDate] = $this->getDateRange($request);
+        $startDateTime = "{$startDate} 00:00:00";
+        $endDateTime = "{$endDate} 23:59:59";
 
         $query = Sale::with(['customer', 'user', 'saleItems.product.metalType', 'saleItems.product.category'])
-            ->whereBetween('sale_date', [$startDate, $endDate]);
+            ->whereBetween('sale_date', [$startDateTime, $endDateTime]);
 
         // Optional filters
         if ($request->filled('customer_id')) {
@@ -201,6 +273,29 @@ class ReportController extends Controller
         }
         if ($request->filled('user_id')) {
             $query->where('user_id', $request->user_id);
+        }
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+        if ($request->filled('category_id')) {
+            $query->whereHas('saleItems.product', function ($q) use ($request) {
+                $q->where('category_id', $request->category_id);
+            });
+        }
+        if ($request->filled('metal_type_id')) {
+            $query->whereHas('saleItems.product', function ($q) use ($request) {
+                $q->where('metal_type_id', $request->metal_type_id);
+            });
+        }
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('invoice_no', 'like', "%{$search}%")
+                    ->orWhereHas('customer', function ($cq) use ($search) {
+                        $cq->where('name', 'like', "%{$search}%")
+                            ->orWhere('phone', 'like', "%{$search}%");
+                    });
+            });
         }
 
         $allSales = (clone $query)->latest('sale_date')->get();
@@ -304,8 +399,8 @@ class ReportController extends Controller
         return response()->json([
             'summary' => [
                 'date_range' => [
-                    'start_date' => $startDate->toDateString(),
-                    'end_date' => $endDate->toDateString(),
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
                 ],
                 'total_invoices' => $totalInvoices,
                 'gross_total' => round($grossTotal, 2),
@@ -333,9 +428,11 @@ class ReportController extends Controller
     public function getBuybackReport(Request $request): JsonResponse
     {
         [$startDate, $endDate] = $this->getDateRange($request);
+        $startDateTime = "{$startDate} 00:00:00";
+        $endDateTime = "{$endDate} 23:59:59";
 
         $query = Buyback::with(['customer', 'metalType'])
-            ->whereBetween('buyback_date', [$startDate, $endDate]);
+            ->whereBetween('buyback_date', [$startDateTime, $endDateTime]);
 
         if ($request->filled('metal_type_id')) {
             $query->where('metal_type_id', $request->metal_type_id);
@@ -387,8 +484,8 @@ class ReportController extends Controller
         return response()->json([
             'summary' => [
                 'date_range' => [
-                    'start_date' => $startDate->toDateString(),
-                    'end_date' => $endDate->toDateString(),
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
                 ],
                 'total_tickets' => $totalTickets,
                 'total_payout' => round($totalRefund, 2),
@@ -557,23 +654,25 @@ class ReportController extends Controller
     public function getCashFlowReport(Request $request): JsonResponse
     {
         [$startDate, $endDate] = $this->getDateRange($request);
+        $startDateTime = "{$startDate} 00:00:00";
+        $endDateTime = "{$endDate} 23:59:59";
 
         // Inflows (Sales)
-        $sales = Sale::whereBetween('sale_date', [$startDate, $endDate])->get();
+        $sales = Sale::whereBetween('sale_date', [$startDateTime, $endDateTime])->get();
         $totalInflow = (float) $sales->sum('grand_total_usd');
 
         // Outflows (Buybacks + Purchases)
-        $buybacks = Buyback::whereBetween('buyback_date', [$startDate, $endDate])->get();
+        $buybacks = Buyback::whereBetween('buyback_date', [$startDateTime, $endDateTime])->get();
         $totalBuybackOutflow = (float) $buybacks->sum('total_refund');
 
-        $purchases = Purchase::whereBetween('purchase_date', [$startDate, $endDate])->get();
+        $purchases = Purchase::whereBetween('purchase_date', [$startDateTime, $endDateTime])->get();
         $totalPurchaseOutflow = (float) $purchases->sum('total_amount');
 
         $totalOutflow = $totalBuybackOutflow + $totalPurchaseOutflow;
         $netCashFlow = $totalInflow - $totalOutflow;
 
         // Payments Table grouping (if recorded)
-        $payments = Payment::whereBetween('payment_date', [$startDate, $endDate])->get();
+        $payments = Payment::whereBetween('payment_date', [$startDateTime, $endDateTime])->get();
         $paymentMethodBreakdown = $payments->groupBy('payment_method')->map(function ($methodPayments, $method) {
             return [
                 'method' => $method,
@@ -622,8 +721,8 @@ class ReportController extends Controller
         return response()->json([
             'summary' => [
                 'date_range' => [
-                    'start_date' => $startDate->toDateString(),
-                    'end_date' => $endDate->toDateString(),
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
                 ],
                 'total_inflow' => round($totalInflow, 2),
                 'total_outflow' => round($totalOutflow, 2),
@@ -643,9 +742,11 @@ class ReportController extends Controller
     public function getGoldRateHistoryReport(Request $request): JsonResponse
     {
         [$startDate, $endDate] = $this->getDateRange($request);
+        $startDateTime = "{$startDate} 00:00:00";
+        $endDateTime = "{$endDate} 23:59:59";
 
         $query = GoldRate::with('metalType')
-            ->whereBetween('effective_date', [$startDate, $endDate]);
+            ->whereBetween('effective_date', [$startDateTime, $endDateTime]);
 
         if ($request->filled('metal_type_id')) {
             $query->where('metal_type_id', $request->metal_type_id);
@@ -674,8 +775,8 @@ class ReportController extends Controller
 
         return response()->json([
             'date_range' => [
-                'start_date' => $startDate->toDateString(),
-                'end_date' => $endDate->toDateString(),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ],
             'rates' => $ratesHistory,
         ]);

@@ -18,12 +18,26 @@ class CategoryFactory extends Factory
      */
     public function definition(): array
     {
-        $name = fake()->unique()->words(2, true).' '.fake()->unique()->numberBetween(1, 9999);
+        $jewelCategories = [
+            'Rings & Solitaires',
+            'Necklaces & Chains',
+            'Bracelets & Bangles',
+            'Earrings & Studs',
+            'Pendants & Medallions',
+            'Gold Bullion & Minted Bars',
+            'Bespoke Bridal Sets',
+            'Diamonds & Colored Gems',
+            'Luxury Timepieces',
+            'Anklets & Brooches',
+        ];
+
+        $baseName = fake()->randomElement($jewelCategories);
+        $name = $baseName.' '.fake()->unique()->numberBetween(10, 9999);
 
         return [
-            'name' => ucwords($name),
+            'name' => $name,
             'slug' => Str::slug($name),
-            'description' => fake()->sentence(),
+            'description' => 'Certified fine jewelry collection crafted with hallmarked precious metals and gemstones.',
         ];
     }
 }

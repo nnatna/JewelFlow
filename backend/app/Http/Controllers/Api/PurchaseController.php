@@ -83,11 +83,44 @@ class PurchaseController extends Controller
     }
 
     /**
+     * Confirm arrival of a purchase order (marks status as completed).
+     */
+    public function confirmArrival($id): JsonResponse
+    {
+        $purchase = Purchase::findOrFail($id);
+        $purchase->update(['status' => 'completed']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Purchase shipment arrival confirmed successfully.',
+            'data' => $purchase->load('supplier'),
+        ]);
+    }
+
+    /**
+     * Cancel a purchase order (marks status as cancelled).
+     */
+    public function cancelOrder($id): JsonResponse
+    {
+        $purchase = Purchase::findOrFail($id);
+        $purchase->update(['status' => 'cancelled']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Purchase order marked as cancelled.',
+            'data' => $purchase->load('supplier'),
+        ]);
+    }
+
+    /**
      * Remove the specified purchase.
      */
     public function destroy($id): JsonResponse
     {
         $purchase = Purchase::findOrFail($id);
+        if (method_exists($purchase, 'payments')) {
+            $purchase->payments()->delete();
+        }
         $purchase->delete();
 
         return response()->json([

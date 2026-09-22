@@ -22,11 +22,11 @@ class GoldRateFactory extends Factory
         $buyRate = fake()->randomFloat(2, 60, 90);
 
         return [
-            'metal_type_id' => MetalType::factory(),
+            'metal_type_id' => MetalType::inRandomOrder()->value('id') ?? 1,
             'buy_rate' => $buyRate,
             'sell_rate' => $buyRate + fake()->randomFloat(2, 2, 10),
             'effective_date' => fake()->date(),
-            'created_by' => User::factory(),
+            'created_by' => User::inRandomOrder()->value('id') ?? 1,
         ];
     }
 }

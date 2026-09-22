@@ -12,7 +12,11 @@ import {
   faLocationDot,
   faBagShopping,
   faXmark,
-  faFilter
+  faFilter,
+  faGift,
+  faTag,
+  faCircleInfo,
+  faCircleExclamation
 } from '@fortawesome/free-solid-svg-icons';
 
 export const CustomersView = () => {
@@ -20,6 +24,7 @@ export const CustomersView = () => {
   const isKhmer = (i18n.language || 'km').startsWith('km');
   const {
     customers,
+    promotions,
     addCustomer,
     setSelectedCustomer,
     setActiveTab,
@@ -37,9 +42,10 @@ export const CustomersView = () => {
     phone: '',
     email: '',
     address: '',
-    tier: 'Gold',
-    discount_rate: 2.0
+    tier: 'Standard',
+    discount_rate: 0.0
   });
+  const [custErrors, setCustErrors] = useState({});
 
   const cleanQ = (searchQuery || '').toLowerCase().trim();
   const filteredCustomers = customers.filter(c =>
@@ -58,10 +64,28 @@ export const CustomersView = () => {
 
   const handleCreateCustomer = (e) => {
     e.preventDefault();
-    if (!newCust.name || !newCust.phone) return;
-    addCustomer(newCust);
+    const errs = {};
+    if (!newCust.name || !newCust.name.trim()) {
+      errs.name = isKhmer ? 'សូមបញ្ចូលឈ្មោះអតិថិជន!' : 'Customer full name is required!';
+    }
+    if (!newCust.phone || !newCust.phone.trim()) {
+      errs.phone = isKhmer ? 'សូមបញ្ចូលលេខទូរស័ព្ទ!' : 'Phone number is required!';
+    }
+    if (Object.keys(errs).length > 0) {
+      setCustErrors(errs);
+      showToast(isKhmer ? 'សូមបំពេញព័ត៌មានដែលចាំបាច់!' : 'Please fill in required fields!', 'warning');
+      return;
+    }
+
+    setCustErrors({});
+    addCustomer({
+      ...newCust,
+      tier: 'Standard',
+      discount_rate: 0.0,
+      total_spent: 0
+    });
     setIsAddModalOpen(false);
-    setNewCust({ name: '', phone: '', email: '', address: '', tier: 'Gold', discount_rate: 2.0 });
+    setNewCust({ name: '', phone: '', email: '', address: '', tier: 'Standard', discount_rate: 0.0 });
   };
 
   const startPosForCustomer = (customer) => {
@@ -144,6 +168,15 @@ export const CustomersView = () => {
                 const isDiamond = customer.tier === 'Diamond VIP';
                 const isPlatinum = customer.tier === 'Platinum';
 
+                // Find active promotion matching this customer's tier
+                const today = new Date().toISOString().split('T')[0];
+                const activePromo = (promotions || []).find(p => {
+                  if (!p.is_active) return false;
+                  if (p.start_date && p.start_date.split('T')[0] > today) return false;
+                  if (p.end_date && p.end_date.split('T')[0] < today) return false;
+                  return p.tier_requirement === customer.tier;
+                });
+
                 return (
                   <tr key={customer.id} className="hover:bg-slate-50/80 transition-colors">
                     <td className="p-4 min-w-[200px]">
@@ -151,23 +184,32 @@ export const CustomersView = () => {
                       <span className="text-[11px] text-slate-400 font-mono">ID: CLT-{customer.id.toString().padStart(4, '0')}</span>
                     </td>
                     <td className="p-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                        isDiamond
-                          ? 'bg-purple-100 text-purple-900 border border-purple-300 shadow-2xs'
-                          : isPlatinum
-                          ? 'bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs'
-                          : customer.tier === 'Gold'
-                          ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
-                          : 'bg-slate-50 text-slate-600 border border-slate-200'
-                      }`}>
-                        <FontAwesomeIcon icon={faCrown} className={`w-3.5 h-3.5 ${
-                          isDiamond ? 'text-purple-600' : isPlatinum ? 'text-slate-500' : 'text-amber-600'
-                        }`} />
-                        <span>{customer.tier}</span>
-                        <span className="opacity-80 font-normal">
-                          ({customer.discount_rate}% {isKhmer ? 'បញ្ចុះតម្លៃ' : 'Privilege'})
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
+                          isDiamond
+                            ? 'bg-purple-100 text-purple-900 border border-purple-300 shadow-2xs'
+                            : isPlatinum
+                            ? 'bg-slate-100 text-slate-800 border border-slate-300 shadow-2xs'
+                            : customer.tier === 'Gold'
+                            ? 'bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs'
+                            : 'bg-slate-50 text-slate-600 border border-slate-200'
+                        }`}>
+                          <FontAwesomeIcon icon={faCrown} className={`w-3.5 h-3.5 ${
+                            isDiamond ? 'text-purple-600' : isPlatinum ? 'text-slate-500' : 'text-amber-600'
+                          }`} />
+                          <span>{customer.tier}</span>
+                          <span className="opacity-80 font-normal">
+                            ({customer.discount_rate}%)
+                          </span>
                         </span>
-                      </span>
+
+                        {activePromo && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs" title={activePromo.name}>
+                            <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5 text-emerald-600" />
+                            <span>{activePromo.discount_value}% Promo</span>
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="p-4 font-mono text-slate-700 whitespace-nowrap">
                       <span className="flex items-center gap-2">
@@ -230,97 +272,145 @@ export const CustomersView = () => {
 
       {/* Add Customer Modal */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-          <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-serif font-bold text-slate-900 text-base flex items-center gap-2">
-                <FontAwesomeIcon icon={faUserPlus} className="w-5 h-5 text-amber-600" />
-                {t('customers.enrollModalTitle', 'Register New Jewelry Customer')}
-              </h3>
-              <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto">
+            
+            {/* Modal Header */}
+            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
+                  <FontAwesomeIcon icon={faUserPlus} className="w-5 h-5 text-slate-950" />
+                </div>
+                <div>
+                  <h2 className="font-serif text-base sm:text-lg font-bold text-slate-900 leading-tight">
+                    {t('customers.enrollModalTitle', 'Register New Jewelry Customer')}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isKhmer ? 'ចុះឈ្មោះអតិថិជនថ្មីដើម្បីទទួលបាន VIP Discount & Rewards' : 'Create profile and assign VIP membership tier'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer"
+                title={isKhmer ? 'បិទ' : 'Close'}
+              >
                 <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateCustomer} className="space-y-3 text-xs">
+            <form noValidate onSubmit={handleCreateCustomer} className="p-5 sm:p-6 space-y-4 text-xs">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">{t('customers.fullName', 'Full Name')}</label>
+                <label className="block text-slate-700 font-bold mb-1.5">
+                  {t('customers.fullName', 'Full Name')} <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  required
                   value={newCust.name}
-                  onChange={(e) => setNewCust({ ...newCust, name: e.target.value })}
+                  onChange={(e) => {
+                    setNewCust({ ...newCust, name: e.target.value });
+                    if (custErrors.name) setCustErrors(prev => ({ ...prev, name: null }));
+                  }}
                   placeholder="e.g. Lady Evelyn Montgomery"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
+                    custErrors.name
+                      ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
+                      : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
+                  }`}
                 />
+                {custErrors.name && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
+                    <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>{custErrors.name}</span>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">{t('customers.phone', 'Phone Number')}</label>
+                <label className="block text-slate-700 font-bold mb-1.5">
+                  {t('customers.phone', 'Phone Number')} <span className="text-rose-500">*</span>
+                </label>
                 <input
                   type="text"
-                  required
                   value={newCust.phone}
-                  onChange={(e) => setNewCust({ ...newCust, phone: e.target.value })}
+                  onChange={(e) => {
+                    setNewCust({ ...newCust, phone: e.target.value });
+                    if (custErrors.phone) setCustErrors(prev => ({ ...prev, phone: null }));
+                  }}
                   placeholder="+1 (555) 123-4567"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  className={`w-full rounded-xl px-3.5 py-2.5 font-mono text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
+                    custErrors.phone
+                      ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
+                      : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
+                  }`}
                 />
+                {custErrors.phone && (
+                  <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
+                    <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                    <span>{custErrors.phone}</span>
+                  </div>
+                )}
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">{t('customers.email', 'Email Address')}</label>
+                <label className="block text-slate-700 font-bold mb-1.5">{t('customers.email', 'Email Address')}</label>
                 <input
                   type="email"
                   value={newCust.email}
                   onChange={(e) => setNewCust({ ...newCust, email: e.target.value })}
                   placeholder="client@luxury.com"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 font-mono text-xs text-slate-900 font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
                 />
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">{t('customers.tierLabel', 'VIP Privilege Tier')}</label>
-                <select
-                  value={newCust.tier}
-                  onChange={(e) => {
-                    const tier = e.target.value;
-                    let discount = 0;
-                    if (tier === 'Diamond VIP') discount = 5.0;
-                    else if (tier === 'Platinum') discount = 3.0;
-                    else if (tier === 'Gold') discount = 2.0;
-                    setNewCust({ ...newCust, tier, discount_rate: discount });
-                  }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none"
-                >
-                  <option value="Diamond VIP">{isKhmer ? 'Diamond VIP (បញ្ចុះតម្លៃ 5%)' : 'Diamond VIP (5% Privilege Discount)'}</option>
-                  <option value="Platinum">{isKhmer ? 'Platinum (បញ្ចុះតម្លៃ 3%)' : 'Platinum (3% Privilege Discount)'}</option>
-                  <option value="Gold">{isKhmer ? 'Gold (បញ្ចុះតម្លៃ 2%)' : 'Gold (2% Privilege Discount)'}</option>
-                  <option value="Standard">{isKhmer ? 'Standard (អតិថិជនទូទៅ - 0%)' : 'Standard Customer (0% Discount)'}</option>
-                </select>
+                <label className="block text-slate-700 font-bold mb-1.5">
+                  {t('customers.tierLabel', isKhmer ? 'កម្រិតសមាជិកភាព VIP' : 'VIP Privilege Tier')}
+                </label>
+                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-800 border border-slate-200 shadow-2xs">
+                      <FontAwesomeIcon icon={faCrown} className="text-amber-500 w-3.5 h-3.5" />
+                      <span>{isKhmer ? 'កម្រិតចាប់ផ្តើម: Standard (0%)' : 'Starting Level: Standard (0%)'}</span>
+                    </span>
+                    <span className="text-[10px] text-amber-900 font-bold bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md">
+                      {isKhmer ? 'ដំឡើងស្វ័យប្រវត្តិតាមការទិញ' : 'Auto Upgrade on Purchase'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-normal flex items-start gap-1.5">
+                    <FontAwesomeIcon icon={faCircleInfo} className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                    <span>
+                      {isKhmer
+                        ? 'កម្រិត VIP នឹងត្រូវបានដំឡើងស្វ័យប្រវត្តិតាមរយៈទំហំនៃការទិញទំនិញជាក់ស្តែងរបស់អតិថិជន៖ Gold ($1,000+ = 2%), Platinum ($5,000+ = 3%), Diamond VIP ($10,000+ = 5%)។'
+                        : 'VIP tier level automatically unlocks & upgrades based on cumulative purchases: Gold ($1,000+ = 2%), Platinum ($5,000+ = 3%), Diamond VIP ($10,000+ = 5%).'}
+                    </span>
+                  </p>
+                </div>
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">{t('customers.address', 'Residence Address')}</label>
+                <label className="block text-slate-700 font-bold mb-1.5">{t('customers.address', 'Residence Address')}</label>
                 <input
                   type="text"
                   value={newCust.address}
                   onChange={(e) => setNewCust({ ...newCust, address: e.target.value })}
                   placeholder="City, State"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none"
+                  className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 text-xs font-semibold text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg cursor-pointer font-medium"
+                  className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
                 >
                   {t('common.cancel', 'Cancel')}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold rounded-lg cursor-pointer shadow-md"
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
                 >
                   {t('customers.enrollClient', 'Register Customer')}
                 </button>

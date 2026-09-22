@@ -37,10 +37,53 @@ export const resources = {
     "storeAlerts": "Store Alerts",
     "updates": "updates",
     "allAlertsCleared": "All alerts cleared",
-    "marketTickerFootnote": "1 Chi = 3.75g | 1 Damlung = 37.5g",
-    "cambodiaExchange": "Live Rate: 1 USD = 4,100 KHR",
-    "purchases": "Gold Purchases",
+    "supplies": "Procurement & Supplies",
+    "purchases": "Purchase Orders",
+    "reports": "Reports & Analytics",
     "settings": "Settings"
+  },
+  "reports": {
+    "title": "Reports & Analytics",
+    "subtitle": "Audited business intelligence, live valuation, and atelier ledger",
+    "exportCsv": "Export CSV",
+    "printReport": "Print Report",
+    "period": "Reporting Period",
+    "today": "Today",
+    "thisWeek": "This Week",
+    "thisMonth": "This Month",
+    "thisYear": "This Year",
+    "allTime": "All Time",
+    "custom": "Custom Range",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "refresh": "Refresh",
+    "tabSummary": "Executive Summary",
+    "tabSales": "Sales & Revenue",
+    "tabBuybacks": "Buybacks & Scrap",
+    "tabInventory": "Vault & Inventory",
+    "tabCashflow": "Cash Flow",
+    "tabGoldRates": "Gold Rate History",
+    "grossSales": "Gross Sales",
+    "netSales": "Net Revenue",
+    "goldSold": "Gold Sold",
+    "buybackPayout": "Scrap Payouts",
+    "scrapWeight": "Scrap Acquired",
+    "vaultValuation": "Vault Retail Value",
+    "netCash": "Net Cash Flow",
+    "avgTicket": "Avg. Order Value",
+    "laborCollected": "Labor Fee Revenue",
+    "gemstoneRevenue": "Gemstone Revenue",
+    "totalInvoices": "Total Transactions",
+    "salesByMetal": "Sales Breakdown by Metal Purity",
+    "salesByCategory": "Sales Breakdown by Category",
+    "topProducts": "Top 10 Best-Selling Jewelry Pieces",
+    "cashierPerformance": "Sales by Cashier / Staff",
+    "buybackByPurity": "Scrap Inflow by Gold Karat",
+    "inventoryHealth": "Stock Health & Low Stock Alerts",
+    "cashIn": "Cash In (Sales)",
+    "cashOut": "Cash Out (Purchases & Buybacks)",
+    "dailyLedger": "Daily Cash & Revenue Ledger",
+    "livePriceDisclaimer": "Vault valuation calculated from real-time metal spot prices and atelier markup formulas."
   },
   "cambodiaGold": {
     "title": "Cambodian Gold Measurement Standards",
@@ -438,11 +481,53 @@ export const resources = {
     "adminRole": "អ្នកជំនាញមាស / រដ្ឋបាល",
     "storeAlerts": "ការជូនដំណឹងហាង",
     "updates": "ដំណឹងថ្មី",
-    "allAlertsCleared": "មិនមានការជូនដំណឹងថ្មីទេ",
-    "marketTickerFootnote": "១ ជី = ៣.៧៥ ក្រាម | ១ តម្លឹង = ៣៧.៥ ក្រាម",
-    "cambodiaExchange": "អត្រាទីផ្សារ: ១ ដុល្លារ = ៤,១០០ រៀល",
-    "purchases": "ទិញមាសចូល",
+    "supplies": "ការផ្គត់ផ្គង់ & បញ្ជាទិញ",
+    "purchases": "បញ្ជាទិញចូល (PO)",
+    "reports": "របាយការណ៍ និងស្ថិតិ",
     "settings": "ការកំណត់ប្រព័ន្ធ"
+  },
+  "reports": {
+    "title": "របាយការណ៍ និងស្ថិតិអាជីវកម្ម",
+    "subtitle": "ស្ថិតិហិរញ្ញវត្ថុ ការលក់ តម្លៃស្តុកមាសក្នុងឃ្លាំង និងលំហូរសាច់ប្រាក់",
+    "exportCsv": "ទាញយកជា CSV",
+    "printReport": "បោះពុម្ពរបាយការណ៍",
+    "period": "កាលបរិច្ឆេទរបាយការណ៍",
+    "today": "ថ្ងៃនេះ",
+    "thisWeek": "សប្តាហ៍នេះ",
+    "thisMonth": "ខែនេះ",
+    "thisYear": "ឆ្នាំនេះ",
+    "allTime": "ទាំងអស់",
+    "custom": "ជ្រើសរើសថ្ងៃ",
+    "startDate": "ថ្ងៃចាប់ផ្ដើម",
+    "endDate": "ថ្ងៃបញ្ចប់",
+    "refresh": "ផ្ទុកឡើងវិញ",
+    "tabSummary": "សង្ខេបទូទៅ",
+    "tabSales": "ចំណូលការលក់",
+    "tabBuybacks": "ទិញមាសចាស់ចូល",
+    "tabInventory": "ស្តុកមាស និងតម្លៃឃ្លាំង",
+    "tabCashflow": "លំហូរសាច់ប្រាក់",
+    "tabGoldRates": "ប្រវត្តិតម្លៃមាស",
+    "grossSales": "ការលក់សរុប",
+    "netSales": "ចំណូលសុទ្ធ",
+    "goldSold": "ទម្ងន់មាសលក់ចេញ",
+    "buybackPayout": "ទឹកប្រាក់ទិញចូល",
+    "scrapWeight": "ទម្ងន់មាសចាស់ទិញចូល",
+    "vaultValuation": "តម្លៃស្តុកមាសសរុប",
+    "netCash": "លំហូរសាច់ប្រាក់សុទ្ធ",
+    "avgTicket": "មធ្យមភាគក្នុង ១ វិក្កយបត្រ",
+    "laborCollected": "ចំណូលថ្លៃឈ្នួល",
+    "gemstoneRevenue": "ចំណូលត្បូងពេជ្រ",
+    "totalInvoices": "ចំនួនវិក្កយបត្រ",
+    "salesByMetal": "ការលក់តាមកម្រិតទឹកមាស",
+    "salesByCategory": "ការលក់តាមប្រភេទគ្រឿងអលង្ការ",
+    "topProducts": "ផលិតផលលក់ដាច់បំផុតទាំង ១០",
+    "cashierPerformance": "ការលក់តាមបុគ្គលិកគិតប្រាក់",
+    "buybackByPurity": "មាសចាស់តាមប្រភេទទឹកមាស",
+    "inventoryHealth": "ស្ថានភាពស្តុក និងទំនិញជិតអស់",
+    "cashIn": "សាច់ប្រាក់ហូរចូល (ការលក់)",
+    "cashOut": "សាច់ប្រាក់ហូរចេញ (ទិញចូល)",
+    "dailyLedger": "កំណត់ហេតុប្រចាំថ្ងៃ",
+    "livePriceDisclaimer": "តម្លៃស្តុកត្រូវបានគណនាដោយស្វ័យប្រវត្តិតាមតម្លៃមាសទីផ្សារជាក់ស្តែង និងរូបមន្តហាង។"
   },
   "cambodiaGold": {
     "title": "ខ្នាតរង្វាស់ទម្ងន់មាសខ្មែរ",
@@ -808,15 +893,12 @@ export const resources = {
   },
 };
 
-// Determine initial language: Default to 'km' (Khmer) unless user explicitly chose otherwise
+// Determine initial language: Default to saved user choice, or fallback to 'km' (Khmer)
 const initialLanguage = (() => {
   if (typeof window !== 'undefined') {
-    const explicitChoice = localStorage.getItem('jewelflow_lang_user_choice');
-    if (explicitChoice === 'en') return 'en';
-    if (explicitChoice === 'km') return 'km';
-    // Universal Khmer default
-    localStorage.setItem('i18nextLng', 'km');
-    return 'km';
+    const explicitChoice = localStorage.getItem('jewelflow_lang_user_choice') || localStorage.getItem('i18nextLng');
+    if (explicitChoice && (explicitChoice === 'en' || explicitChoice.startsWith('en'))) return 'en';
+    if (explicitChoice && (explicitChoice === 'km' || explicitChoice.startsWith('km'))) return 'km';
   }
   return 'km';
 })();
@@ -835,12 +917,13 @@ i18n
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
+      lookupLocalStorage: 'jewelflow_lang_user_choice',
     },
   });
 
 const updateHtmlLang = (lng) => {
   if (typeof document !== 'undefined') {
-    const isKhmer = lng && lng.startsWith('km');
+    const isKhmer = !lng || lng.startsWith('km');
     document.documentElement.lang = isKhmer ? 'km' : 'en';
     if (isKhmer) {
       document.documentElement.classList.add('lang-km');
@@ -851,10 +934,15 @@ const updateHtmlLang = (lng) => {
 };
 
 i18n.on('languageChanged', (lng) => {
-  updateHtmlLang(lng);
+  const normLng = (lng && lng.startsWith('en')) ? 'en' : 'km';
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('jewelflow_lang_user_choice', normLng);
+    localStorage.setItem('i18nextLng', normLng);
+  }
+  updateHtmlLang(normLng);
 });
 
 // Force update HTML lang tag immediately
-updateHtmlLang(i18n.language || initialLanguage);
+updateHtmlLang(initialLanguage);
 
 export default i18n;

@@ -1,22 +1,24 @@
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
+import { Pagination } from '../common/Pagination';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faTag, faPlus, faPencil, faTrash, faToggleOn, faToggleOff,
+  faTag, faPlus, faPenToSquare, faTrashCan, faToggleOn, faToggleOff,
   faPercent, faDollarSign, faGem, faUsers, faCalendarDays,
   faCheckCircle, faXmarkCircle, faFilter, faMagnifyingGlass,
-  faChevronDown, faCrown, faStar, faMedal, faCircleExclamation
+  faChevronDown, faCrown, faStar, faMedal, faCircleExclamation,
+  faXmark
 } from '@fortawesome/free-solid-svg-icons';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const TIER_OPTIONS_FILTER = [
-  { value: '', label: 'ទាំងអស់ / All Tiers' },
-  { value: 'Standard', label: 'Standard' },
-  { value: 'Gold', label: 'Gold' },
-  { value: 'Platinum', label: 'Platinum' },
-  { value: 'Diamond VIP', label: 'Diamond VIP' },
+  { value: '', labelKh: 'កម្រិតទាំងអស់', labelEn: 'All Tiers' },
+  { value: 'Standard', labelKh: 'Standard', labelEn: 'Standard' },
+  { value: 'Gold', labelKh: 'Gold', labelEn: 'Gold' },
+  { value: 'Platinum', labelKh: 'Platinum', labelEn: 'Platinum' },
+  { value: 'Diamond VIP', labelKh: 'Diamond VIP', labelEn: 'Diamond VIP' },
 ];
 
 const TIER_OPTIONS_FORM = [
@@ -58,14 +60,14 @@ const DEFAULT_FORM = {
 // ─── Shared Input Components ─────────────────────────────────────────────────
 
 const FieldLabel = ({ children }) => (
-  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+  <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">
     {children}
   </label>
 );
 
-const inputCls = "w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-500 transition-all";
-const inputErrCls = "w-full px-3 py-2 rounded-lg border border-rose-500 bg-rose-50/20 text-sm text-slate-900 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-200 focus:border-rose-500 transition-all shadow-xs";
-const selectCls = "w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-500 transition-all appearance-none cursor-pointer";
+const inputCls = "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-500 focus:bg-white transition-all";
+const inputErrCls = "w-full px-3.5 py-2.5 rounded-xl border border-rose-500 bg-rose-50/20 text-xs text-slate-900 font-semibold placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-200/50 focus:border-rose-500 transition-all";
+const selectCls = "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-200/50 focus:border-amber-500 focus:bg-white transition-all appearance-none cursor-pointer";
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
@@ -82,6 +84,8 @@ export const PromotionsView = () => {
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
   const [filterTier, setFilterTier] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -94,6 +98,12 @@ export const PromotionsView = () => {
       return matchSearch && matchTier;
     });
   }, [promotions, search, filterTier]);
+
+  // ── Paginated slice ────────────────────────────────────────────────────────
+  const paginatedPromotions = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   // ── Modal helpers ──────────────────────────────────────────────────────────
   const openNew = () => {
@@ -180,6 +190,7 @@ export const PromotionsView = () => {
         : `Are you sure you want to delete "${promo.name}"?`,
       confirmButtonText: isKhmer ? 'លុបចោល' : 'Yes, Delete',
       cancelButtonText: isKhmer ? 'បោះបង់' : 'Cancel',
+      isDanger: true,
       icon: 'warning',
     });
     if (confirmed) await removePromotion(promo.id);
@@ -250,7 +261,10 @@ export const PromotionsView = () => {
           <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 w-3.5 h-3.5 pointer-events-none" />
           <input
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder={isKhmer ? 'ស្វែងរកឈ្មោះ ឬ ពិពណ៌នា...' : 'Search by name or description…'}
             className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-500 transition-all"
           />
@@ -261,11 +275,17 @@ export const PromotionsView = () => {
           <FontAwesomeIcon icon={faFilter} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 w-3 h-3 pointer-events-none" />
           <select
             value={filterTier}
-            onChange={e => setFilterTier(e.target.value)}
-            className="pl-8 pr-8 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-500 appearance-none cursor-pointer transition-all"
+            onChange={e => {
+              setFilterTier(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="pl-8 pr-8 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-500 appearance-none cursor-pointer transition-all font-medium"
           >
-            {[TIER_OPTIONS_FILTER[0], ...tierOptions].map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+            <option value="">{isKhmer ? 'កម្រិតទាំងអស់' : 'All Tiers'}</option>
+            {tierOptions.map(o => (
+              <option key={o.value} value={o.value}>
+                {isKhmer ? (o.labelKh || o.label) : (o.labelEn || o.label)}
+              </option>
             ))}
           </select>
           <FontAwesomeIcon icon={faChevronDown} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-2.5 h-2.5 pointer-events-none" />
@@ -276,8 +296,8 @@ export const PromotionsView = () => {
         </span>
       </div>
 
-      {/* ── Table ────────────────────────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-xs">
+      {/* ── Table (Following Jewelry Table Aesthetic & Icons) ────────────── */}
+      <div className="rounded-2xl bg-white border border-slate-200 shadow-xs overflow-hidden w-full">
         {filtered.length === 0 ? (
           <div className="py-20 flex flex-col items-center gap-3 text-center">
             <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center">
@@ -288,149 +308,176 @@ export const PromotionsView = () => {
             </p>
             <button
               onClick={openNew}
-              className="text-xs text-rose-500 hover:underline cursor-pointer font-medium"
+              className="text-xs text-amber-600 hover:text-amber-700 hover:underline cursor-pointer font-semibold"
             >
-              {isKhmer ? '+ បន្ថែមប្រម៉ូសិនថ្មី' : '+ Add your first promotion'}
+              {isKhmer ? '+ បន្ថែមប្រម៉ូសិនដំបូងរបស់អ្នក' : '+ Add your first promotion'}
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200">
-                  {[
-                    { label: isKhmer ? 'ឈ្មោះ / ពិពណ៌នា' : 'Name / Description', w: 'w-52' },
-                    { label: isKhmer ? 'ការបញ្ចុះ' : 'Discount', w: 'w-28' },
-                    { label: isKhmer ? 'VIP Tier' : 'VIP Tier', w: 'w-32' },
-                    { label: isKhmer ? 'ផលិតផល' : 'Product', w: 'w-36' },
-                    { label: isKhmer ? 'ទំហំអប្បបរមា' : 'Min. Total', w: 'w-24' },
-                    { label: isKhmer ? 'ថ្ងៃផ្សាយ' : 'Date Range', w: 'w-32' },
-                    { label: isKhmer ? 'ស្ថានភាព' : 'Status', w: 'w-24' },
-                    { label: '', w: 'w-20' },
-                  ].map((h, i) => (
-                    <th key={i} className={`${h.w} px-4 py-3 text-left text-[10px] font-bold uppercase tracking-widest text-slate-400`}>
-                      {h.label}
-                    </th>
-                  ))}
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead className="bg-slate-50 text-slate-600 border-b border-slate-200 font-semibold">
+                <tr>
+                  <th className="py-3.5 px-4 whitespace-nowrap min-w-[240px]">{isKhmer ? 'កម្មវិធីប្រម៉ូសិន' : 'Promotion Campaign'}</th>
+                  <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'ការបញ្ចុះតម្លៃ' : 'Discount Rate'}</th>
+                  <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'VIP Tier' : 'VIP Tier'}</th>
+                  <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'ផលិតផលជាក់លាក់' : 'Target Product'}</th>
+                  <th className="py-3.5 px-3 whitespace-nowrap text-center">{isKhmer ? 'ទំហំទិញអប្បបរមា' : 'Min Cart Total'}</th>
+                  <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'កាលបរិច្ឆេទ' : 'Validity Range'}</th>
+                  <th className="py-3.5 px-3 whitespace-nowrap text-center">{isKhmer ? 'ស្ថានភាព' : 'Status'}</th>
+                  <th className="py-3.5 px-4 whitespace-nowrap text-center w-28 min-w-[110px] sticky right-0 bg-slate-50 shadow-[-4px_0_8px_rgba(0,0,0,0.03)] z-10">
+                    {isKhmer ? 'សកម្មភាព' : 'Actions'}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filtered.map(promo => {
+                {paginatedPromotions.map(promo => {
                   const tierBadge = TIER_BADGE[promo.tier_requirement] || TIER_BADGE['Standard'];
                   const tierIconData = TIER_ICON[promo.tier_requirement] || TIER_ICON['Standard'];
                   const prod = products.find(p => String(p.id) === String(promo.product_id));
 
                   return (
-                    <tr key={promo.id} className="group hover:bg-amber-50/50 transition-colors duration-100">
-
-                      {/* Name */}
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-slate-900 truncate max-w-[200px]">{promo.name}</p>
-                        {promo.description && (
-                          <p className="text-xs text-slate-400 truncate max-w-[200px] mt-0.5">{promo.description}</p>
+                    <tr key={promo.id} className="hover:bg-slate-50/80 transition-colors group">
+                      
+                      {/* Campaign Piece */}
+                      <td className="py-3.5 px-4 flex items-center gap-3 min-w-[240px]">
+                        {prod?.image ? (
+                          <img
+                            src={prod.image}
+                            alt={promo.name}
+                            onError={(e) => {
+                              e.target.onerror = null;
+                              e.target.style.display = 'none';
+                            }}
+                            className="w-11 h-11 rounded-lg object-cover border border-slate-200 shadow-xs shrink-0 bg-slate-100"
+                          />
+                        ) : (
+                          <div className="w-11 h-11 rounded-lg bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 shadow-2xs shrink-0">
+                            <FontAwesomeIcon icon={faTag} className="w-5 h-5" />
+                          </div>
                         )}
+                        <div className="min-w-0">
+                          <span className="font-bold text-slate-900 block truncate">{promo.name}</span>
+                          <span className="text-[11px] text-slate-500 block truncate">
+                            {promo.description || (isKhmer ? 'ប្រម៉ូសិនពិសេស' : 'Special promotion rule')}
+                          </span>
+                        </div>
                       </td>
 
-                      {/* Discount */}
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 font-bold text-xs">
+                      {/* Discount Rate */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1.5 shadow-2xs">
                           <FontAwesomeIcon
                             icon={promo.discount_type === 'percent' ? faPercent : faDollarSign}
-                            className="w-2.5 h-2.5"
+                            className="w-2.5 h-2.5 text-amber-600"
                           />
-                          {parseFloat(promo.discount_value)}{promo.discount_type === 'percent' ? '%' : ' $'}
+                          <span>{parseFloat(promo.discount_value)}{promo.discount_type === 'percent' ? '%' : ' USD'}</span>
                         </span>
                       </td>
 
-                      {/* Tier */}
-                      <td className="px-4 py-3">
+                      {/* VIP Tier */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
                         {promo.tier_requirement ? (
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold border ${tierBadge}`}>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border inline-flex items-center gap-1.5 ${tierBadge}`}>
                             <FontAwesomeIcon
                               icon={tierIconData.icon}
-                              className={`w-2.5 h-2.5 ${tierIconData.color}`}
+                              className={`w-3 h-3 ${tierIconData.color}`}
                             />
-                            {promo.tier_requirement}
+                            <span>{promo.tier_requirement}</span>
                           </span>
                         ) : (
-                          <span className="text-[11px] text-slate-400 italic">
-                            {isKhmer ? 'គ្មានលក្ខខណ្ឌ' : 'Any tier'}
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200 inline-flex items-center gap-1.5">
+                            <FontAwesomeIcon icon={faUsers} className="w-2.5 h-2.5 text-slate-400" />
+                            <span>{isKhmer ? 'កម្រិតទាំងអស់' : 'All Tiers'}</span>
                           </span>
                         )}
                       </td>
 
-                      {/* Product */}
-                      <td className="px-4 py-3">
+                      {/* Target Product */}
+                      <td className="py-3.5 px-3 text-slate-700 font-medium whitespace-nowrap">
                         {prod ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-medium">
-                            <FontAwesomeIcon icon={faGem} className="w-2.5 h-2.5 text-amber-500" />
-                            <span className="truncate max-w-[100px]">{prod.name}</span>
-                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <FontAwesomeIcon icon={faGem} className="w-3 h-3 text-amber-500 shrink-0" />
+                            <span className="truncate max-w-[140px] font-medium text-slate-800">{prod.name}</span>
+                          </div>
                         ) : (
-                          <span className="text-[11px] text-slate-400 italic">
-                            {isKhmer ? 'គ្រប់ផលិតផល' : 'All products'}
+                          <span className="text-slate-400 text-[11px] italic">
+                            {isKhmer ? 'គ្រប់ផលិតផល' : 'All Products'}
                           </span>
                         )}
                       </td>
 
                       {/* Min Purchase */}
-                      <td className="px-4 py-3 font-mono text-xs text-slate-700">
-                        {parseFloat(promo.min_purchase) > 0
-                          ? `$${parseFloat(promo.min_purchase).toLocaleString()}`
-                          : <span className="text-slate-300 italic">{isKhmer ? 'គ្មាន' : '—'}</span>}
-                      </td>
-
-                      {/* Date Range */}
-                      <td className="px-4 py-3 text-[11px] text-slate-500">
-                        {promo.start_date || promo.end_date ? (
-                          <div className="flex flex-col gap-0.5">
-                            {promo.start_date && <span className="text-slate-600">▶ {String(promo.start_date).slice(0, 10)}</span>}
-                            {promo.end_date && <span className="text-rose-500">■ {String(promo.end_date).slice(0, 10)}</span>}
-                          </div>
+                      <td className="py-3.5 px-3 text-center font-mono whitespace-nowrap">
+                        {parseFloat(promo.min_purchase) > 0 ? (
+                          <span className="font-bold text-slate-800 block">
+                            ${parseFloat(promo.min_purchase).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
                         ) : (
-                          <span className="text-slate-300 italic">{isKhmer ? 'គ្មានកំណត់' : 'No limit'}</span>
+                          <span className="text-slate-400 text-xs font-normal">
+                            {isKhmer ? 'គ្មាន' : '—'}
+                          </span>
                         )}
                       </td>
 
-                      {/* Status Toggle */}
-                      <td className="px-4 py-3">
+                      {/* Validity Range */}
+                      <td className="py-3.5 px-3 whitespace-nowrap">
+                        {promo.start_date || promo.end_date ? (
+                          <div className="flex flex-col gap-0.5 font-mono text-[11px]">
+                            {promo.start_date && (
+                              <span className="text-slate-600 flex items-center gap-1">
+                                <FontAwesomeIcon icon={faCalendarDays} className="w-2.5 h-2.5 text-slate-400" />
+                                <span>{String(promo.start_date).slice(0, 10)}</span>
+                              </span>
+                            )}
+                            {promo.end_date && (
+                              <span className="text-amber-700 flex items-center gap-1">
+                                <FontAwesomeIcon icon={faCalendarDays} className="w-2.5 h-2.5 text-amber-500" />
+                                <span>{String(promo.end_date).slice(0, 10)}</span>
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] italic">{isKhmer ? 'គ្មានកំណត់' : 'Ongoing'}</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3.5 px-3 text-center whitespace-nowrap">
                         <button
                           onClick={() => handleToggleActive(promo)}
+                          className="cursor-pointer group/btn"
                           title={promo.is_active
                             ? (isKhmer ? 'ចុចដើម្បីបញ្ឈប់' : 'Click to deactivate')
                             : (isKhmer ? 'ចុចដើម្បីដំណើរការ' : 'Click to activate')}
-                          className="cursor-pointer"
                         >
-                          {promo.is_active ? (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-semibold hover:bg-emerald-100 transition-colors">
-                              <FontAwesomeIcon icon={faCheckCircle} className="w-3 h-3" />
-                              {isKhmer ? 'សកម្ម' : 'Active'}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-500 text-[11px] font-semibold hover:bg-slate-200 transition-colors">
-                              <FontAwesomeIcon icon={faXmarkCircle} className="w-3 h-3" />
-                              {isKhmer ? 'OFF' : 'OFF'}
-                            </span>
-                          )}
+                          <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] inline-flex items-center gap-1.5 transition-all ${
+                            promo.is_active
+                              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200 group-hover/btn:bg-emerald-200/80'
+                              : 'bg-slate-100 text-slate-500 border border-slate-200 group-hover/btn:bg-slate-200/80'
+                          }`}>
+                            <FontAwesomeIcon icon={promo.is_active ? faCheckCircle : faXmarkCircle} className="w-3 h-3" />
+                            <span>{promo.is_active ? (isKhmer ? 'សកម្ម' : 'Active') : (isKhmer ? 'OFF' : 'OFF')}</span>
+                          </span>
                         </button>
                       </td>
 
-                      {/* Actions */}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                      {/* Actions (Exact Jewelry table action buttons styling) */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap w-28 min-w-[110px] sticky right-0 bg-white group-hover:bg-slate-50 transition-colors shadow-[-4px_0_8px_rgba(0,0,0,0.03)] z-10">
+                        <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => openEdit(promo)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 cursor-pointer transition-colors"
                             title={isKhmer ? 'កែសម្រួល' : 'Edit'}
                           >
-                            <FontAwesomeIcon icon={faPencil} className="w-3.5 h-3.5" />
+                            <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
                           </button>
                           <button
                             onClick={() => handleDelete(promo)}
-                            className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-800 cursor-pointer transition-colors"
                             title={isKhmer ? 'លុប' : 'Delete'}
                           >
-                            <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
+                            <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -442,51 +489,53 @@ export const PromotionsView = () => {
             </table>
           </div>
         )}
+
+        {/* Table Pagination */}
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* ── Modal ────────────────────────────────────────────────────────── */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"
-            onClick={() => setShowModal(false)}
-          />
-
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
           {/* Dialog Panel */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[92vh] overflow-y-auto z-10 border border-slate-200/80">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto">
 
             {/* Modal Header */}
-            <div className="sticky top-0 z-10 bg-white border-b border-slate-100 px-5 py-4 rounded-t-2xl flex items-center justify-between">
+            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-amber-500 to-yellow-600 flex items-center justify-center shadow shadow-amber-500/30">
-                  <FontAwesomeIcon icon={faTag} className="w-3.5 h-3.5 text-white" />
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
+                  <FontAwesomeIcon icon={faTag} className="w-4 h-4 text-slate-950" />
                 </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-900 leading-tight">
+                  <h2 className="font-serif text-base sm:text-lg font-bold text-slate-900 leading-tight">
                     {editingId
-                      ? (isKhmer ? 'កែប្រម៉ូសិន' : 'Edit Promotion')
-                      : (isKhmer ? 'ប្រម៉ូសិនថ្មី' : 'New Promotion')}
+                      ? (isKhmer ? 'កែប្រែប្រម៉ូសិន' : 'Edit Promotion')
+                      : (isKhmer ? 'បង្កើតប្រម៉ូសិនថ្មី' : 'Create New Promotion')}
                   </h2>
-                  <p className="text-[10px] text-slate-400">
-                    {isKhmer ? 'បំពេញព័ត៌មានខាងក្រោម' : 'Fill in the details below'}
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isKhmer ? 'កំណត់លក្ខខណ្ឌ និងភាគរយបញ្ចុះតម្លៃ' : 'Define discount rules and target criteria'}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors cursor-pointer text-sm"
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer text-sm"
               >
-                ✕
+                <FontAwesomeIcon icon={faXmark} />
               </button>
             </div>
 
             {/* Form Body */}
-            <form onSubmit={handleSave} className="p-5 space-y-4">
+            <form noValidate onSubmit={handleSave} className="p-5 sm:p-6 space-y-4 max-h-[80vh] overflow-y-auto">
 
               {/* Row: Name (full width) */}
               <div>
-                <FieldLabel>{isKhmer ? 'ឈ្មោះប្រម៉ូសិន' : 'Promotion Name'}</FieldLabel>
+                <FieldLabel>{isKhmer ? 'ឈ្មោះប្រម៉ូសិន *' : 'Promotion Name *'}</FieldLabel>
                 <input
                   value={form.name}
                   onChange={e => setField('name', e.target.value)}
@@ -526,28 +575,28 @@ export const PromotionsView = () => {
                       <option value="percent">{isKhmer ? 'ភាគរយ (%)' : 'Percentage (%)'}</option>
                       <option value="fixed">{isKhmer ? 'ចំនួនថេរ ($)' : 'Fixed Amount ($)'}</option>
                     </select>
-                    <FontAwesomeIcon icon={faChevronDown} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-2.5 h-2.5 pointer-events-none" />
+                    <FontAwesomeIcon icon={faChevronDown} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
                   </div>
                 </div>
                 <div>
                   <FieldLabel>
-                    {isKhmer ? 'ចំនួន' : 'Amount'}&nbsp;
-                    <span className="text-rose-400 normal-case font-bold tracking-normal">
+                    {isKhmer ? 'ចំនួន *' : 'Amount *'}&nbsp;
+                    <span className="text-amber-600 normal-case font-bold tracking-normal">
                       {form.discount_type === 'percent' ? '(%)' : '($)'}
                     </span>
                   </FieldLabel>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">
+                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">
                       {form.discount_type === 'percent' ? '%' : '$'}
                     </span>
                     <input
                       type="number"
                       min="0"
-                      step="0.01"
+                      step={form.discount_type === 'percent' ? '0.1' : '0.01'}
                       value={form.discount_value}
                       onChange={e => setField('discount_value', e.target.value)}
-                      placeholder="0"
-                      className={`${errors.discount_value ? inputErrCls : inputCls} pl-7`}
+                      placeholder={form.discount_type === 'percent' ? 'e.g. 10' : 'e.g. 50'}
+                      className={`${errors.discount_value ? inputErrCls : inputCls} pl-8`}
                     />
                   </div>
                   {errors.discount_value && (
@@ -563,7 +612,7 @@ export const PromotionsView = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FieldLabel>
-                    <FontAwesomeIcon icon={faUsers} className="w-2.5 h-2.5 mr-1" />
+                    <FontAwesomeIcon icon={faUsers} className="w-2.5 h-2.5 mr-1 text-amber-500" />
                     {isKhmer ? 'VIP Tier ដែលទទួល' : 'VIP Tier Requirement'}
                   </FieldLabel>
                   <div className="relative">
@@ -572,18 +621,19 @@ export const PromotionsView = () => {
                       onChange={e => setField('tier_requirement', e.target.value)}
                       className={selectCls}
                     >
-                      {[TIER_OPTIONS_FORM[0], ...tierOptions].map(o => (
+                      <option value="">{isKhmer ? 'ទាំងអស់ (គ្មានលក្ខខណ្ឌ)' : 'All Tiers (No restriction)'}</option>
+                      {tierOptions.map(o => (
                         <option key={o.value} value={o.value}>
-                          {isKhmer ? o.labelKh : o.labelEn}
+                          {isKhmer ? (o.labelKh || o.label) : (o.labelEn || o.label)}
                         </option>
                       ))}
                     </select>
-                    <FontAwesomeIcon icon={faChevronDown} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-2.5 h-2.5 pointer-events-none" />
+                    <FontAwesomeIcon icon={faChevronDown} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
                   </div>
                 </div>
                 <div>
                   <FieldLabel>
-                    <FontAwesomeIcon icon={faGem} className="w-2.5 h-2.5 mr-1" />
+                    <FontAwesomeIcon icon={faGem} className="w-2.5 h-2.5 mr-1 text-amber-500" />
                     {isKhmer ? 'ផលិតផល' : 'Specific Product'}
                   </FieldLabel>
                   <div className="relative">
@@ -597,7 +647,7 @@ export const PromotionsView = () => {
                         <option key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
-                    <FontAwesomeIcon icon={faChevronDown} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-2.5 h-2.5 pointer-events-none" />
+                    <FontAwesomeIcon icon={faChevronDown} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
                   </div>
                 </div>
               </div>
@@ -609,7 +659,7 @@ export const PromotionsView = () => {
                   <span className="normal-case text-slate-400 font-normal tracking-normal">(USD)</span>
                 </FieldLabel>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">$</span>
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-semibold">$</span>
                   <input
                     type="number"
                     min="0"
@@ -617,7 +667,7 @@ export const PromotionsView = () => {
                     value={form.min_purchase}
                     onChange={e => setField('min_purchase', e.target.value)}
                     placeholder={isKhmer ? '0 (គ្មានអប្បបរមា)' : '0 (no minimum)'}
-                    className={`${inputCls} pl-7`}
+                    className={`${inputCls} pl-8`}
                   />
                 </div>
               </div>
@@ -626,7 +676,7 @@ export const PromotionsView = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <FieldLabel>
-                    <FontAwesomeIcon icon={faCalendarDays} className="w-2.5 h-2.5 mr-1" />
+                    <FontAwesomeIcon icon={faCalendarDays} className="w-2.5 h-2.5 mr-1 text-amber-500" />
                     {isKhmer ? 'ថ្ងៃចាប់ផ្ដើម' : 'Start Date'}
                   </FieldLabel>
                   <input
@@ -638,7 +688,7 @@ export const PromotionsView = () => {
                 </div>
                 <div>
                   <FieldLabel>
-                    <FontAwesomeIcon icon={faCalendarDays} className="w-2.5 h-2.5 mr-1" />
+                    <FontAwesomeIcon icon={faCalendarDays} className="w-2.5 h-2.5 mr-1 text-amber-500" />
                     {isKhmer ? 'ថ្ងៃបញ្ចប់' : 'End Date'}
                   </FieldLabel>
                   <input
@@ -653,7 +703,7 @@ export const PromotionsView = () => {
               {/* Active Toggle Row */}
               <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
                 <div>
-                  <p className="text-sm font-semibold text-slate-700 leading-tight">
+                  <p className="text-xs font-bold text-slate-800 leading-tight">
                     {isKhmer ? 'ដំណើរការប្រម៉ូសិននេះ' : 'Activate this promotion'}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
@@ -665,31 +715,31 @@ export const PromotionsView = () => {
                 <button
                   type="button"
                   onClick={() => setField('is_active', !form.is_active)}
-                  className="cursor-pointer transition-transform hover:scale-110 active:scale-95 ml-4 shrink-0"
+                  className="cursor-pointer transition-transform hover:scale-105 active:scale-95 ml-4 shrink-0"
                 >
                   <FontAwesomeIcon
                     icon={form.is_active ? faToggleOn : faToggleOff}
-                    className={`w-9 h-9 transition-colors duration-200 ${form.is_active ? 'text-emerald-500' : 'text-slate-300'}`}
+                    className={`w-9 h-9 transition-colors duration-200 ${form.is_active ? 'text-amber-500' : 'text-slate-300'}`}
                   />
                 </button>
               </div>
 
               {/* Footer Buttons */}
-              <div className="flex gap-2.5 pt-1">
+              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold hover:bg-slate-50 active:scale-95 transition-all cursor-pointer"
+                  className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
                 >
                   {isKhmer ? 'បោះបង់' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white text-sm font-bold shadow-md shadow-amber-500/20 hover:brightness-110 hover:shadow-amber-500/35 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all disabled:opacity-50"
                 >
                   {saving
-                    ? (isKhmer ? 'កំពុងរក្សា...' : 'Saving…')
+                    ? (isKhmer ? 'កំពុងរក្សាទុក...' : 'Saving…')
                     : editingId
                       ? (isKhmer ? 'រក្សាទុកការប្រែប្រួល' : 'Save Changes')
                       : (isKhmer ? 'បង្កើតប្រម៉ូសិន' : 'Create Promotion')}

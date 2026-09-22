@@ -19,21 +19,36 @@ class ProductFactory extends Factory
      */
     public function definition(): array
     {
-        $netWeight = fake()->randomFloat(2, 2.0, 30.0);
-        $grossWeight = $netWeight + fake()->randomFloat(2, 0.5, 3.0);
+        $adjectives = ['Royal', 'Imperial', 'Eternal', 'Sovereign', 'Heritage', 'Celestial', 'Majestic', 'Grand', 'Atelier', 'Crown'];
+        $jewelryTypes = [
+            'Solitaire Diamond Ring',
+            '24K Solid Gold Chain',
+            'Diamond Tennis Bracelet',
+            'Emerald Cut Pendant',
+            'Ruby Drop Earrings',
+            'Handcrafted Gold Bangle',
+            'Sapphire Halo Ring',
+            'Bespoke Bridal Choker',
+            'Swiss 1 Damlung Minted Bar',
+            'Diamond Huggie Earrings'
+        ];
+
+        $name = fake()->randomElement($adjectives) . ' ' . fake()->randomElement($jewelryTypes) . ' #' . fake()->unique()->numberBetween(100, 999);
+        $netWeight = fake()->randomFloat(2, 2.0, 37.5);
+        $grossWeight = $netWeight + fake()->randomFloat(2, 0.2, 1.5);
 
         return [
-            'category_id' => Category::factory(),
-            'metal_type_id' => MetalType::factory(),
-            'code_sku' => fake()->unique()->bothify('SKU-????-#####'),
+            'category_id' => Category::inRandomOrder()->value('id') ?? Category::factory(),
+            'metal_type_id' => MetalType::inRandomOrder()->value('id') ?? MetalType::factory(),
+            'code_sku' => fake()->unique()->bothify('JWL-????-#####'),
             'barcode' => fake()->unique()->numerify('884###########'),
-            'name' => fake()->words(3, true),
+            'name' => $name,
             'net_weight' => $netWeight,
             'gross_weight' => $grossWeight,
-            'labor_cost' => fake()->randomFloat(2, 10, 100),
-            'markup_rate' => fake()->randomFloat(2, 5, 25),
-            'stock_qty' => fake()->numberBetween(0, 50),
-            'status' => fake()->randomElement(['active', 'inactive', 'out_of_stock']),
+            'labor_cost' => fake()->randomFloat(2, 15, 120),
+            'markup_rate' => fake()->randomFloat(2, 5, 20),
+            'stock_qty' => fake()->numberBetween(1, 40),
+            'status' => fake()->randomElement(['active', 'active', 'active', 'inactive']),
         ];
     }
 }

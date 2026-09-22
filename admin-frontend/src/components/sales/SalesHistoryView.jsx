@@ -380,9 +380,9 @@ export const SalesHistoryView = () => {
             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-700 focus:bg-white focus:border-amber-500 focus:outline-none cursor-pointer"
           >
             <option value="all">{t('salesHistory.allStatuses', 'All Statuses')}</option>
-            <option value="completed">✓ {t('salesHistory.statusCompleted', 'Completed')}</option>
-            <option value="pending">⏱ {t('salesHistory.statusPending', 'Pending')}</option>
-            <option value="cancelled">✕ {t('salesHistory.statusCancelled', 'Cancelled')}</option>
+            <option value="completed">{t('salesHistory.statusCompleted', 'Completed')}</option>
+            <option value="pending">{t('salesHistory.statusPending', 'Pending')}</option>
+            <option value="cancelled">{t('salesHistory.statusCancelled', 'Cancelled')}</option>
           </select>
         </div>
       </div>
@@ -520,9 +520,9 @@ export const SalesHistoryView = () => {
                                 : 'bg-amber-50 text-amber-700 border-amber-300 hover:bg-amber-100/70'
                             }`}
                           >
-                            <option value="completed">✓ {t('salesHistory.statusCompleted', 'Completed')}</option>
-                            <option value="pending">⏱ {t('salesHistory.statusPending', 'Pending')}</option>
-                            <option value="cancelled">✕ {t('salesHistory.statusCancelled', 'Cancelled')}</option>
+                            <option value="completed">{t('salesHistory.statusCompleted', 'Completed')}</option>
+                            <option value="pending">{t('salesHistory.statusPending', 'Pending')}</option>
+                            <option value="cancelled">{t('salesHistory.statusCancelled', 'Cancelled')}</option>
                           </select>
                         </td>
 

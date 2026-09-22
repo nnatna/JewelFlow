@@ -15,7 +15,7 @@ const LuxurySwal = Swal.mixin({
     icon: 'jewelflow-swal-icon'
   },
   buttonsStyling: false,
-  reverseButtons: true
+  reverseButtons: false
 });
 
 /**
@@ -24,10 +24,12 @@ const LuxurySwal = Swal.mixin({
 const Toast = Swal.mixin({
   toast: true,
   position: 'top-end',
+  backdrop: false,
   showConfirmButton: false,
-  timer: 3500,
+  timer: 3000,
   timerProgressBar: true,
   customClass: {
+    container: 'jewelflow-swal-toast-container',
     popup: 'jewelflow-swal-toast',
     title: 'jewelflow-swal-toast-title'
   },
@@ -74,7 +76,12 @@ export const confirmDialog = async ({
   isDanger = false,
   ...options
 } = {}) => {
-  const customConfirmClass = isDanger 
+  const isDestructive = isDanger || (
+    Boolean(title && /(delete|remove|discard|void|clear|លុប|សម្អាត)/i.test(title)) ||
+    Boolean(confirmButtonText && /(delete|remove|discard|void|clear|លុប|សម្អាត)/i.test(confirmButtonText))
+  );
+
+  const customConfirmClass = isDestructive 
     ? 'jewelflow-swal-confirm jewelflow-swal-danger'
     : 'jewelflow-swal-confirm';
 
@@ -82,10 +89,11 @@ export const confirmDialog = async ({
     title,
     text: html ? undefined : text,
     html: html || undefined,
-    icon,
+    icon: icon || (isDestructive ? 'warning' : 'question'),
     showCancelButton: true,
     confirmButtonText,
     cancelButtonText,
+    reverseButtons: false,
     customClass: {
       popup: 'jewelflow-swal-popup',
       title: 'jewelflow-swal-title',
@@ -98,7 +106,7 @@ export const confirmDialog = async ({
     ...options
   });
 
-  return result.isConfirmed;
+  return Boolean(result.isConfirmed);
 };
 
 /**
@@ -160,7 +168,7 @@ export const showGoldAlert = (title, html = '', options = {}) => {
   return LuxurySwal.fire({
     title: `<span class="text-amber-900 font-serif tracking-wide">${title}</span>`,
     html,
-    iconHtml: '💎',
+    iconHtml: '<i class="fa-solid fa-gem text-amber-500"></i>',
     showConfirmButton: true,
     confirmButtonText: options.confirmButtonText || 'Proceed',
     customClass: {
