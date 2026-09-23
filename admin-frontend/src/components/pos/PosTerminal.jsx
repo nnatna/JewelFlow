@@ -31,7 +31,14 @@ import {
   faWandMagicSparkles,
   faTriangleExclamation,
   faCircleInfo,
-  faCircleExclamation
+  faCircleExclamation,
+  faHourglassHalf,
+  faBan,
+  faGem,
+  faScaleBalanced,
+  faArrowsRotate,
+  faBarcode,
+  faCartShopping
 } from '@fortawesome/free-solid-svg-icons';
 
 const fallbackImg = 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80';
@@ -554,7 +561,16 @@ export const PosTerminal = () => {
               return (
                 <div
                   key={product.id}
-                  className="group p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 hover:shadow-md transition-all flex flex-col justify-between"
+                  onClick={() => {
+                    if (product.stock_qty > 0) {
+                      addToCart(product);
+                    }
+                  }}
+                  className={`group p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 hover:shadow-md transition-all flex flex-col justify-between select-none ${
+                    product.stock_qty <= 0
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'cursor-pointer active:scale-[0.99] hover:-translate-y-0.5'
+                  }`}
                 >
                   <div>
                     <div className="relative rounded-xl overflow-hidden mb-3 aspect-square bg-slate-100">
@@ -575,7 +591,7 @@ export const PosTerminal = () => {
                       </div>
                     </div>
 
-                    <h3 className="text-xs font-bold text-slate-900 line-clamp-2 leading-snug">
+                    <h3 className="text-xs font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-amber-800 transition-colors">
                       {product.name}
                     </h3>
                     <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
@@ -596,7 +612,10 @@ export const PosTerminal = () => {
 
                     <button
                       disabled={product.stock_qty <= 0}
-                      onClick={() => addToCart(product)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(product);
+                      }}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs cursor-pointer transition-all active:scale-95 shadow-xs"
                     >
                       <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
@@ -1059,7 +1078,7 @@ export const PosTerminal = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
           <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
             {/* Header with Step Indicator */}
-            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <div className="p-4 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
                   <span className="font-mono text-xs font-black">1/2</span>
@@ -1082,7 +1101,8 @@ export const PosTerminal = () => {
               </button>
             </div>
 
-            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+            {/* Scrollable Modal 1 Body */}
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
               {/* 1. Overall Sale Order Status */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
@@ -1101,7 +1121,7 @@ export const PosTerminal = () => {
                       ? (isKhmer ? 'បានបញ្ចប់' : 'Completed')
                       : (saleStatus === 'pending'
                         ? (isKhmer ? 'កំពុងរង់ចាំ' : 'Pending')
-                        : (isKhmer ? 'បានបោះបង់' : 'Cancelled'))}
+                        : (saleStatus === 'cancelled' ? (isKhmer ? 'បានបោះបង់' : 'Cancelled') : saleStatus))}
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -1220,25 +1240,25 @@ export const PosTerminal = () => {
                   ))}
                 </div>
               </div>
+            </div>
 
-              {/* Modal 1 Footer */}
-              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowStatusModal(false)}
-                  className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
-                >
-                  {t('common.cancel', 'Cancel')}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleProceedToPayment}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
-                >
-                  <span>{isKhmer ? 'បន្តទៅការទូទាត់ប្រាក់' : 'Next: Payment Tender'}</span>
-                  <FontAwesomeIcon icon={faArrowRight} className="w-3 h-3" />
-                </button>
-              </div>
+            {/* Pinned Modal 1 Footer */}
+            <div className="p-4 sm:px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowStatusModal(false)}
+                className="px-5 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
+              >
+                {t('common.cancel', 'Cancel')}
+              </button>
+              <button
+                type="button"
+                onClick={handleProceedToPayment}
+                className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+              >
+                <span>{isKhmer ? 'បន្តទៅការទូទាត់ប្រាក់' : 'Next: Payment Tender'}</span>
+                <FontAwesomeIcon icon={faArrowRight} className="w-3 h-3" />
+              </button>
             </div>
           </div>
         </div>
@@ -1251,7 +1271,7 @@ export const PosTerminal = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
           <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
             {/* Header with Step Indicator */}
-            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <div className="p-4 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 via-emerald-400 to-teal-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-emerald-500/20 shrink-0">
                   <span className="font-mono text-xs font-black">2/2</span>
@@ -1274,282 +1294,285 @@ export const PosTerminal = () => {
               </button>
             </div>
 
-            {/* Current Order Status Banner with Quick Edit Back-link */}
-            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className="text-slate-500 font-medium">{isKhmer ? 'ស្ថានភាព:' : 'Order Status:'}</span>
-                <span className={`px-2 py-0.5 rounded-full font-bold text-[10.5px] border ${
-                  saleStatus === 'completed'
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
-                    : (saleStatus === 'pending'
-                      ? 'bg-amber-50 text-amber-900 border-amber-300'
-                      : 'bg-rose-50 text-rose-800 border-rose-300')
-                }`}>
-                  {saleStatus === 'completed'
-                    ? (isKhmer ? 'បានបញ្ចប់ (Completed)' : 'Completed')
-                    : (saleStatus === 'pending'
-                      ? (isKhmer ? 'កំពុងរង់ចាំ (Pending)' : 'Pending')
-                      : (isKhmer ? 'បានបោះបង់ (Cancelled)' : 'Cancelled'))}
-                </span>
-                {cart.some(i => i.status === 'pending') && (
-                  <span className="text-[10px] text-amber-800 font-medium hidden sm:inline">
-                    ({cart.filter(i => i.status === 'pending').length} {isKhmer ? 'មុខទំនិញរង់ចាំកែ' : 'item(s) pending'})
+            {/* Scrollable Modal 2 Body */}
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 min-h-0">
+              {/* Current Order Status Banner with Quick Edit Back-link */}
+              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-medium">{isKhmer ? 'ស្ថានភាព:' : 'Order Status:'}</span>
+                  <span className={`px-2 py-0.5 rounded-full font-bold text-[10.5px] border ${
+                    saleStatus === 'completed'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : (saleStatus === 'pending'
+                        ? 'bg-amber-50 text-amber-900 border-amber-300'
+                        : 'bg-rose-50 text-rose-800 border-rose-300')
+                  }`}>
+                    {saleStatus === 'completed'
+                      ? (isKhmer ? 'បានបញ្ចប់ (Completed)' : 'Completed')
+                      : (saleStatus === 'pending'
+                        ? (isKhmer ? 'កំពុងរង់ចាំ (Pending)' : 'Pending')
+                        : (isKhmer ? 'បានបោះបង់ (Cancelled)' : 'Cancelled'))}
                   </span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={handleBackToStatus}
-                className="text-xs text-amber-800 hover:text-amber-950 font-bold underline cursor-pointer"
-              >
-                {isKhmer ? 'កែប្រែ' : 'Edit'}
-              </button>
-            </div>
-
-            {/* Total Due Banner with Financial Summary Breakdown */}
-            <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100/60 border border-amber-200">
-              <div className="text-center pb-2 border-b border-amber-200/80">
-                <span className="text-xs text-amber-900/80 uppercase font-semibold tracking-wider block">
-                  {t('pos.totalDue', 'Total Amount Due')}
-                </span>
-                <div className="mt-0.5">
-                  <span className="text-2xl sm:text-3xl font-mono font-extrabold text-amber-950 block">
-                    ${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-xs font-mono font-bold text-amber-800 block mt-0.5">
-                    ≈ ៛{grandTotalKhr.toLocaleString()} KHR
-                  </span>
+                  {cart.some(i => i.status === 'pending') && (
+                    <span className="text-[10px] text-amber-800 font-medium hidden sm:inline">
+                      ({cart.filter(i => i.status === 'pending').length} {isKhmer ? 'មុខទំនិញរង់ចាំកែ' : 'item(s) pending'})
+                    </span>
+                  )}
                 </div>
-              </div>
-
-              {/* Subtotal / Discount / Tax Ledger */}
-              <div className="pt-2 grid grid-cols-3 gap-2 text-center text-[11px] font-mono">
-                <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
-                  <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'សរុបដើម' : 'Subtotal'}</span>
-                  <span className="font-bold text-slate-800">${subtotal.toFixed(2)}</span>
-                </div>
-                <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
-                  <span className="text-[10px] text-emerald-700 block font-sans font-semibold">
-                    {isKhmer ? 'បញ្ចុះ' : 'Discount'} ({discountPercent}%)
-                  </span>
-                  <span className="font-bold text-emerald-700">-${discountAmount.toFixed(2)}</span>
-                </div>
-                <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
-                  <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'ពន្ធ' : 'Tax'} ({taxRate}%)</span>
-                  <span className="font-bold text-slate-800">+${taxAmount.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* 1. Payment Terms: Paid vs Partial/Deposit (លុយកក់) vs Pending */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-700 font-semibold flex items-center justify-between">
-                <span>{t('pos.paymentStatus', isKhmer ? 'លក្ខខណ្ឌនៃការទូទាត់:' : 'Payment Terms & Status:')}</span>
-                {paymentStatus === 'partial' && (
-                  <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
-                    {isKhmer ? 'កក់ប្រាក់ (Deposit)' : 'Partial / Deposit'}
-                  </span>
-                )}
-              </label>
-              <div className="grid grid-cols-3 gap-2 text-xs">
                 <button
                   type="button"
-                  onClick={() => setPaymentStatus('paid')}
-                  className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
-                    paymentStatus === 'paid'
-                      ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-xs ring-1 ring-emerald-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
+                  onClick={handleBackToStatus}
+                  className="text-xs text-amber-800 hover:text-amber-950 font-bold underline cursor-pointer"
                 >
-                  <FontAwesomeIcon icon={faCircleCheck} className={`w-4 h-4 ${paymentStatus === 'paid' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                  <span className="text-[11px]">{isKhmer ? 'បង់ផ្ដាច់ (Paid)' : 'Full Payment'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentStatus('partial');
-                    if (!depositAmount) {
-                      const total = paymentCurrency === 'KHR' ? grandTotalKhr : grandTotal;
-                      const initialDep = paymentCurrency === 'KHR' ? Math.round(total * 0.3) : Math.round(total * 0.3 * 100) / 100;
-                      setDepositAmount(initialDep);
-                    }
-                  }}
-                  className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
-                    paymentStatus === 'partial'
-                      ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold shadow-xs ring-1 ring-amber-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faCoins} className={`w-4 h-4 ${paymentStatus === 'partial' ? 'text-amber-600' : 'text-slate-400'}`} />
-                  <span className="text-[11px]">{isKhmer ? 'លុយកក់ (Deposit)' : 'Deposit / Partial'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setPaymentStatus('pending')}
-                  className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
-                    paymentStatus === 'pending'
-                      ? 'border-indigo-500 bg-indigo-50 text-indigo-950 font-bold shadow-xs ring-1 ring-indigo-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faClock} className={`w-4 h-4 ${paymentStatus === 'pending' ? 'text-indigo-600' : 'text-slate-400'}`} />
-                  <span className="text-[11px]">{isKhmer ? 'នៅជំពាក់ (Pending)' : 'Unpaid / Later'}</span>
+                  {isKhmer ? 'កែប្រែ' : 'Edit'}
                 </button>
               </div>
-            </div>
 
-            {/* 2. Deposit Amount Box (shown when paymentStatus === 'partial') */}
-            {paymentStatus === 'partial' && (
-              <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-300 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
-                    <FontAwesomeIcon icon={faCoins} className="w-3.5 h-3.5 text-amber-600" />
-                    <span>{isKhmer ? 'ចំនួនលុយកក់ (Deposit Amount):' : 'Deposit Amount Tendered:'}</span>
-                  </label>
-                  <span className="text-[11px] font-mono font-bold text-amber-900">
-                    {paymentCurrency}
+              {/* Total Due Banner with Financial Summary Breakdown */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100/60 border border-amber-200">
+                <div className="text-center pb-2 border-b border-amber-200/80">
+                  <span className="text-xs text-amber-900/80 uppercase font-semibold tracking-wider block">
+                    {t('pos.totalDue', 'Total Amount Due')}
                   </span>
+                  <div className="mt-0.5">
+                    <span className="text-2xl sm:text-3xl font-mono font-extrabold text-amber-950 block">
+                      ${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-amber-800 block mt-0.5">
+                      ≈ ៛{grandTotalKhr.toLocaleString()} KHR
+                    </span>
+                  </div>
                 </div>
 
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-bold font-mono text-base">
-                    {paymentCurrency === 'KHR' ? '៛' : '$'}
-                  </span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={paymentCurrency === 'KHR' ? grandTotalKhr : grandTotal}
-                    step={paymentCurrency === 'KHR' ? '100' : '0.01'}
-                    value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
-                    placeholder={paymentCurrency === 'KHR' ? '500000' : '200.00'}
-                    className="w-full pl-8 pr-3 py-2 bg-white border border-amber-300 rounded-lg font-mono font-bold text-slate-900 text-base focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
-                  />
+                {/* Subtotal / Discount / Tax Ledger */}
+                <div className="pt-2 grid grid-cols-3 gap-2 text-center text-[11px] font-mono">
+                  <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                    <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'សរុបដើម' : 'Subtotal'}</span>
+                    <span className="font-bold text-slate-800">${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                    <span className="text-[10px] text-emerald-700 block font-sans font-semibold">
+                      {isKhmer ? 'បញ្ចុះ' : 'Discount'} ({discountPercent}%)
+                    </span>
+                    <span className="font-bold text-emerald-700">-${discountAmount.toFixed(2)}</span>
+                  </div>
+                  <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
+                    <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'ពន្ធ' : 'Tax'} ({taxRate}%)</span>
+                    <span className="font-bold text-slate-800">+${taxAmount.toFixed(2)}</span>
+                  </div>
                 </div>
+              </div>
 
-                {/* Quick Presets */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[11px] text-slate-500 font-medium">{isKhmer ? 'កម្រិតភាគរយ:' : 'Quick %:'}</span>
-                  {[20, 30, 50, 70].map(pct => (
+              {/* 1. Payment Terms: Paid vs Partial/Deposit (លុយកក់) vs Pending */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-700 font-semibold flex items-center justify-between">
+                  <span>{t('pos.paymentStatus', isKhmer ? 'លក្ខខណ្ឌនៃការទូទាត់:' : 'Payment Terms & Status:')}</span>
+                  {paymentStatus === 'partial' && (
+                    <span className="text-[11px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md">
+                      {isKhmer ? 'កក់ប្រាក់ (Deposit)' : 'Partial / Deposit'}
+                    </span>
+                  )}
+                </label>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentStatus('paid')}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
+                      paymentStatus === 'paid'
+                        ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold shadow-xs ring-1 ring-emerald-400'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={faCircleCheck} className={`w-4 h-4 ${paymentStatus === 'paid' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <span className="text-[11px]">{isKhmer ? 'បង់ផ្ដាច់ (Paid)' : 'Full Payment'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentStatus('partial');
+                      if (!depositAmount) {
+                        const total = paymentCurrency === 'KHR' ? grandTotalKhr : grandTotal;
+                        const initialDep = paymentCurrency === 'KHR' ? Math.round(total * 0.3) : Math.round(total * 0.3 * 100) / 100;
+                        setDepositAmount(initialDep);
+                      }
+                    }}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
+                      paymentStatus === 'partial'
+                        ? 'border-amber-500 bg-amber-50 text-amber-950 font-bold shadow-xs ring-1 ring-amber-400'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={faCoins} className={`w-4 h-4 ${paymentStatus === 'partial' ? 'text-amber-600' : 'text-slate-400'}`} />
+                    <span className="text-[11px]">{isKhmer ? 'លុយកក់ (Deposit)' : 'Deposit / Partial'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentStatus('pending')}
+                    className={`p-2.5 rounded-xl border flex flex-col items-center gap-1 cursor-pointer text-center transition-all ${
+                      paymentStatus === 'pending'
+                        ? 'border-indigo-500 bg-indigo-50 text-indigo-950 font-bold shadow-xs ring-1 ring-indigo-400'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={faClock} className={`w-4 h-4 ${paymentStatus === 'pending' ? 'text-indigo-600' : 'text-slate-400'}`} />
+                    <span className="text-[11px]">{isKhmer ? 'នៅជំពាក់ (Pending)' : 'Unpaid / Later'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Deposit Amount Box (shown when paymentStatus === 'partial') */}
+              {paymentStatus === 'partial' && (
+                <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-300 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                      <FontAwesomeIcon icon={faCoins} className="w-3.5 h-3.5 text-amber-600" />
+                      <span>{isKhmer ? 'ចំនួនលុយកក់ (Deposit Amount):' : 'Deposit Amount Tendered:'}</span>
+                    </label>
+                    <span className="text-[11px] font-mono font-bold text-amber-900">
+                      {paymentCurrency}
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 font-bold font-mono text-base">
+                      {paymentCurrency === 'KHR' ? '៛' : '$'}
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={paymentCurrency === 'KHR' ? grandTotalKhr : grandTotal}
+                      step={paymentCurrency === 'KHR' ? '100' : '0.01'}
+                      value={depositAmount}
+                      onChange={(e) => setDepositAmount(e.target.value)}
+                      placeholder={paymentCurrency === 'KHR' ? '500000' : '200.00'}
+                      className="w-full pl-8 pr-3 py-2 bg-white border border-amber-300 rounded-lg font-mono font-bold text-slate-900 text-base focus:ring-2 focus:ring-amber-500 focus:outline-hidden"
+                    />
+                  </div>
+
+                  {/* Quick Presets */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-slate-500 font-medium">{isKhmer ? 'កម្រិតភាគរយ:' : 'Quick %:'}</span>
+                    {[20, 30, 50, 70].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => handlePresetDeposit(pct)}
+                        className="px-2.5 py-1 text-xs font-semibold rounded-md bg-white border border-amber-200 text-amber-900 hover:bg-amber-100 cursor-pointer transition-colors shadow-2xs font-mono"
+                      >
+                        {pct}%
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Deposit vs Remaining Balance Calculation */}
+                  <div className="pt-2 border-t border-amber-200/80 grid grid-cols-2 gap-2 text-xs font-mono">
+                    <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <span className="text-[10px] text-emerald-700 font-medium block">{isKhmer ? 'លុយកក់បង់រួច' : 'Deposit Paid'}:</span>
+                      <span className="font-bold text-emerald-900 text-sm block mt-0.5">
+                        {paymentCurrency === 'KHR' ? `៛${(Number(depositAmount) || 0).toLocaleString()}` : `$${(Number(depositAmount) || 0).toFixed(2)}`}
+                      </span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-rose-50 border border-rose-200">
+                      <span className="text-[10px] text-rose-700 font-medium block">{isKhmer ? 'សមតុល្យនៅខ្វះ' : 'Remaining Due'}:</span>
+                      <span className="font-bold text-rose-900 text-sm block mt-0.5">
+                        {paymentCurrency === 'KHR' ? `៛${remainingInCurrentCurrency.toLocaleString()}` : `$${remainingInCurrentCurrency.toFixed(2)}`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {!selectedCustomer && (
+                    <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 p-2.5 rounded-xl font-sans flex items-center justify-between gap-2">
+                      <span className="leading-tight flex items-start gap-1.5">
+                        <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                        <span>{isKhmer ? 'ចំណាំ: សម្រាប់លុយកក់ សូមជ្រើសរើស ឬចុះឈ្មោះអតិថិជន ដើម្បីងាយស្រួលតាមដាន' : 'Note: Assigning a customer is strongly recommended for deposit tracking.'}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCustomerModal(true)}
+                        className="shrink-0 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10.5px] font-bold cursor-pointer transition-all active:scale-95 shadow-2xs whitespace-nowrap"
+                      >
+                        {isKhmer ? '+ ចុះឈ្មោះអតិថិជន' : '+ Add Customer'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 3. Currency Selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-700 font-semibold">{t('pos.currencyTendered', 'Tender Currency:')}</label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => handleCurrencyToggle('USD')}
+                    className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 cursor-pointer font-bold transition-all ${
+                      paymentCurrency === 'USD'
+                        ? 'border-amber-500 bg-amber-50 text-amber-950 shadow-xs ring-1 ring-amber-400'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="font-mono text-base text-amber-600 font-extrabold">$</span>
+                    <span>USD (US Dollar)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleCurrencyToggle('KHR')}
+                    className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 cursor-pointer font-bold transition-all ${
+                      paymentCurrency === 'KHR'
+                        ? 'border-amber-500 bg-amber-50 text-amber-950 shadow-xs ring-1 ring-amber-400'
+                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="font-mono text-base text-amber-600 font-extrabold">៛</span>
+                    <span>KHR (Khmer Riel)</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 4. Payment Tender Method */}
+              <div className="space-y-1.5">
+                <label className="text-xs text-slate-700 font-semibold">{t('pos.tenderMethod', 'Payment Tender Method:')}</label>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  {[
+                    { id: 'Credit Card', label: isKhmer ? 'កាតធនាគារ (Card)' : 'Credit Card', icon: faCreditCard },
+                    { id: 'Cash', label: isKhmer ? 'សាច់ប្រាក់ (Cash)' : 'Cash', icon: faMoneyBillWave },
+                    { id: 'Bank Transfer', label: isKhmer ? 'ផ្ទេរតាមធនាគារ' : 'Bank Transfer', icon: faCircleCheck },
+                    { id: 'KHQR', label: isKhmer ? 'បាគង KHQR' : 'KHQR', icon: faQrcode },
+                  ].map(method => (
                     <button
-                      key={pct}
-                      type="button"
-                      onClick={() => handlePresetDeposit(pct)}
-                      className="px-2.5 py-1 text-xs font-semibold rounded-md bg-white border border-amber-200 text-amber-900 hover:bg-amber-100 cursor-pointer transition-colors shadow-2xs font-mono"
+                      key={method.id}
+                      onClick={() => setPaymentMethod(method.id)}
+                      className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 cursor-pointer text-center transition-all ${paymentMethod === method.id
+                          ? 'border-amber-500 bg-amber-50 text-amber-900 font-bold shadow-xs ring-1 ring-amber-400'
+                          : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
+                        }`}
                     >
-                      {pct}%
+                      <FontAwesomeIcon icon={method.icon} className="w-4 h-4 text-amber-600" />
+                      <span>{method.label}</span>
                     </button>
                   ))}
                 </div>
-
-                {/* Deposit vs Remaining Balance Calculation */}
-                <div className="pt-2 border-t border-amber-200/80 grid grid-cols-2 gap-2 text-xs font-mono">
-                  <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200">
-                    <span className="text-[10px] text-emerald-700 font-medium block">{isKhmer ? 'លុយកក់បង់រួច' : 'Deposit Paid'}:</span>
-                    <span className="font-bold text-emerald-900 text-sm block mt-0.5">
-                      {paymentCurrency === 'KHR' ? `៛${(Number(depositAmount) || 0).toLocaleString()}` : `$${(Number(depositAmount) || 0).toFixed(2)}`}
-                    </span>
-                  </div>
-                  <div className="p-2 rounded-lg bg-rose-50 border border-rose-200">
-                    <span className="text-[10px] text-rose-700 font-medium block">{isKhmer ? 'សមតុល្យនៅខ្វះ' : 'Remaining Due'}:</span>
-                    <span className="font-bold text-rose-900 text-sm block mt-0.5">
-                      {paymentCurrency === 'KHR' ? `៛${remainingInCurrentCurrency.toLocaleString()}` : `$${remainingInCurrentCurrency.toFixed(2)}`}
-                    </span>
-                  </div>
-                </div>
-
-                {!selectedCustomer && (
-                  <div className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 p-2.5 rounded-xl font-sans flex items-center justify-between gap-2">
-                    <span className="leading-tight flex items-start gap-1.5">
-                      <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
-                      <span>{isKhmer ? 'ចំណាំ: សម្រាប់លុយកក់ សូមជ្រើសរើស ឬចុះឈ្មោះអតិថិជន ដើម្បីងាយស្រួលតាមដាន' : 'Note: Assigning a customer is strongly recommended for deposit tracking.'}</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCustomerModal(true)}
-                      className="shrink-0 px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[10.5px] font-bold cursor-pointer transition-all active:scale-95 shadow-2xs whitespace-nowrap"
-                    >
-                      {isKhmer ? '+ ចុះឈ្មោះអតិថិជន' : '+ Add Customer'}
-                    </button>
-                  </div>
-                )}
               </div>
-            )}
 
-            {/* 3. Currency Selector */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-700 font-semibold">{t('pos.currencyTendered', 'Tender Currency:')}</label>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <button
-                  type="button"
-                  onClick={() => handleCurrencyToggle('USD')}
-                  className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 cursor-pointer font-bold transition-all ${
-                    paymentCurrency === 'USD'
-                      ? 'border-amber-500 bg-amber-50 text-amber-950 shadow-xs ring-1 ring-amber-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="font-mono text-base text-amber-600 font-extrabold">$</span>
-                  <span>USD (US Dollar)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleCurrencyToggle('KHR')}
-                  className={`py-2 px-3 rounded-xl border flex items-center justify-center gap-2 cursor-pointer font-bold transition-all ${
-                    paymentCurrency === 'KHR'
-                      ? 'border-amber-500 bg-amber-50 text-amber-950 shadow-xs ring-1 ring-amber-400'
-                      : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  <span className="font-mono text-base text-amber-600 font-extrabold">៛</span>
-                  <span>KHR (Khmer Riel)</span>
-                </button>
+              {/* 5. Notes / Pickup memo */}
+              <div className="space-y-1">
+                <label className="text-xs text-slate-600 font-medium">
+                  {isKhmer ? 'សម្គាល់ / កាលបរិច្ឆេទមកយក (Optional):' : 'Notes / Pickup Memo (Optional):'}
+                </label>
+                <input
+                  type="text"
+                  value={paymentNotes}
+                  onChange={(e) => setPaymentNotes(e.target.value)}
+                  placeholder={paymentStatus === 'partial' ? (isKhmer ? 'ឧ: កក់ប្រាក់ មកយកថ្ងៃ...' : 'e.g. Deposit paid, customer pickup next week') : (isKhmer ? 'សម្គាល់បន្ថែម...' : 'Additional notes...')}
+                  className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
+                />
               </div>
             </div>
 
-            {/* 4. Payment Tender Method */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-slate-700 font-semibold">{t('pos.tenderMethod', 'Payment Tender Method:')}</label>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                {[
-                  { id: 'Credit Card', label: isKhmer ? 'កាតធនាគារ (Card)' : 'Credit Card', icon: faCreditCard },
-                  { id: 'Cash', label: isKhmer ? 'សាច់ប្រាក់ (Cash)' : 'Cash', icon: faMoneyBillWave },
-                  { id: 'Bank Transfer', label: isKhmer ? 'ផ្ទេរតាមធនាគារ' : 'Bank Transfer', icon: faCircleCheck },
-                  { id: 'KHQR', label: isKhmer ? 'បាគង KHQR' : 'KHQR', icon: faQrcode },
-                ].map(method => (
-                  <button
-                    key={method.id}
-                    onClick={() => setPaymentMethod(method.id)}
-                    className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 cursor-pointer text-center transition-all ${paymentMethod === method.id
-                        ? 'border-amber-500 bg-amber-50 text-amber-900 font-bold shadow-xs ring-1 ring-amber-400'
-                        : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100'
-                      }`}
-                  >
-                    <FontAwesomeIcon icon={method.icon} className="w-4 h-4 text-amber-600" />
-                    <span>{method.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 5. Notes / Pickup memo */}
-            <div className="space-y-1">
-              <label className="text-xs text-slate-600 font-medium">
-                {isKhmer ? 'សម្គាល់ / កាលបរិច្ឆេទមកយក (Optional):' : 'Notes / Pickup Memo (Optional):'}
-              </label>
-              <input
-                type="text"
-                value={paymentNotes}
-                onChange={(e) => setPaymentNotes(e.target.value)}
-                placeholder={paymentStatus === 'partial' ? (isKhmer ? 'ឧ: កក់ប្រាក់ មកយកថ្ងៃ...' : 'e.g. Deposit paid, customer pickup next week') : (isKhmer ? 'សម្គាល់បន្ថែម...' : 'Additional notes...')}
-                className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:bg-white focus:ring-1 focus:ring-amber-500 focus:outline-hidden"
-              />
-            </div>
-
-            {/* Modal 2 Footer */}
-            <div className="flex items-center justify-between gap-3 pt-5 mt-5 border-t border-slate-100">
+            {/* Pinned Modal 2 Footer */}
+            <div className="p-4 sm:px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
               <button
                 type="button"
                 onClick={handleBackToStatus}
@@ -1579,9 +1602,9 @@ export const PosTerminal = () => {
       {/* ========================================================================= */}
       {showAddCustomerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[90vh]">
             {/* Header */}
-            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+            <div className="p-4 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
                   <FontAwesomeIcon icon={faUserPlus} className="w-5 h-5 text-slate-950" />
@@ -1606,117 +1629,119 @@ export const PosTerminal = () => {
             </div>
 
             {/* Form */}
-            <form noValidate onSubmit={handleSaveNewCustomer} className="p-5 sm:p-6 space-y-4 text-xs">
-              {/* Name */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
-                  {isKhmer ? 'ឈ្មោះអតិថិជន (Customer Name)' : 'Customer Name'} <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newCustomerForm.name}
-                  onChange={(e) => {
-                    setNewCustomerForm(prev => ({ ...prev, name: e.target.value }));
-                    if (custModalErrors.name) setCustModalErrors(prev => ({ ...prev, name: null }));
-                  }}
-                  placeholder={isKhmer ? 'ឧ: លោកស្រី សុខ ម៉ាលី' : 'e.g. Eleanor Vance'}
-                  className={`w-full rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
-                    custModalErrors.name
-                      ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
-                      : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
-                  }`}
-                />
-                {custModalErrors.name && (
-                  <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
-                    <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                    <span>{custModalErrors.name}</span>
-                  </div>
-                )}
-              </div>
+            <form noValidate onSubmit={handleSaveNewCustomer} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-4 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1 min-h-0">
+                {/* Name */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1.5">
+                    {isKhmer ? 'ឈ្មោះអតិថិជន (Customer Name)' : 'Customer Name'} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerForm.name}
+                    onChange={(e) => {
+                      setNewCustomerForm(prev => ({ ...prev, name: e.target.value }));
+                      if (custModalErrors.name) setCustModalErrors(prev => ({ ...prev, name: null }));
+                    }}
+                    placeholder={isKhmer ? 'ឧ: លោកស្រី សុខ ម៉ាលី' : 'e.g. Eleanor Vance'}
+                    className={`w-full rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
+                      custModalErrors.name
+                        ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
+                        : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
+                    }`}
+                  />
+                  {custModalErrors.name && (
+                    <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
+                      <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <span>{custModalErrors.name}</span>
+                    </div>
+                  )}
+                </div>
 
-              {/* Phone */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
-                  {isKhmer ? 'លេខទូរស័ព្ទ (Contact Phone)' : 'Phone Number'} <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={newCustomerForm.phone}
-                  onChange={(e) => {
-                    setNewCustomerForm(prev => ({ ...prev, phone: e.target.value }));
-                    if (custModalErrors.phone) setCustModalErrors(prev => ({ ...prev, phone: null }));
-                  }}
-                  placeholder={isKhmer ? 'ឧ: 012 888 999' : 'e.g. +855 12 888 999'}
-                  className={`w-full rounded-xl px-3.5 py-2.5 font-mono text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
-                    custModalErrors.phone
-                      ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
-                      : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
-                  }`}
-                />
-                {custModalErrors.phone && (
-                  <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
-                    <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                    <span>{custModalErrors.phone}</span>
-                  </div>
-                )}
-              </div>
+                {/* Phone */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1.5">
+                    {isKhmer ? 'លេខទូរស័ព្ទ (Contact Phone)' : 'Phone Number'} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerForm.phone}
+                    onChange={(e) => {
+                      setNewCustomerForm(prev => ({ ...prev, phone: e.target.value }));
+                      if (custModalErrors.phone) setCustModalErrors(prev => ({ ...prev, phone: null }));
+                    }}
+                    placeholder={isKhmer ? 'ឧ: 012 888 999' : 'e.g. +855 12 888 999'}
+                    className={`w-full rounded-xl px-3.5 py-2.5 font-mono text-xs text-slate-900 font-semibold bg-slate-50 border focus:bg-white focus:outline-none transition-all ${
+                      custModalErrors.phone
+                        ? 'border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50'
+                        : 'border-slate-200 focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50'
+                    }`}
+                  />
+                  {custModalErrors.phone && (
+                    <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1.5 font-medium animate-fadeIn">
+                      <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                      <span>{custModalErrors.phone}</span>
+                    </div>
+                  )}
+                </div>
 
-              {/* VIP Tier Auto-Upgrade Indicator */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
-                  {isKhmer ? 'កម្រិតសមាជិកភាព VIP (VIP Privilege Tier):' : 'VIP Privilege Tier:'}
-                </label>
-                <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-800 border border-slate-200 shadow-2xs">
-                      <FontAwesomeIcon icon={faUser} className="text-amber-600 w-3 h-3" />
-                      <span>{isKhmer ? 'កម្រិតចាប់ផ្តើម: Standard (0%)' : 'Starting Level: Standard (0%)'}</span>
-                    </span>
-                    <span className="text-[10px] text-amber-900 font-bold bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md">
-                      {isKhmer ? 'ដំឡើងស្វ័យប្រវត្តិតាមការទិញ' : 'Auto Upgrade on Purchase'}
-                    </span>
+                {/* VIP Tier Auto-Upgrade Indicator */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1.5">
+                    {isKhmer ? 'កម្រិតសមាជិកភាព VIP (VIP Privilege Tier):' : 'VIP Privilege Tier:'}
+                  </label>
+                  <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white text-slate-800 border border-slate-200 shadow-2xs">
+                        <FontAwesomeIcon icon={faUser} className="text-amber-600 w-3 h-3" />
+                        <span>{isKhmer ? 'កម្រិតចាប់ផ្តើម: Standard (0%)' : 'Starting Level: Standard (0%)'}</span>
+                      </span>
+                      <span className="text-[10px] text-amber-900 font-bold bg-amber-100/90 border border-amber-300/80 px-2 py-0.5 rounded-md">
+                        {isKhmer ? 'ដំឡើងស្វ័យប្រវត្តិតាមការទិញ' : 'Auto Upgrade on Purchase'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 leading-relaxed font-normal flex items-start gap-1.5">
+                      <FontAwesomeIcon icon={faCircleInfo} className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
+                      <span>
+                        {isKhmer
+                          ? 'កម្រិត VIP និងការបញ្ចុះតម្លៃត្រូវបានដំឡើងស្វ័យប្រវត្តិតាមរយៈទំហំនៃការទិញជាក់ស្តែង៖ Gold ($1k+ = 2%), Platinum ($5k+ = 3%), Diamond VIP ($10k+ = 5%)។'
+                          : 'VIP tier level automatically unlocks & upgrades based on cumulative purchases: Gold ($1,000+ = 2%), Platinum ($5,000+ = 3%), Diamond VIP ($10,000+ = 5%).'}
+                      </span>
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed font-normal flex items-start gap-1.5">
-                    <FontAwesomeIcon icon={faCircleInfo} className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" />
-                    <span>
-                      {isKhmer
-                        ? 'កម្រិត VIP និងការបញ្ចុះតម្លៃត្រូវបានដំឡើងស្វ័យប្រវត្តិតាមរយៈទំហំនៃការទិញជាក់ស្តែង៖ Gold ($1k+ = 2%), Platinum ($5k+ = 3%), Diamond VIP ($10k+ = 5%)។'
-                        : 'VIP tier level automatically unlocks & upgrades based on cumulative purchases: Gold ($1,000+ = 2%), Platinum ($5,000+ = 3%), Diamond VIP ($10,000+ = 5%).'}
-                    </span>
-                  </p>
+                </div>
+
+                {/* Email (Optional) */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1.5">
+                    {isKhmer ? 'អ៊ីមែល (Email - ស្រេចចិត្ត)' : 'Email (Optional)'}
+                  </label>
+                  <input
+                    type="email"
+                    value={newCustomerForm.email}
+                    onChange={(e) => setNewCustomerForm(prev => ({ ...prev, email: e.target.value }))}
+                    placeholder="customer@example.com"
+                    className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 font-mono text-xs text-slate-900 font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
+                  />
+                </div>
+
+                {/* Address / Studio Notes (Optional) */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1.5">
+                    {isKhmer ? 'អាសយដ្ឋាន / កំណត់ចំណាំ (Address / Note)' : 'Address / Boutique Note'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newCustomerForm.address}
+                    onChange={(e) => setNewCustomerForm(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder={isKhmer ? 'ឧ: ភ្នំពេញ...' : 'e.g. Phnom Penh, Cambodia'}
+                    className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 text-xs font-semibold text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
+                  />
                 </div>
               </div>
 
-              {/* Email (Optional) */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
-                  {isKhmer ? 'អ៊ីមែល (Email - ស្រេចចិត្ត)' : 'Email (Optional)'}
-                </label>
-                <input
-                  type="email"
-                  value={newCustomerForm.email}
-                  onChange={(e) => setNewCustomerForm(prev => ({ ...prev, email: e.target.value }))}
-                  placeholder="customer@example.com"
-                  className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 font-mono text-xs text-slate-900 font-semibold bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
-                />
-              </div>
-
-              {/* Address / Studio Notes (Optional) */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
-                  {isKhmer ? 'អាសយដ្ឋាន / កំណត់ចំណាំ (Address / Note)' : 'Address / Boutique Note'}
-                </label>
-                <input
-                  type="text"
-                  value={newCustomerForm.address}
-                  onChange={(e) => setNewCustomerForm(prev => ({ ...prev, address: e.target.value }))}
-                  placeholder={isKhmer ? 'ឧ: ភ្នំពេញ...' : 'e.g. Phnom Penh, Cambodia'}
-                  className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 text-xs font-semibold text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
-                />
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-100">
+              {/* Pinned Customer Modal Footer */}
+              <div className="p-4 sm:px-6 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowAddCustomerModal(false)}

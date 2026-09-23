@@ -545,14 +545,19 @@ export const CategoriesView = () => {
                   const catChi = (catGrams / 3.75).toFixed(2);
 
                   return (
-                    <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
+                    <tr
+                      key={cat.id}
+                      onClick={() => handleOpenEdit(cat)}
+                      className="hover:bg-amber-50/50 transition-colors cursor-pointer group"
+                      title={isKhmer ? 'ចុចដើម្បីកែប្រែ' : 'Click to view / edit'}
+                    >
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${theme.gradient} flex items-center justify-center text-white shadow-xs shrink-0`}>
+                          <div className={`w-9 h-9 rounded-xl bg-gradient-to-tr ${theme.gradient} flex items-center justify-center text-white shadow-xs shrink-0 group-hover:scale-105 transition-transform`}>
                             <FontAwesomeIcon icon={theme.icon} className="w-4 h-4" />
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 font-serif text-sm leading-tight">{cat.name}</p>
+                            <p className="font-bold text-slate-900 font-serif text-sm leading-tight group-hover:text-amber-900 transition-colors">{cat.name}</p>
                             <p className="text-[10px] text-slate-400 font-mono mt-0.5">ID: #{cat.id}</p>
                           </div>
                         </div>
@@ -586,7 +591,10 @@ export const CategoriesView = () => {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             type="button"
-                            onClick={() => handleOpenEdit(cat)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEdit(cat);
+                            }}
                             className="p-2 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-950 border border-slate-200 hover:border-amber-300 transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center active:scale-95"
                             title={isKhmer ? 'កែប្រែ' : 'Edit'}
                           >
@@ -594,7 +602,10 @@ export const CategoriesView = () => {
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(cat)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDelete(cat);
+                            }}
                             className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-800 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center active:scale-95"
                             title={isKhmer ? 'លុប' : 'Delete'}
                           >

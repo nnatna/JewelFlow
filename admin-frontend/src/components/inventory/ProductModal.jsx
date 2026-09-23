@@ -95,10 +95,14 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
     }
 
     setErrors({});
+    const payload = {
+      ...formData,
+      stock_qty: formData.stock_qty === '' || formData.stock_qty == null ? 0 : Number(formData.stock_qty),
+    };
     if (initialData) {
-      updateProduct({ ...initialData, ...formData });
+      updateProduct({ ...initialData, ...payload });
     } else {
-      addProduct(formData);
+      addProduct(payload);
     }
     onClose();
   };
@@ -200,35 +204,6 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
                       <option key={m.id} value={m.id}>{m.name}</option>
                     ))}
                   </select>
-                </div>
-              </div>
-
-              {/* SKU & Barcode */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    {t('invoiceModal.sku', 'Code / SKU')}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.code_sku || ''}
-                    onChange={(e) => setFormData({ ...formData, code_sku: e.target.value })}
-                    placeholder="e.g. JW-RNG-001"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:border-amber-500 focus:bg-white focus:outline-none transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    {t('catalog.barcode', 'Barcode / EAN')}
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.barcode || ''}
-                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                    placeholder="e.g. 884123456789"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono focus:border-amber-500 focus:bg-white focus:outline-none transition-colors"
-                  />
                 </div>
               </div>
 
@@ -345,8 +320,22 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
                 <input
                   type="number"
                   min="0"
-                  value={formData.stock_qty}
-                  onChange={(e) => setFormData({ ...formData, stock_qty: parseInt(e.target.value, 10) || 0 })}
+                  step="1"
+                  value={formData.stock_qty === 0 || formData.stock_qty ? formData.stock_qty : ''}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw === '') {
+                      setFormData({ ...formData, stock_qty: '' });
+                      return;
+                    }
+                    const parsed = parseInt(raw, 10);
+                    setFormData({ ...formData, stock_qty: isNaN(parsed) ? '' : parsed });
+                  }}
+                  onBlur={(e) => {
+                    if (e.target.value === '') {
+                      setFormData({ ...formData, stock_qty: 0 });
+                    }
+                  }}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:border-amber-500 focus:bg-white focus:outline-none transition-colors"
                 />
               </div>

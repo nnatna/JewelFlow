@@ -144,83 +144,136 @@ export const AppProvider = ({ children }) => {
   // Floating Toast Alerts for UI
   const [alerts, setAlerts] = useState([]);
 
-  // Load live data from Backend API
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const isHealthy = await apiService.checkHealth();
-        setBackendConnected(isHealthy);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-        const [prods, rates, cats, metals, gems, custs, sls, bbs, sups, purchs, promos, tierData, usersData, rolesData, permsData, settingsData, camGold, spotData, fxData] = await Promise.all([
-          apiService.getProducts(),
-          apiService.getGoldRates(),
-          apiService.getCategories(),
-          apiService.getMetalTypes(),
-          apiService.getGemstones(),
-          apiService.getCustomers(),
-          apiService.getSales(),
-          apiService.getBuybacks(),
-          apiService.getSuppliers(),
-          apiService.getPurchases(),
-          apiService.getPromotions(),
-          apiService.getTiers(),
-          apiService.getUsers(),
-          apiService.getRoles(),
-          apiService.getPermissions(),
-          apiService.getSettings(),
-          apiService.getCambodianGold(),
-          apiService.getSpotPrice('XAU', 'USD', true),
-          apiService.getExchangeRate('USD', 'KHR'),
-        ]);
+  // Load and refresh all live data from Backend API using resilient Promise.allSettled
+  const refreshAllData = async (silent = false) => {
+    try {
+      const isHealthy = await apiService.checkHealth();
+      setBackendConnected(isHealthy);
 
-        setProducts(prods);
-        setGoldRates(rates);
-        setCategories(cats);
-        setMetalTypes(metals);
-        setGemstones(gems);
-        setCustomers(custs);
-        setSales(sls || []);
-        setBuybacks(bbs);
-        setSuppliers(sups);
-        setPurchases(purchs || []);
-        setPromotions(promos || []);
-        setTiers(tierData || []);
-        setUsers(usersData || []);
-        setRoles(rolesData || []);
-        if (permsData) setPermissions(permsData);
-        setSettings(prev => ({ ...prev, ...(settingsData || {}) }));
-        if (camGold) setCambodianGold(camGold);
-        if (spotData && spotData.spot_price_per_oz !== undefined) setLiveSpot(spotData);
-        if (fxData && fxData.rate) {
-          setExchangeRate(fxData);
-        } else if (spotData?.exchange_rate?.rate) {
-          setExchangeRate(spotData.exchange_rate);
-        }
-      } catch (e) {
-        console.error('API load error:', e);
+      const [
+        prodsRes, ratesRes, catsRes, metalsRes, gemsRes, custsRes,
+        slsRes, bbsRes, supsRes, purchsRes, promosRes, tierDataRes,
+        usersDataRes, rolesDataRes, permsDataRes, settingsDataRes,
+        camGoldRes, spotDataRes, fxDataRes
+      ] = await Promise.allSettled([
+        apiService.getProducts(),
+        apiService.getGoldRates(),
+        apiService.getCategories(),
+        apiService.getMetalTypes(),
+        apiService.getGemstones(),
+        apiService.getCustomers(),
+        apiService.getSales(),
+        apiService.getBuybacks(),
+        apiService.getSuppliers(),
+        apiService.getPurchases(),
+        apiService.getPromotions(),
+        apiService.getTiers(),
+        apiService.getUsers(),
+        apiService.getRoles(),
+        apiService.getPermissions(),
+        apiService.getSettings(),
+        apiService.getCambodianGold(),
+        apiService.getSpotPrice('XAU', 'USD', true),
+        apiService.getExchangeRate('USD', 'KHR'),
+      ]);
+
+      if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value) && prodsRes.value.length > 0) {
+        setProducts(prodsRes.value);
+      } else if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value)) {
+        setProducts(prodsRes.value);
       }
+
+      if (ratesRes.status === 'fulfilled' && Array.isArray(ratesRes.value) && ratesRes.value.length > 0) {
+        setGoldRates(ratesRes.value);
+      } else if (ratesRes.status === 'fulfilled' && Array.isArray(ratesRes.value)) {
+        setGoldRates(ratesRes.value);
+      }
+
+      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value)) setCategories(catsRes.value);
+      if (metalsRes.status === 'fulfilled' && Array.isArray(metalsRes.value)) setMetalTypes(metalsRes.value);
+      if (gemsRes.status === 'fulfilled' && Array.isArray(gemsRes.value)) setGemstones(gemsRes.value);
+      if (custsRes.status === 'fulfilled' && Array.isArray(custsRes.value)) setCustomers(custsRes.value);
+      if (slsRes.status === 'fulfilled' && Array.isArray(slsRes.value)) setSales(slsRes.value);
+      if (bbsRes.status === 'fulfilled' && Array.isArray(bbsRes.value)) setBuybacks(bbsRes.value);
+      if (supsRes.status === 'fulfilled' && Array.isArray(supsRes.value)) setSuppliers(supsRes.value);
+      if (purchsRes.status === 'fulfilled' && Array.isArray(purchsRes.value)) setPurchases(purchsRes.value);
+      if (promosRes.status === 'fulfilled' && Array.isArray(promosRes.value)) setPromotions(promosRes.value);
+      if (tierDataRes.status === 'fulfilled' && Array.isArray(tierDataRes.value)) setTiers(tierDataRes.value);
+      if (usersDataRes.status === 'fulfilled' && Array.isArray(usersDataRes.value)) setUsers(usersDataRes.value);
+      if (rolesDataRes.status === 'fulfilled' && Array.isArray(rolesDataRes.value)) setRoles(rolesDataRes.value);
+      if (permsDataRes.status === 'fulfilled' && permsDataRes.value) setPermissions(permsDataRes.value);
+      if (settingsDataRes.status === 'fulfilled' && settingsDataRes.value) setSettings(prev => ({ ...prev, ...(settingsDataRes.value || {}) }));
+      if (camGoldRes.status === 'fulfilled' && camGoldRes.value) setCambodianGold(camGoldRes.value);
+      if (spotDataRes.status === 'fulfilled' && spotDataRes.value?.spot_price_per_oz !== undefined) setLiveSpot(spotDataRes.value);
+      if (fxDataRes.status === 'fulfilled' && fxDataRes.value?.rate) {
+        setExchangeRate(fxDataRes.value);
+      } else if (spotDataRes.status === 'fulfilled' && spotDataRes.value?.exchange_rate?.rate) {
+        setExchangeRate(spotDataRes.value.exchange_rate);
+      }
+
+      if (!silent) {
+        showToast('Database records synchronized successfully', 'success');
+      }
+      return true;
+    } catch (e) {
+      console.error('API load error:', e);
+      return false;
+    } finally {
+      setIsInitialLoading(false);
+    }
+  };
+
+  const refreshProducts = async () => {
+    try {
+      const prods = await apiService.getProducts();
+      if (Array.isArray(prods)) {
+        setProducts(prods);
+        return prods;
+      }
+    } catch (err) {
+      console.error('Failed to refresh products:', err);
+    }
+    return [];
+  };
+
+  // Initial load on mount with auto-retry if database was seeding
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      await refreshAllData(true);
+      // If products or customers were empty, retry full sync after 1.5s
+      setTimeout(async () => {
+        if (mounted) {
+          await refreshAllData(true);
+        }
+      }, 1500);
     };
-    fetchData();
+    init();
 
     // Auto-sync real-time live gold spot price and exchange rates every 5 minutes (300,000 ms)
     const spotInterval = setInterval(async () => {
       try {
-        const [fresh, freshFx] = await Promise.all([
+        const [fresh, freshFx] = await Promise.allSettled([
           apiService.getSpotPrice('XAU', 'USD', true),
           apiService.getExchangeRate('USD', 'KHR', true)
         ]);
-        if (fresh && fresh.spot_price_per_oz !== undefined) {
-          setLiveSpot(prev => (prev?.spot_price_per_oz !== fresh.spot_price_per_oz ? fresh : prev));
+        if (fresh.status === 'fulfilled' && fresh.value?.spot_price_per_oz !== undefined) {
+          setLiveSpot(prev => (prev?.spot_price_per_oz !== fresh.value.spot_price_per_oz ? fresh.value : prev));
         }
-        if (freshFx && freshFx.rate) {
-          setExchangeRate(freshFx);
+        if (freshFx.status === 'fulfilled' && freshFx.value?.rate) {
+          setExchangeRate(freshFx.value);
         }
       } catch (err) {
         // quiet background fail
       }
     }, 5 * 60 * 1000);
 
-    return () => clearInterval(spotInterval);
+    return () => {
+      mounted = false;
+      clearInterval(spotInterval);
+    };
   }, []);
 
   // Dismiss an alert by id
@@ -375,15 +428,18 @@ export const AppProvider = ({ children }) => {
       status: 'active',
       gemstones: newProduct.gemstones || []
     };
-    await apiService.addProduct(item);
-    setProducts(prev => [item, ...prev]);
-    addNotification(`New jewelry piece "${item.name}" registered in database.`, 'success');
+    const saved = await apiService.addProduct(item);
+    // Use the server response so auto-generated fields (code_sku, barcode) show immediately
+    const finalItem = saved && saved.id ? { ...item, ...saved } : item;
+    setProducts(prev => [finalItem, ...prev]);
+    addNotification(`New jewelry piece "${finalItem.name}" registered in database.`, 'success');
   };
 
   const updateProduct = async (updatedProduct) => {
-    await apiService.updateProduct(updatedProduct.id, updatedProduct);
-    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
-    addNotification(`Jewelry piece "${updatedProduct.name}" updated.`, 'info');
+    const saved = await apiService.updateProduct(updatedProduct.id, updatedProduct);
+    const finalItem = saved && saved.id ? { ...updatedProduct, ...saved } : updatedProduct;
+    setProducts(prev => prev.map(p => p.id === finalItem.id ? finalItem : p));
+    addNotification(`Jewelry piece "${finalItem.name}" updated.`, 'info');
   };
 
   const deleteProduct = async (id) => {
@@ -677,7 +733,7 @@ export const AppProvider = ({ children }) => {
 
 // Add Buyback
 const processBuyback = async (buybackData) => {
-  const buybackNo = `BB-${new Date().getFullYear()}-${String(buybacks.length + 20).padStart(4, '0')}`;
+  const buybackNo = `BB-${new Date().getFullYear()}-${String((buybacks || []).length + 20).padStart(4, '0')}`;
   const newRecord = {
     id: Date.now(),
     buyback_no: buybackNo,
@@ -685,18 +741,26 @@ const processBuyback = async (buybackData) => {
     ...buybackData,
     status: 'Approved & Paid'
   };
-  await apiService.createBuyback({
-    customer_id: null,
-    metal_type_id: 1,
-    weight: buybackData.gross_weight,
-    buyback_rate: buybackData.buy_rate_per_gram,
-    deduction_rate: buybackData.melt_loss_pct,
-    labor_deduction: buybackData.appraisal_fee,
-    total_refund: buybackData.total_amount,
-    buyback_date: newRecord.buyback_date
-  });
-  setBuybacks(prev => [newRecord, ...prev]);
-  addNotification(`Buyback voucher ${buybackNo} issued for $${newRecord.total_amount.toLocaleString()}`, 'success');
+  try {
+    const res = await apiService.createBuyback({
+      customer_id: buybackData.customer_id || null,
+      metal_type_id: buybackData.metal_type_id || 1,
+      weight: buybackData.gross_weight,
+      buyback_rate: buybackData.buy_rate_per_gram,
+      deduction_rate: buybackData.melt_loss_pct || 0,
+      labor_deduction: buybackData.appraisal_fee || 0,
+      total_refund: buybackData.total_amount,
+      buyback_date: newRecord.buyback_date
+    });
+    if (res && res.id) {
+      newRecord.id = res.id;
+      newRecord.buyback_no = `BB-2026-${String(res.id).padStart(4, '0')}`;
+    }
+  } catch (err) {
+    console.warn('Backend createBuyback failed, saving locally:', err?.message || err);
+  }
+  setBuybacks(prev => [newRecord, ...(Array.isArray(prev) ? prev : [])]);
+  addNotification(`Buyback voucher ${newRecord.buyback_no} issued for $${Number(newRecord.total_amount || 0).toLocaleString()}`, 'success');
   return newRecord;
 };
 
@@ -1318,7 +1382,10 @@ return (
     logout,
     settingsTab,
     setSettingsTab,
-    updateProfile
+    updateProfile,
+    refreshAllData,
+    refreshProducts,
+    isInitialLoading
   }}>
     {children}
   </AppContext.Provider>

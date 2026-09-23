@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\GemstoneController;
 use App\Http\Controllers\Api\GoldPriceController;
 use App\Http\Controllers\Api\GoldRateController;
 use App\Http\Controllers\Api\ImageController;
+use App\Http\Controllers\Api\MadeProductController;
 use App\Http\Controllers\Api\MetalTypeController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PermissionController;
@@ -62,6 +63,10 @@ Route::apiResource('images', ImageController::class);
 
 // Products API
 Route::apiResource('products', ProductController::class);
+
+// Made Products / Crafting Orders API
+Route::put('/made-products/{id}/status', [MadeProductController::class, 'updateStatus']);
+Route::apiResource('made-products', MadeProductController::class);
 
 // Categories API
 Route::apiResource('categories', CategoryController::class);

@@ -8,7 +8,7 @@ import { faArrowsRotate, faScaleBalanced, faFileLines, faFilter, faXmark, faPrin
 
 export const BuybackView = () => {
   const { t, i18n } = useTranslation();
-  const { buybacks, goldRates, processBuyback, searchQuery, setSearchQuery, showToast } = useApp();
+  const { buybacks = [], goldRates = [], processBuyback, searchQuery, setSearchQuery, showToast } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
 
@@ -25,16 +25,26 @@ export const BuybackView = () => {
   const [errors, setErrors] = useState({});
   const pageSize = 10;
 
-  const selectedRate = goldRates.find(r => r.metal_type_id === Number(selectedMetalId)) || goldRates[0];
-  const buyRate = selectedRate?.buy_rate_per_gram || 80.0;
+  useEffect(() => {
+    if (goldRates && goldRates.length > 0 && !goldRates.some(r => r.metal_type_id === Number(selectedMetalId))) {
+      setSelectedMetalId(goldRates[0].metal_type_id);
+    }
+  }, [goldRates, selectedMetalId]);
+
+  const defaultRate = { id: 1, metal_type_id: 1, name: '24K Yellow Gold', buy_rate_per_gram: 80.0 };
+  const selectedRate = (goldRates && goldRates.length > 0)
+    ? (goldRates.find(r => r.metal_type_id === Number(selectedMetalId)) || goldRates[0] || defaultRate)
+    : defaultRate;
+  const buyRate = Number(selectedRate?.buy_rate_per_gram || 80.0);
 
   // Calculation
-  const netWeight = Math.max(0, grossWeight * (1 - meltLossPct / 100));
+  const netWeight = Math.max(0, (Number(grossWeight) || 0) * (1 - (Number(meltLossPct) || 0) / 100));
   const rawValue = netWeight * buyRate;
-  const totalPayout = Math.max(0, rawValue - Number(appraisalFee));
+  const totalPayout = Math.max(0, rawValue - (Number(appraisalFee) || 0));
 
   const cleanQ = (searchQuery || '').toLowerCase().trim();
-  const filteredBuybacks = buybacks.filter(b =>
+  const safeBuybacks = Array.isArray(buybacks) ? buybacks : [];
+  const filteredBuybacks = safeBuybacks.filter(b =>
     !cleanQ || (
       b.customer_name?.toLowerCase().includes(cleanQ) ||
       b.customer_phone?.includes(cleanQ) ||
@@ -66,25 +76,40 @@ export const BuybackView = () => {
     }
     setErrors({});
 
-    const voucher = await processBuyback({
-      customer_name: customerName.trim(),
-      customer_phone: customerPhone,
-      metal_name: selectedRate.name,
-      gross_weight: parseFloat(grossWeight),
-      melt_loss_pct: parseFloat(meltLossPct),
-      net_weight: parseFloat(netWeight.toFixed(2)),
-      buy_rate_per_gram: parseFloat(buyRate),
-      appraisal_fee: parseFloat(appraisalFee),
-      total_amount: parseFloat(totalPayout.toFixed(2)),
-      payment_method: payoutMethod,
-      notes
-    });
+    try {
+      const voucher = await processBuyback({
+        customer_name: customerName.trim(),
+        customer_phone: customerPhone || 'N/A',
+        metal_type_id: Number(selectedMetalId) || (selectedRate?.metal_type_id || 1),
+        metal_name: selectedRate?.name || '24K Gold',
+        gross_weight: parseFloat(grossWeight) || 0,
+        melt_loss_pct: parseFloat(meltLossPct) || 0,
+        net_weight: parseFloat(netWeight.toFixed(2)),
+        buy_rate_per_gram: parseFloat(buyRate),
+        appraisal_fee: parseFloat(appraisalFee) || 0,
+        total_amount: parseFloat(totalPayout.toFixed(2)),
+        payment_method: payoutMethod,
+        notes
+      });
 
-    setIssuedVoucher(voucher);
-    setCustomerName('');
-    setCustomerPhone('');
-    setErrors({});
+      if (voucher) {
+        setIssuedVoucher(voucher);
+        if (showToast) {
+          showToast(isKhmer ? 'បានបង្កើតប័ណ្ណទិញចូលដោយជោគជ័យ' : 'Buyback voucher created successfully', 'success');
+        }
+      }
+      setCustomerName('');
+      setCustomerPhone('');
+      setErrors({});
+    } catch (err) {
+      console.error('Process buyback error:', err);
+      if (showToast) {
+        showToast(isKhmer ? 'មានបញ្ហាក្នុងការបង្កើតប័ណ្ណទិញចូល!' : 'Failed to process buyback.', 'error');
+      }
+    }
   };
+
+  const ratesList = (goldRates && goldRates.length > 0) ? goldRates : [defaultRate];
 
   return (
     <div className="space-y-6">
@@ -95,7 +120,7 @@ export const BuybackView = () => {
           {t('buybacks.title', 'Scrap Gold Buyback & Trade-In Terminal')}
         </h1>
         <p className="text-xs text-slate-500 mt-0.5">
-          {t('buybacks.subtitle', 'Appraise customer estate gold, weigh bullion scrap, and issue cash payouts or store trade-in credit')} ({buybacks.length} {t('buybacks.vouchersOnRecord', 'vouchers on record')}).
+          {t('buybacks.subtitle', 'Appraise customer estate gold, weigh bullion scrap, and issue cash payouts or store trade-in credit')} ({safeBuybacks.length} {t('buybacks.vouchersOnRecord', 'vouchers on record')}).
         </p>
       </div>
 
@@ -154,11 +179,14 @@ export const BuybackView = () => {
                 onChange={(e) => setSelectedMetalId(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none font-medium"
               >
-                {goldRates.map(r => (
-                  <option key={r.id} value={r.metal_type_id}>
-                    {r.name} (Buy @ ${r.buy_rate_per_gram.toFixed(2)}/g • ${(r.buy_rate_per_gram * 3.75).toFixed(2)}/{isKhmer ? 'ជី' : 'chi'})
-                  </option>
-                ))}
+                {ratesList.map(r => {
+                  const rateVal = Number(r.buy_rate_per_gram || 0);
+                  return (
+                    <option key={r.id || r.metal_type_id} value={r.metal_type_id}>
+                      {r.name} (Buy @ ${rateVal.toFixed(2)}/g • ${(rateVal * 3.75).toFixed(2)}/{isKhmer ? 'ជី' : 'chi'})
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -237,15 +265,15 @@ export const BuybackView = () => {
             <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 space-y-1 font-mono">
               <div className="flex justify-between text-slate-600 text-[11px]">
                 <span>{t('buybacks.netScrap', 'Net Gold Weight')}:</span>
-                <span className="font-bold text-amber-950">{(netWeight / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'} ({netWeight.toFixed(2)}g)</span>
+                <span className="font-bold text-amber-950">{((netWeight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'} ({(netWeight || 0).toFixed(2)}g)</span>
               </div>
               <div className="flex justify-between text-slate-600 text-[11px]">
                 <span>Base Bullion Value:</span>
-                <span>${rawValue.toFixed(2)}</span>
+                <span>${(rawValue || 0).toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-base font-bold text-slate-900 pt-1.5 border-t border-amber-200">
                 <span>{t('buybacks.payout', 'Cash Payout')}:</span>
-                <span className="text-amber-700 font-extrabold">${totalPayout.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <span className="text-amber-700 font-extrabold">${(totalPayout || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
 
@@ -278,7 +306,7 @@ export const BuybackView = () => {
                 </button>
               </div>
             ) : (
-              <span className="text-xs text-slate-500 font-semibold">{buybacks.length} {t('buybacks.vouchersOnRecord', 'vouchers recorded')}</span>
+              <span className="text-xs text-slate-500 font-semibold">{safeBuybacks.length} {t('buybacks.vouchersOnRecord', 'vouchers recorded')}</span>
             )}
           </div>
 
@@ -296,52 +324,60 @@ export const BuybackView = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 font-mono">
-                {paginatedBuybacks.map(bb => (
-                  <tr key={bb.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="p-3 font-bold text-amber-800">
-                      {bb.buyback_no}
-                      <span className="text-[10px] text-slate-400 block font-normal font-sans">{bb.buyback_date}</span>
-                    </td>
-                    <td className="p-3 font-sans font-semibold text-slate-900">
-                      {bb.customer_name}
-                      <span className="text-[10px] text-slate-400 block font-normal">{bb.customer_phone}</span>
-                    </td>
-                    <td className="p-3 font-sans text-slate-700">
-                      <span className="font-semibold block">{bb.metal_name}</span>
-                      <span className="text-[11px] text-amber-950 font-bold block">{((bb.net_weight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}</span>
-                      <span className="text-[10px] text-slate-400 font-normal">({bb.net_weight}g)</span>
-                    </td>
-                    <td className="p-3 text-slate-600">
-                      ${bb.buy_rate_per_gram}/g
-                    </td>
-                    <td className="p-3 text-right font-bold text-slate-900 text-sm">
-                      ${bb.total_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      <span className="text-[10px] text-amber-700 block font-sans font-semibold">{bb.payment_method}</span>
-                    </td>
-                    <td className="p-3 text-center font-sans">
-                      <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                        {bb.status}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center font-sans">
-                      <button
-                        onClick={() => setIssuedVoucher(bb)}
-                        className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 font-bold px-2.5 py-1 rounded-lg text-xs cursor-pointer transition-all shadow-2xs"
-                        title={isKhmer ? 'មើលប័ណ្ណទិញចូល / បោះពុម្ព' : 'View / Print Voucher'}
-                      >
-                        <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
-                        <span className="hidden sm:inline">{isKhmer ? 'ប័ណ្ណ' : 'Voucher'}</span>
-                      </button>
+                {paginatedBuybacks.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-8 text-center text-slate-400 font-sans">
+                      {isKhmer ? 'មិនមានទិន្នន័យទិញមាសចាស់ចូលទេ' : 'No scrap buyback records found.'}
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  paginatedBuybacks.map(bb => (
+                    <tr key={bb.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3 font-bold text-amber-800">
+                        {bb.buyback_no || `BB-${bb.id}`}
+                        <span className="text-[10px] text-slate-400 block font-normal font-sans">{bb.buyback_date}</span>
+                      </td>
+                      <td className="p-3 font-sans font-semibold text-slate-900">
+                        {bb.customer_name || 'Walk-in Customer'}
+                        <span className="text-[10px] text-slate-400 block font-normal">{bb.customer_phone || ''}</span>
+                      </td>
+                      <td className="p-3 font-sans text-slate-700">
+                        <span className="font-semibold block">{bb.metal_name || 'Gold'}</span>
+                        <span className="text-[11px] text-amber-950 font-bold block">{((Number(bb.net_weight) || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}</span>
+                        <span className="text-[10px] text-slate-400 font-normal">({Number(bb.net_weight || 0).toFixed(2)}g)</span>
+                      </td>
+                      <td className="p-3 text-slate-600">
+                        ${Number(bb.buy_rate_per_gram || 0).toFixed(2)}/g
+                      </td>
+                      <td className="p-3 text-right font-bold text-slate-900 text-sm">
+                        ${Number(bb.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span className="text-[10px] text-amber-700 block font-sans font-semibold">{bb.payment_method || 'Cash'}</span>
+                      </td>
+                      <td className="p-3 text-center font-sans">
+                        <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                          {bb.status || 'Approved'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center font-sans">
+                        <button
+                          onClick={() => setIssuedVoucher(bb)}
+                          className="inline-flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 font-bold px-2.5 py-1 rounded-lg text-xs cursor-pointer transition-all shadow-2xs"
+                          title={isKhmer ? 'មើលប័ណ្ណទិញចូល / បោះពុម្ព' : 'View / Print Voucher'}
+                        >
+                          <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
+                          <span className="hidden sm:inline">{isKhmer ? 'ប័ណ្ណ' : 'Voucher'}</span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
 
             {/* Pagination Controls (10 per page) */}
             <Pagination
               currentPage={currentPage}
-              totalItems={buybacks.length}
+              totalItems={filteredBuybacks.length}
               pageSize={pageSize}
               onPageChange={setCurrentPage}
             />

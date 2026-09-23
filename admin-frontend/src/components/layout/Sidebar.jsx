@@ -95,8 +95,12 @@ export const Sidebar = () => {
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col shrink-0 h-screen text-slate-700 shadow-xs z-30 select-none">
       {/* Brand Header */}
-      <div className="p-5 border-b border-slate-200 flex items-center gap-3 bg-white shrink-0">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center shadow-md shadow-amber-500/20 text-slate-950 shrink-0 overflow-hidden">
+      <div
+        onClick={() => setActiveTab('dashboard')}
+        className="p-5 border-b border-slate-200 flex items-center gap-3 bg-white shrink-0 cursor-pointer hover:bg-slate-50/80 transition-all group"
+        title="JewelFlow Dashboard"
+      >
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center shadow-md shadow-amber-500/20 text-slate-950 shrink-0 overflow-hidden group-hover:scale-105 transition-transform">
           {settings?.store_logo ? (
             <img src={settings.store_logo} alt="Store Logo" className="w-full h-full object-contain p-1" />
           ) : (

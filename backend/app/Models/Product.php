@@ -60,4 +60,9 @@ class Product extends Model
     {
         return $this->hasMany(SaleItem::class);
     }
+
+    public function madeProducts()
+    {
+        return $this->hasMany(MadeProduct::class);
+    }
 }

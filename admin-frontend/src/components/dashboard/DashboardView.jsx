@@ -416,15 +416,17 @@ export const DashboardView = () => {
             {lowStockProducts.map(prod => (
               <div
                 key={prod.id}
-                className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3"
+                onClick={() => setActiveTab('products')}
+                className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center gap-3 cursor-pointer hover:border-amber-300 hover:bg-amber-50/40 transition-all select-none group"
+                title="View in Jewelry Catalog"
               >
                 <img
                   src={prod.image}
                   alt={prod.name}
-                  className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0"
+                  className="w-11 h-11 rounded-lg object-cover border border-slate-200 shrink-0 group-hover:scale-105 transition-transform"
                 />
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-xs font-bold text-slate-900 truncate">{prod.name}</h4>
+                  <h4 className="text-xs font-bold text-slate-900 truncate group-hover:text-amber-900 transition-colors">{prod.name}</h4>
                   <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
                     <span className="font-mono">{prod.code_sku}</span>
                     <span>•</span>
