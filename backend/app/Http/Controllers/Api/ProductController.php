@@ -24,7 +24,7 @@ class ProductController extends Controller
         $sort = $request->query('sort', 'created_at');
         $direction = strtolower($request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
 
-        $query = Product::with(['category', 'metalType', 'image', 'productGemstones']);
+        $query = Product::with(['category', 'metalType', 'image', 'unit']);
 
         // Search by name, code_sku, or barcode
         if (!empty($search)) {
@@ -112,7 +112,7 @@ class ProductController extends Controller
         $validated['status'] = $validated['status'] ?? 'active';
 
         $product = Product::create($validated);
-        $product->load(['category', 'metalType', 'image', 'productGemstones']);
+        $product->load(['category', 'metalType', 'image', 'unit']);
 
         return response()->json($product, 201);
     }
@@ -122,7 +122,7 @@ class ProductController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $product = Product::with(['category', 'metalType', 'image', 'productGemstones'])->findOrFail($id);
+        $product = Product::with(['category', 'metalType', 'image', 'unit'])->findOrFail($id);
 
         return response()->json($product);
     }
@@ -156,7 +156,7 @@ class ProductController extends Controller
         ]);
 
         $product->update($validated);
-        $product->load(['category', 'metalType', 'image', 'productGemstones']);
+        $product->load(['category', 'metalType', 'image', 'unit']);
 
         return response()->json($product);
     }

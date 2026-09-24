@@ -12,6 +12,7 @@ class Product extends Model
     protected $fillable = [
         'category_id',
         'metal_type_id',
+        'unit_id',
         'code_sku',
         'barcode',
         'name',
@@ -31,6 +32,11 @@ class Product extends Model
         'markup_rate' => 'decimal:2',
     ];
 
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
+
     public function category()
     {
         return $this->belongsTo(Category::class);
@@ -43,17 +49,6 @@ class Product extends Model
     public function image()
     {
         return $this->belongsTo(Image::class);
-    }
-    public function productGemstones()
-    {
-        return $this->hasMany(ProductGemstone::class);
-    }
-
-    public function gemstones()
-    {
-        return $this->belongsToMany(Gemstone::class, 'product_gemstones')
-            ->withPivot(['quantity', 'total_carat', 'setting_cost'])
-            ->withTimestamps();
     }
 
     public function saleItems()

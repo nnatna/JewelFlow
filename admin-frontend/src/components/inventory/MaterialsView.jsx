@@ -31,6 +31,7 @@ export const MaterialsView = () => {
     materials,
     materialCategories,
     metalTypes,
+    units,
     goldRates,
     suppliers,
     addMaterial,
@@ -756,14 +757,33 @@ export const MaterialsView = () => {
                     />
                     <select
                       value={formData.unit}
-                      onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                      onChange={(e) => {
+                        const selectedU = (units || []).find(u => u.code === e.target.value);
+                        setFormData({
+                          ...formData,
+                          unit: e.target.value,
+                          unit_id: selectedU?.id || formData.unit_id
+                        });
+                      }}
                       className="bg-slate-100 border-y border-r border-slate-200 px-3 py-2 rounded-r-lg text-slate-700 font-semibold focus:outline-none"
                     >
-                      <option value="g">ក្រាម (g)</option>
-                      <option value="chi">ជី (chi)</option>
-                      <option value="ct">ការ៉ាត់ (ct)</option>
-                      <option value="pcs">ដុំ/គ្រាប់ (pcs)</option>
-                      <option value="oz">អោនស៍ (oz)</option>
+                      {(units && units.length > 0) ? (
+                        units.map(u => (
+                          <option key={u.id || u.code} value={u.code}>
+                            {isKhmer ? `${u.name_kh || u.name} (${u.code})` : `${u.name} (${u.code})`}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="g">{isKhmer ? 'ក្រាម (g)' : 'Grams (g)'}</option>
+                          <option value="hun">{isKhmer ? 'ហ៊ុន (hun)' : 'Hun (hun)'}</option>
+                          <option value="chi">{isKhmer ? 'ជី (chi)' : 'Chi (chi)'}</option>
+                          <option value="damlung">{isKhmer ? 'តម្លឹង (damlung)' : 'Damlung (damlung)'}</option>
+                          <option value="ct">{isKhmer ? 'ការ៉ាត់ (ct)' : 'Carats (ct)'}</option>
+                          <option value="pcs">{isKhmer ? 'ដុំ/គ្រាប់ (pcs)' : 'Pieces (pcs)'}</option>
+                          <option value="oz">{isKhmer ? 'អោនស៍ (oz)' : 'Ounces (oz)'}</option>
+                        </>
+                      )}
                     </select>
                   </div>
                 </div>

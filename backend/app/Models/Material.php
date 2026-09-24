@@ -13,6 +13,7 @@ class Material extends Model
         'material_category_id',
         'metal_type_id',
         'supplier_id',
+        'unit_id',
         'name',
         'code',
         'unit',
@@ -31,6 +32,11 @@ class Material extends Model
         'cost_price' => 'decimal:2',
         'use_metal_rate' => 'boolean',
     ];
+
+    public function unitRelation()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
 
     public function materialCategory()
     {

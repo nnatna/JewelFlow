@@ -1859,8 +1859,8 @@ export const PosTerminal = () => {
               </div>
               <p className="text-[11px] leading-relaxed">
                 {isKhmer
-                  ? '1. បង្កើតប័ណ្ណកែច្នៃ MadeProduct ➔ 2. ពិនិត្យស្តុក Materials ➔ 3. ទិញចូលពី Supplier (បើខ្វះ) ➔ 4. កែច្នៃរួចកើនស្តុក & ប្រគល់ជូនអតិថិជន'
-                  : '1. Create MadeProduct order ➔ 2. Verify Materials ➔ 3. Procure from Supplier (if low) ➔ 4. Complete & Fulfill'}
+                  ? '1. បង្កើតប័ណ្ណកែច្នៃ Made Jewelry ➔ 2. ពិនិត្យស្តុក Materials ➔ 3. ទិញចូលពី Supplier (បើខ្វះ) ➔ 4. កែច្នៃរួចកើនស្តុក & ប្រគល់ជូនអតិថិជន'
+                  : '1. Create Made Jewelry order ➔ 2. Verify Materials ➔ 3. Procure from Supplier (if low) ➔ 4. Complete & Fulfill'}
               </p>
             </div>
 
@@ -1883,7 +1883,7 @@ export const PosTerminal = () => {
                 className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
               >
                 <FontAwesomeIcon icon={faWandMagicSparkles} className="w-3.5 h-3.5" />
-                <span>{creatingCraftingOrder ? (isKhmer ? 'កំពុងបង្កើត...' : 'Generating...') : (isKhmer ? 'បង្កើតបញ្ជាកែច្នៃ (MadeProduct)' : 'Create MadeProduct Order')}</span>
+                <span>{creatingCraftingOrder ? (isKhmer ? 'កំពុងបង្កើត...' : 'Generating...') : (isKhmer ? 'បង្កើតបញ្ជាកែច្នៃ (Made Jewelry)' : 'Create Made Jewelry Order')}</span>
               </button>
             </div>
           </div>

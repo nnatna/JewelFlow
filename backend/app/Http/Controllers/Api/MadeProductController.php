@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\MadeProduct;
+use App\Models\Material;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -185,8 +186,9 @@ class MadeProductController extends Controller
 
         $madeProduct->update($updates);
 
-        // Auto replenish finished Product stock when status becomes completed
+        // Auto replenish finished Product stock & deduct raw materials when status becomes completed
         if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+            // 1. Replenish crafted finished Product stock
             $product = $madeProduct->product;
             if ($product) {
                 $qty = $madeProduct->quantity ?? 1;
@@ -195,7 +197,21 @@ class MadeProductController extends Controller
                     $product->update(['status' => 'active']);
                 }
             }
+
+            // 2. Deduct raw gold / metal material stock used for crafting
+            $metalUsed = ((float) ($madeProduct->metal_weight_used ?? 0) + (float) ($madeProduct->waste_weight ?? 0)) * ($madeProduct->quantity ?? 1);
+            if ($metalUsed > 0 && $madeProduct->metal_type_id) {
+                $material = Material::where('metal_type_id', $madeProduct->metal_type_id)->first();
+                if ($material) {
+                    $newMatStock = max(0, (float) $material->stock_qty - $metalUsed);
+                    $material->update([
+                        'stock_qty' => $newMatStock,
+                        'status' => $newMatStock <= 0 ? 'out_of_stock' : ($newMatStock <= ($material->min_stock_level ?? 10) ? 'low_stock' : 'in_stock'),
+                    ]);
+                }
+            }
         } elseif ($oldStatus === 'completed' && $newStatus !== 'completed') {
+            // Revert finished product stock
             $product = $madeProduct->product;
             if ($product) {
                 $qty = $madeProduct->quantity ?? 1;
@@ -204,6 +220,19 @@ class MadeProductController extends Controller
                     'stock_qty' => $newStock,
                     'status' => $newStock <= 0 ? 'out_of_stock' : $product->status,
                 ]);
+            }
+
+            // Restore raw material stock
+            $metalUsed = ((float) ($madeProduct->metal_weight_used ?? 0) + (float) ($madeProduct->waste_weight ?? 0)) * ($madeProduct->quantity ?? 1);
+            if ($metalUsed > 0 && $madeProduct->metal_type_id) {
+                $material = Material::where('metal_type_id', $madeProduct->metal_type_id)->first();
+                if ($material) {
+                    $newMatStock = (float) $material->stock_qty + $metalUsed;
+                    $material->update([
+                        'stock_qty' => $newMatStock,
+                        'status' => $newMatStock <= 0 ? 'out_of_stock' : ($newMatStock <= ($material->min_stock_level ?? 10) ? 'low_stock' : 'in_stock'),
+                    ]);
+                }
             }
         }
 

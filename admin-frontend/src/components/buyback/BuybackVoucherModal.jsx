@@ -64,7 +64,7 @@ export const BuybackVoucherModal = ({ voucher, onClose }) => {
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer shadow-md shadow-orange-500/20 active:scale-95 transition-all"
             >
               <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5" />
               <span>{isKhmer ? 'បោះពុម្ពប័ណ្ណ' : 'Print Voucher'}</span>
@@ -107,10 +107,18 @@ export const BuybackVoucherModal = ({ voucher, onClose }) => {
           </div>
 
           {/* Client Info */}
+          {/* Client Info */}
           <div className="grid grid-cols-2 gap-4 py-3.5 print:py-2.5 border-b border-amber-200/80 text-xs">
             <div>
               <span className="text-slate-400 uppercase tracking-wider text-[10px] print:text-[9px] block font-bold">{isKhmer ? 'អតិថិជនលក់ចូល:' : 'Customer Name:'}</span>
-              <span className="text-sm print:text-xs font-bold text-slate-900 block mt-0.5">{customerName}</span>
+              <span className="text-sm print:text-xs font-bold text-slate-900 block mt-0.5">
+                {customerName}
+                {voucher.customer_type && (
+                  <span className="ml-2 text-[10px] font-sans font-normal text-slate-500">
+                    ({voucher.customer_type === 'new' ? (isKhmer ? 'អតិថិជនថ្មី' : 'New Customer') : (isKhmer ? 'អតិថិជនចាស់' : 'Existing Customer')})
+                  </span>
+                )}
+              </span>
               <span className="text-slate-500 block font-mono text-xs print:text-[10px]">{customerPhone}</span>
             </div>
             <div className="text-right">
@@ -121,6 +129,20 @@ export const BuybackVoucherModal = ({ voucher, onClose }) => {
               </span>
             </div>
           </div>
+
+          {/* Destination / Restock Info if present */}
+          {(voucher.destination_type || voucher.material_name || voucher.jewelry_name) && (
+            <div className="py-2.5 px-3 bg-amber-50/40 border-b border-amber-200/60 text-xs flex items-center justify-between">
+              <span className="text-slate-500 font-semibold">
+                {isKhmer ? 'គោលដៅស្តុកទំនិញ:' : 'Inventory Restock Destination:'}
+              </span>
+              <span className="font-bold text-amber-950">
+                {voucher.destination_type === 'material'
+                  ? `${isKhmer ? 'ស្តុកវត្ថុធាតុដើម' : 'Material Vault'}: ${voucher.material_name || 'Gold Granules'} (+${netWeight}g)`
+                  : `${isKhmer ? 'គ្រឿងអលង្ការ' : 'Jewelry Piece'}: ${voucher.jewelry_name || 'Jewelry Item'} (${voucher.jewelry_condition === 'new' ? (isKhmer ? 'គ្រឿងថ្មី' : 'New') : (isKhmer ? 'គ្រឿងចាស់' : 'Old / Estate')})`}
+              </span>
+            </div>
+          )}
 
           {/* Appraisal Details Breakdown */}
           <div className="py-4 print:py-3 space-y-3">

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import i18n from '../i18n';
 import apiService from '../services/api';
 import swal, {
   confirmDialog,
@@ -31,7 +32,7 @@ export const AppProvider = ({ children }) => {
   const [goldRates, setGoldRates] = useState([]);
   const [metalTypes, setMetalTypes] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [gemstones, setGemstones] = useState([]);
+  const [units, setUnits] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [materialCategories, setMaterialCategories] = useState([]);
   const [madeProducts, setMadeProducts] = useState([]);
@@ -156,17 +157,16 @@ export const AppProvider = ({ children }) => {
       setBackendConnected(isHealthy);
 
       const [
-        prodsRes, ratesRes, catsRes, metalsRes, gemsRes, madeProdsRes, custsRes,
+        prodsRes, ratesRes, catsRes, metalsRes, madeProdsRes, custsRes,
         slsRes, bbsRes, supsRes, purchsRes, promosRes, tierDataRes,
         usersDataRes, rolesDataRes, permsDataRes, settingsDataRes,
         camGoldRes, spotDataRes, fxDataRes,
-        matsRes, matCatsRes
+        matsRes, matCatsRes, unitsRes
       ] = await Promise.allSettled([
         apiService.getProducts(),
         apiService.getGoldRates(),
         apiService.getCategories(),
         apiService.getMetalTypes(),
-        apiService.getGemstones(),
         apiService.getMadeProducts(),
         apiService.getCustomers(),
         apiService.getSales(),
@@ -184,6 +184,7 @@ export const AppProvider = ({ children }) => {
         apiService.getExchangeRate('USD', 'KHR'),
         apiService.getMaterials(),
         apiService.getMaterialCategories(),
+        apiService.getUnits(),
       ]);
 
       if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value) && prodsRes.value.length > 0) {
@@ -200,7 +201,7 @@ export const AppProvider = ({ children }) => {
 
       if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value)) setCategories(catsRes.value);
       if (metalsRes.status === 'fulfilled' && Array.isArray(metalsRes.value)) setMetalTypes(metalsRes.value);
-      if (gemsRes.status === 'fulfilled' && Array.isArray(gemsRes.value)) setGemstones(gemsRes.value);
+      if (unitsRes.status === 'fulfilled' && Array.isArray(unitsRes.value)) setUnits(unitsRes.value);
       if (matsRes.status === 'fulfilled' && Array.isArray(matsRes.value)) setMaterials(matsRes.value);
       if (matCatsRes.status === 'fulfilled' && Array.isArray(matCatsRes.value)) setMaterialCategories(matCatsRes.value);
       if (madeProdsRes.status === 'fulfilled' && Array.isArray(madeProdsRes.value)) setMadeProducts(madeProdsRes.value);
@@ -214,7 +215,13 @@ export const AppProvider = ({ children }) => {
       if (usersDataRes.status === 'fulfilled' && Array.isArray(usersDataRes.value)) setUsers(usersDataRes.value);
       if (rolesDataRes.status === 'fulfilled' && Array.isArray(rolesDataRes.value)) setRoles(rolesDataRes.value);
       if (permsDataRes.status === 'fulfilled' && permsDataRes.value) setPermissions(permsDataRes.value);
-      if (settingsDataRes.status === 'fulfilled' && settingsDataRes.value) setSettings(prev => ({ ...prev, ...(settingsDataRes.value || {}) }));
+      if (settingsDataRes.status === 'fulfilled' && settingsDataRes.value) {
+        const fetchedSettings = settingsDataRes.value || {};
+        setSettings(prev => ({ ...prev, ...fetchedSettings }));
+        if (fetchedSettings.tax_rate !== undefined) {
+          setTaxRate(parseFloat(fetchedSettings.tax_rate) || 0);
+        }
+      }
       if (camGoldRes.status === 'fulfilled' && camGoldRes.value) setCambodianGold(camGoldRes.value);
       if (spotDataRes.status === 'fulfilled' && spotDataRes.value?.spot_price_per_oz !== undefined) setLiveSpot(spotDataRes.value);
       if (fxDataRes.status === 'fulfilled' && fxDataRes.value?.rate) {
@@ -710,6 +717,9 @@ export const AppProvider = ({ children }) => {
   // Update Sale Status
   const updateSaleStatus = async (saleId, newStatus) => {
     try {
+      const targetSale = sales.find(s => s.id === saleId);
+      const oldStatus = targetSale?.status || 'pending';
+
       setSales(prev => prev.map(s => {
         if (s.id === saleId) {
           return {
@@ -720,6 +730,39 @@ export const AppProvider = ({ children }) => {
         }
         return s;
       }));
+
+      // Adjust product stock if changing from pending to completed (or vice versa)
+      if (newStatus === 'completed' && oldStatus !== 'completed') {
+        const soldItems = targetSale?.items || [];
+        setProducts(prev => prev.map(prod => {
+          const item = soldItems.find(it => (it.product_id || it.id) === prod.id);
+          if (item) {
+            const qty = parseInt(item.qty || item.quantity, 10) || 1;
+            const newStock = Math.max(0, (parseInt(prod.stock_qty, 10) || 0) - qty);
+            return {
+              ...prod,
+              stock_qty: newStock,
+              status: newStock <= 0 ? 'out_of_stock' : prod.status
+            };
+          }
+          return prod;
+        }));
+      } else if (oldStatus === 'completed' && newStatus !== 'completed') {
+        const soldItems = targetSale?.items || [];
+        setProducts(prev => prev.map(prod => {
+          const item = soldItems.find(it => (it.product_id || it.id) === prod.id);
+          if (item) {
+            const qty = parseInt(item.qty || item.quantity, 10) || 1;
+            const newStock = (parseInt(prod.stock_qty, 10) || 0) + qty;
+            return {
+              ...prod,
+              stock_qty: newStock,
+              status: newStock > 0 ? 'active' : prod.status
+            };
+          }
+          return prod;
+        }));
+      }
 
       await apiService.updateSaleStatus(saleId, newStatus);
       addNotification(`Invoice status updated to "${newStatus}".`, 'success');
@@ -734,6 +777,10 @@ export const AppProvider = ({ children }) => {
   // Update Sale Item Status
   const updateSaleItemStatus = async (saleId, itemId, newStatus) => {
     try {
+      const targetSale = sales.find(s => s.id === saleId);
+      const targetItem = (targetSale?.items || []).find(it => it.id === itemId);
+      const oldItemStatus = targetItem?.status || 'pending';
+
       setSales(prev => prev.map(s => {
         if (s.id === saleId) {
           const updatedItems = (s.items || []).map(it => it.id === itemId ? { ...it, status: newStatus } : it);
@@ -748,6 +795,37 @@ export const AppProvider = ({ children }) => {
         return s;
       }));
 
+      // Adjust product stock for single item
+      if (newStatus === 'completed' && oldItemStatus !== 'completed') {
+        const prodId = targetItem?.product_id || targetItem?.id;
+        const qty = parseInt(targetItem?.qty || targetItem?.quantity, 10) || 1;
+        setProducts(prev => prev.map(prod => {
+          if (prod.id === prodId) {
+            const newStock = Math.max(0, (parseInt(prod.stock_qty, 10) || 0) - qty);
+            return {
+              ...prod,
+              stock_qty: newStock,
+              status: newStock <= 0 ? 'out_of_stock' : prod.status
+            };
+          }
+          return prod;
+        }));
+      } else if (oldItemStatus === 'completed' && newStatus !== 'completed') {
+        const prodId = targetItem?.product_id || targetItem?.id;
+        const qty = parseInt(targetItem?.qty || targetItem?.quantity, 10) || 1;
+        setProducts(prev => prev.map(prod => {
+          if (prod.id === prodId) {
+            const newStock = (parseInt(prod.stock_qty, 10) || 0) + qty;
+            return {
+              ...prod,
+              stock_qty: newStock,
+              status: newStock > 0 ? 'active' : prod.status
+            };
+          }
+          return prod;
+        }));
+      }
+
       await apiService.updateSaleItemStatus(itemId, newStatus);
       addNotification(`Line item status updated to "${newStatus}".`, 'info');
     } catch (e) {
@@ -755,6 +833,103 @@ export const AppProvider = ({ children }) => {
       addNotification('Failed to update line item status.', 'warning');
       const fresh = await apiService.getSales();
       setSales(fresh);
+    }
+  };
+
+  // Settle Sale / Deposit Balance
+  const settleSalePayment = async (saleId, paymentData) => {
+    try {
+      const {
+        amount,
+        payment_method = 'cash',
+        currency = 'USD',
+        reference_no,
+        notes
+      } = paymentData;
+
+      const refNo = reference_no || `PAY-${Math.floor(10000 + Math.random() * 90000)}`;
+      const paymentAmount = parseFloat(amount) || 0;
+
+      // 1. Create payment record in backend
+      try {
+        await apiService.createPayment({
+          payable_type: 'App\\Models\\Sale',
+          payable_id: saleId,
+          amount: paymentAmount,
+          payment_method: payment_method.toLowerCase().replace(/\s+/g, '_'),
+          currency: currency || 'USD',
+          payment_date: new Date().toISOString().split('T')[0],
+          reference_no: refNo,
+          status: 'paid'
+        });
+      } catch (err) {
+        console.warn('Backend createPayment warning (continuing with status update):', err.message);
+      }
+
+      // 2. Update sale status to completed
+      await apiService.updateSaleStatus(saleId, 'completed');
+
+      // 3. Update local state
+      let updatedSale = null;
+      setSales(prev => prev.map(s => {
+        if (s.id === saleId) {
+          const newPayment = {
+            id: Date.now(),
+            amount: paymentAmount,
+            payment_method: payment_method,
+            currency: currency,
+            payment_date: new Date().toISOString().split('T')[0],
+            reference_no: refNo,
+            status: 'paid'
+          };
+          const currentPayments = s.payments || [];
+          const newPayments = [...currentPayments, newPayment];
+          const newPaidAmount = (parseFloat(s.paid_amount) || 0) + paymentAmount;
+          const currentGrandTotal = parseFloat(s.grand_total_usd ?? s.grand_total) || 0;
+          const newBalanceDue = Math.max(0, (parseFloat(s.balance_due) || currentGrandTotal) - paymentAmount);
+
+          updatedSale = {
+            ...s,
+            status: 'completed',
+            payment_status: newBalanceDue <= 0.01 ? 'Paid' : 'Partial',
+            paid_amount: Math.round(newPaidAmount * 100) / 100,
+            balance_due: Math.round(newBalanceDue * 100) / 100,
+            payments: newPayments,
+            items: (s.items || []).map(it => ({ ...it, status: 'completed' })),
+            notes: notes ? (s.notes ? `${s.notes} | ${notes}` : notes) : s.notes
+          };
+          return updatedSale;
+        }
+        return s;
+      }));
+
+      // Adjust product stock for pre-orders now fulfilled & completed
+      const targetSale = sales.find(s => s.id === saleId);
+      if (targetSale && targetSale.status !== 'completed') {
+        const soldItems = targetSale.items || [];
+        setProducts(prev => prev.map(prod => {
+          const item = soldItems.find(it => (it.product_id || it.id) === prod.id);
+          if (item) {
+            const qty = parseInt(item.qty || item.quantity, 10) || 1;
+            const newStock = Math.max(0, (parseInt(prod.stock_qty, 10) || 0) - qty);
+            return {
+              ...prod,
+              stock_qty: newStock,
+              status: newStock <= 0 ? 'out_of_stock' : prod.status
+            };
+          }
+          return prod;
+        }));
+      }
+
+      addNotification(`Invoice #${saleId} payment settled and marked completed!`, 'success');
+      return updatedSale;
+    } catch (e) {
+      console.error('Failed to settle sale payment:', e);
+      addNotification('Failed to settle payment.', 'warning');
+      const fresh = await apiService.getSales();
+      setSales(fresh);
+      throw e;
     }
   };
 
@@ -1133,12 +1308,28 @@ const updateMadeProductStatus = async (id, status) => {
     const updated = res.data || res;
     setMadeProducts(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
     
-    // If completed, automatically replenish the finished product's stock_qty!
+    const targetOrder = madeProducts.find(p => p.id === id);
+    const metalTypeId = targetOrder?.metal_type_id || targetOrder?.metal_type?.id;
+    const weightUsed = ((parseFloat(targetOrder?.metal_weight_used) || 0) + (parseFloat(targetOrder?.waste_weight) || 0)) * (targetOrder?.quantity || 1);
+    const targetProdId = targetOrder?.product_id || targetOrder?.product?.id;
+    const craftedQty = Number(targetOrder?.quantity) || 1;
+
+    // If completed: Replenish finished product & deduct raw materials
     if (status === 'completed') {
-      const targetOrder = madeProducts.find(p => p.id === id);
-      const targetProdId = targetOrder?.product_id || targetOrder?.product?.id;
-      const craftedQty = Number(targetOrder?.quantity) || 1;
-      
+      if (metalTypeId && weightUsed > 0) {
+        setMaterials(prev => prev.map(mat => {
+          if (mat.metal_type_id === metalTypeId || mat.metalType?.id === metalTypeId) {
+            const newStock = Math.max(0, (parseFloat(mat.stock_qty) || 0) - weightUsed);
+            return {
+              ...mat,
+              stock_qty: newStock,
+              status: newStock <= 0 ? 'out_of_stock' : (newStock <= (mat.min_stock_level || 10) ? 'low_stock' : 'in_stock')
+            };
+          }
+          return mat;
+        }));
+      }
+
       if (targetProdId) {
         setProducts(prev => prev.map(prod => {
           if (prod.id === targetProdId) {
@@ -1151,8 +1342,8 @@ const updateMadeProductStatus = async (id, status) => {
           }
           return prod;
         }));
-        addNotification(`Crafted jewelry piece completed! Product stock replenished (+${craftedQty}).`, 'success');
       }
+      addNotification(`Crafted jewelry completed! Stock updated (+${craftedQty} pcs, -${weightUsed.toFixed(2)}g raw metal).`, 'success');
     } else {
       addNotification(`Crafting status updated to ${status}.`, 'info');
     }
@@ -1180,12 +1371,18 @@ const saveSettings = async (nextSettings) => {
     const saved = await apiService.updateSettings(nextSettings);
     const merged = { ...settings, ...nextSettings, ...(saved?.settings || {}) };
     setSettings(merged);
+    if (merged.tax_rate !== undefined) {
+      setTaxRate(parseFloat(merged.tax_rate) || 0);
+    }
     addNotification('Settings saved.', 'success');
     return merged;
   } catch (e) {
     console.error('API updateSettings error, saving locally:', e);
     const merged = { ...settings, ...nextSettings };
     setSettings(merged);
+    if (merged.tax_rate !== undefined) {
+      setTaxRate(parseFloat(merged.tax_rate) || 0);
+    }
     addNotification('Settings saved.', 'success');
     return merged;
   }
@@ -1395,6 +1592,43 @@ const deleteRole = async (id) => {
     }
   };
 
+  // Unit CRUD
+  const addUnit = async (unitData) => {
+    try {
+      const created = await apiService.createUnit(unitData);
+      setUnits(prev => [...prev, created]);
+      addNotification(`Unit "${created.name}" created successfully.`, 'success');
+      return created;
+    } catch (e) {
+      console.error('API createUnit error:', e);
+      throw e;
+    }
+  };
+
+  const editUnit = async (id, unitData) => {
+    try {
+      const updated = await apiService.updateUnit(id, unitData);
+      setUnits(prev => prev.map(u => u.id === id ? { ...u, ...updated } : u));
+      addNotification(`Unit updated successfully.`, 'info');
+      return updated;
+    } catch (e) {
+      console.error('API updateUnit error:', e);
+      throw e;
+    }
+  };
+
+  const removeUnit = async (id) => {
+    try {
+      await apiService.deleteUnit(id);
+      setUnits(prev => prev.filter(u => u.id !== id));
+      addNotification('Unit deleted successfully.', 'warning');
+      return true;
+    } catch (e) {
+      console.error('API deleteUnit error:', e);
+      throw e;
+    }
+  };
+
   // Material CRUD & Dynamic Price Calculation (Pulls live price from MetalType / GoldRate)
   const getMaterialEffectivePrice = (mat) => {
     if (!mat) return 0;
@@ -1465,25 +1699,27 @@ const convertGramsToDamlung = (grams) => (Number(grams) || 0) / 37.5;
 const convertChiToGrams = (chi) => (Number(chi) || 0) * 3.75;
 const convertDamlungToGrams = (damlung) => (Number(damlung) || 0) * 37.5;
 
-// Format weight in Chi (e.g. 1.44 ជី)
-const formatChi = (grams, decimals = 2) => {
+// Format weight in Chi (e.g. 1.44 Chi / 1.44 ជី)
+const formatChi = (grams, decimals = 2, customIsKhmer = null) => {
+  const isKhmer = customIsKhmer !== null ? customIsKhmer : (i18n?.language || 'km').startsWith('km');
   const chi = (Number(grams) || 0) / 3.75;
-  return `${chi.toFixed(decimals)} ជី`;
+  return `${chi.toFixed(decimals)} ${isKhmer ? 'ជី' : 'Chi'}`;
 };
 
-// Format traditional Khmer weight breakdown (តម្លឹង ជី ហ៊ុន)
-const formatKhmerWeight = (grams) => {
+// Format traditional Khmer weight breakdown (Damlung Chi Hun / តម្លឹង ជី ហ៊ុន)
+const formatKhmerWeight = (grams, customIsKhmer = null) => {
+  const isKhmer = customIsKhmer !== null ? customIsKhmer : (i18n?.language || 'km').startsWith('km');
   const totalChi = (Number(grams) || 0) / 3.75;
-  if (totalChi <= 0) return '0 ជី';
+  if (totalChi <= 0) return isKhmer ? '0 ជី' : '0 Chi';
   const damlung = Math.floor(totalChi / 10);
   const remainingChi = totalChi % 10;
   const chi = Math.floor(remainingChi);
   const hun = Math.round((remainingChi - chi) * 10 * 10) / 10;
 
   const parts = [];
-  if (damlung > 0) parts.push(`${damlung} តម្លឹង`);
-  if (chi > 0 || damlung === 0) parts.push(`${chi} ជី`);
-  if (hun > 0) parts.push(`${hun} ហ៊ុន`);
+  if (damlung > 0) parts.push(`${damlung} ${isKhmer ? 'តម្លឹង' : 'Damlung'}`);
+  if (chi > 0 || damlung === 0) parts.push(`${chi} ${isKhmer ? 'ជី' : 'Chi'}`);
+  if (hun > 0) parts.push(`${hun} ${isKhmer ? 'ហ៊ុន' : 'Hun'}`);
   return parts.join(' ');
 };
 
@@ -1503,7 +1739,11 @@ return (
     updateCategory,
     deleteCategory,
     refreshCategories,
-    gemstones,
+    units,
+    setUnits,
+    addUnit,
+    editUnit,
+    removeUnit,
     materials,
     setMaterials,
     materialCategories,
@@ -1526,6 +1766,7 @@ return (
     addCustomer,
     sales,
     completeSale,
+    settleSalePayment,
     updateSaleStatus,
     updateSaleItemStatus,
     buybacks,

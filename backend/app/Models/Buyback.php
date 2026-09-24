@@ -12,6 +12,7 @@ class Buyback extends Model
     protected $fillable = [
         'customer_id',
         'metal_type_id',
+        'unit_id',
         'weight',
         'buyback_rate',
         'deduction_rate',
@@ -28,6 +29,11 @@ class Buyback extends Model
         'total_refund' => 'decimal:2',
         'buyback_date' => 'date',
     ];
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
 
     public function customer()
     {

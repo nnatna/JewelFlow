@@ -12,6 +12,7 @@ class SaleItem extends Model
     protected $fillable = [
         'sale_id',
         'product_id',
+        'unit_id',
         'gold_rate_applied',
         'weight_sold',
         'labor_fee',
@@ -31,6 +32,11 @@ class SaleItem extends Model
         'subtotal' => 'decimal:2',
         'status' => 'string',
     ];
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
 
     public function sale()
     {

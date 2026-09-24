@@ -306,7 +306,6 @@ export const ProductList = () => {
                       <th className="py-3.5 px-3 whitespace-nowrap text-center">{t('catalog.laborFee', 'Labor Fee')}</th>
                       <th className="py-3.5 px-3 whitespace-nowrap text-center">{t('catalog.markup', 'Markup')}</th>
                       <th className="py-3.5 px-4 whitespace-nowrap text-right">{t('catalog.livePrice', 'Live Atelier Price')}</th>
-                      <th className="py-3.5 px-3 whitespace-nowrap text-center">{t('catalog.stock', 'Stock')}</th>
                       <th className="py-3.5 px-4 whitespace-nowrap text-center w-28 min-w-[110px] sticky right-0 bg-slate-50 shadow-[-4px_0_8px_rgba(0,0,0,0.03)] z-10">
                         {t('catalog.actions', 'Actions')}
                       </th>
@@ -358,14 +357,6 @@ export const ProductList = () => {
                           <td className="py-3.5 px-3 text-center font-mono text-slate-500 whitespace-nowrap">{product.markup_rate}%</td>
                           <td className="py-3.5 px-4 text-right font-mono font-bold text-base text-amber-700 whitespace-nowrap">
                             ${currentPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                          </td>
-                          <td className="py-3.5 px-3 text-center font-mono whitespace-nowrap">
-                            <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${product.stock_qty <= 2
-                              ? 'bg-rose-100 text-rose-700 border border-rose-200'
-                              : 'bg-slate-100 text-slate-700'
-                              }`}>
-                              {product.stock_qty} {t('catalog.inStock', 'pcs in stock')}
-                            </span>
                           </td>
                           <td className="py-3.5 px-4 text-center whitespace-nowrap w-28 min-w-[110px] sticky right-0 bg-white group-hover:bg-amber-50/50 transition-colors shadow-[-4px_0_8px_rgba(0,0,0,0.03)] z-10">
                             <div className="flex items-center justify-center gap-1.5">
@@ -454,11 +445,8 @@ export const ProductList = () => {
                         <h3 className="text-xs font-bold text-slate-900 line-clamp-2 leading-snug group-hover:text-amber-800 transition-colors">
                           {product.name}
                         </h3>
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
+                        <div className="text-[11px] text-slate-500 mt-1 font-mono">
                           <span>{product.code_sku}</span>
-                          <span className={product.stock_qty <= 2 ? 'text-amber-700 font-bold' : 'text-slate-500'}>
-                            {product.stock_qty} {t('catalog.inStock', 'pcs in stock')}
-                          </span>
                         </div>
                       </div>
 

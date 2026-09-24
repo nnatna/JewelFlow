@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
 import { InvoiceModal } from '../pos/InvoiceModal';
+import { SettlePaymentModal } from './SettlePaymentModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faClockRotateLeft,
@@ -22,7 +23,8 @@ import {
   faCircleCheck,
   faGem,
   faFilter,
-  faXmark
+  faXmark,
+  faHandHoldingDollar
 } from '@fortawesome/free-solid-svg-icons';
 
 export const SalesHistoryView = () => {
@@ -37,6 +39,7 @@ export const SalesHistoryView = () => {
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'completed', 'pending', 'cancelled'
   const [expandedSaleId, setExpandedSaleId] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [settleModalSale, setSettleModalSale] = useState(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -128,6 +131,19 @@ export const SalesHistoryView = () => {
   // Toggle Row Expansion for details
   const toggleExpand = (id) => {
     setExpandedSaleId(prev => (prev === id ? null : id));
+  };
+
+  // Status Change Interceptor: If changing to completed and has deposit / balance due, popup payment modal
+  const handleStatusChange = (sale, newStatus) => {
+    const rawBalance = parseFloat(sale.balance_due);
+    const hasBalanceDue = (!isNaN(rawBalance) && rawBalance > 0.01) || (sale.payment_status || '').toLowerCase() === 'partial';
+    
+    if (newStatus === 'completed' && hasBalanceDue) {
+      setSettleModalSale(sale);
+      return;
+    }
+
+    updateSaleStatus(sale.id, newStatus);
   };
 
   // Payment method badge helper
@@ -475,44 +491,42 @@ export const SalesHistoryView = () => {
                           </div>
                         </td>
 
-                        {/* Payment */}
+                        {/* Payment Column */}
                         <td className="py-3.5 px-4">
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             {getPaymentBadge(sale.payment_method)}
-                            <div className="flex items-center gap-1.5 text-[11px] font-semibold">
-                              <span className={`w-1.5 h-1.5 rounded-full ${
-                                (sale.payment_status || '').toLowerCase() === 'partial'
-                                  ? 'bg-amber-500'
-                                  : (sale.payment_status || '').toLowerCase() === 'pending'
-                                  ? 'bg-slate-400'
-                                  : 'bg-emerald-500'
-                              }`}></span>
-                              <span className={`${
-                                (sale.payment_status || '').toLowerCase() === 'partial'
-                                  ? 'text-amber-800 font-bold'
-                                  : (sale.payment_status || '').toLowerCase() === 'pending'
-                                  ? 'text-slate-600'
-                                  : 'text-emerald-700'
-                              }`}>
-                                {(sale.payment_status || '').toLowerCase() === 'partial'
-                                  ? (isKhmer ? 'លុយកក់ (Deposit)' : 'Deposit')
-                                  : (sale.payment_status || t('salesHistory.paid', 'Paid'))}
-                              </span>
+                            <div>
+                              {(sale.payment_status || '').toLowerCase() === 'partial' || (parseFloat(sale.balance_due) || 0) > 0.01 ? (
+                                <div className="space-y-0.5">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300/80">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                    {isKhmer ? 'លុយកក់ (Deposit)' : 'Deposit'}
+                                  </span>
+                                  <div className="text-[10px] font-bold font-mono text-rose-700">
+                                    {isKhmer ? 'នៅខ្វះ: ' : 'Due: '}${parseFloat(sale.balance_due || 0).toFixed(2)}
+                                  </div>
+                                </div>
+                              ) : (sale.payment_status || '').toLowerCase() === 'pending' ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300/80">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                                  {isKhmer ? 'រង់ចាំទូទាត់' : 'Pending'}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300/80">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                  {isKhmer ? 'បានទូទាត់' : 'Paid'}
+                                </span>
+                              )}
                             </div>
-                            {((sale.payment_status || '').toLowerCase() === 'partial' || (parseFloat(sale.balance_due) || 0) > 0) && (
-                              <div className="text-[10px] text-rose-700 font-mono font-bold">
-                                {isKhmer ? 'នៅខ្វះ: ' : 'Due: '}${parseFloat(sale.balance_due || 0).toFixed(2)}
-                              </div>
-                            )}
                           </div>
                         </td>
 
-                        {/* Status (Interactive) */}
+                        {/* Status (Interactive Dropdown) */}
                         <td className="py-3.5 px-4 text-center">
                           <select
                             value={sale.status || 'completed'}
-                            onChange={(e) => updateSaleStatus(sale.id, e.target.value)}
-                            className={`text-xs font-bold px-2.5 py-1 rounded-lg border cursor-pointer focus:outline-none focus:ring-1 focus:ring-amber-500 transition-all ${
+                            onChange={(e) => handleStatusChange(sale, e.target.value)}
+                            className={`text-xs font-bold px-3 py-1.5 rounded-xl border cursor-pointer focus:outline-none focus:ring-2 focus:ring-amber-500/20 transition-all ${
                               (sale.status || 'completed') === 'completed'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100/70'
                                 : sale.status === 'cancelled'
@@ -528,12 +542,12 @@ export const SalesHistoryView = () => {
 
                         {/* Subtotal & Deductions */}
                         <td className="py-3.5 px-4 text-right font-mono">
-                          <div className="text-slate-800">${(sale.total_amount || 0).toFixed(2)}</div>
+                          <div className="text-slate-800 font-medium">${(sale.total_amount || 0).toFixed(2)}</div>
                           {sale.discount > 0 && (
-                            <div className="text-[11px] text-emerald-600 font-medium">-${sale.discount.toFixed(2)} disc</div>
+                            <div className="text-[11px] text-emerald-600 font-semibold">-${sale.discount.toFixed(2)} disc</div>
                           )}
                           {sale.tax > 0 && (
-                            <div className="text-[11px] text-slate-400">+${sale.tax.toFixed(2)} tax</div>
+                            <div className="text-[11px] text-slate-400 font-normal">+${sale.tax.toFixed(2)} tax</div>
                           )}
                         </td>
 
@@ -547,17 +561,29 @@ export const SalesHistoryView = () => {
                           </span>
                         </td>
 
-                        {/* Actions */}
+                        {/* Actions (Harmonized Vertical Stack - White & Orange Theme) */}
                         <td className="py-3.5 px-4 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex flex-col items-center justify-center gap-1.5 min-w-[100px] max-w-[125px] mx-auto">
                             <button
+                              type="button"
                               onClick={() => setSelectedInvoice(sale)}
-                              className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300/80 font-bold px-3 py-1.5 rounded-lg text-xs cursor-pointer transition-all shadow-2xs"
+                              className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-orange-50/70 text-slate-800 hover:text-orange-950 border border-orange-200/80 hover:border-orange-400 font-bold text-xs shadow-2xs transition-all cursor-pointer active:scale-95"
                               title={t('salesHistory.viewInvoice', 'View / Print Invoice')}
                             >
-                              <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5 text-amber-600" />
-                              <span className="hidden sm:inline">{t('salesHistory.viewInvoice', 'Invoice')}</span>
+                              <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5 text-orange-500" />
+                              <span>{isKhmer ? 'វិក្កយបត្រ' : 'Invoice'}</span>
                             </button>
+                            {((sale.payment_status || '').toLowerCase() === 'partial' || (parseFloat(sale.balance_due) || 0) > 0.01) && (
+                              <button
+                                type="button"
+                                onClick={() => setSettleModalSale(sale)}
+                                className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs shadow-md shadow-orange-500/20 transition-all cursor-pointer active:scale-95"
+                                title={isKhmer ? 'ទូទាត់ប្រាក់បង្គ្រប់ការកក់' : 'Settle Deposit Balance'}
+                              >
+                                <FontAwesomeIcon icon={faHandHoldingDollar} className="w-3.5 h-3.5 text-white" />
+                                <span>{isKhmer ? 'បង់បង្គ្រប់' : 'Settle Due'}</span>
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -715,6 +741,18 @@ export const SalesHistoryView = () => {
         <InvoiceModal
           invoice={selectedInvoice}
           onClose={() => setSelectedInvoice(null)}
+        />
+      )}
+
+      {/* Settle Payment Modal for Deposit Orders */}
+      {settleModalSale && (
+        <SettlePaymentModal
+          sale={settleModalSale}
+          onClose={() => setSettleModalSale(null)}
+          onSuccess={(updatedSale) => {
+            setSettleModalSale(null);
+            setSelectedInvoice(updatedSale || settleModalSale);
+          }}
         />
       )}
     </div>

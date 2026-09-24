@@ -116,7 +116,7 @@ export const InvoiceModal = ({ invoice, onClose }) => {
             <button
               type="button"
               onClick={handlePrint}
-              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+              className="flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold px-4 py-2 rounded-xl text-xs cursor-pointer shadow-md shadow-orange-500/20 active:scale-95 transition-all"
             >
               <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5" />
               <span>{isKhmer ? 'បោះពុម្ពវិក្កយបត្រ' : t('invoiceModal.printInvoice', 'Print Invoice')}</span>

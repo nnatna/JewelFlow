@@ -162,7 +162,27 @@ class SaleItemController extends Controller
         }
 
         $item = SaleItem::findOrFail($id);
-        $item->update(['status' => $status]);
+        $oldStatus = $item->status;
+        $newStatus = $status;
+
+        $item->update(['status' => $newStatus]);
+
+        if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+            if ($item->product_id) {
+                $prod = Product::find($item->product_id);
+                if ($prod) {
+                    $newStock = max(0, $prod->stock_qty - ($item->quantity ?? 1));
+                    $prod->update([
+                        'stock_qty' => $newStock,
+                        'status' => $newStock <= 0 ? 'out_of_stock' : $prod->status,
+                    ]);
+                }
+            }
+        } elseif ($oldStatus === 'completed' && $newStatus !== 'completed') {
+            if ($item->product_id) {
+                Product::where('id', $item->product_id)->increment('stock_qty', $item->quantity ?? 1);
+            }
+        }
 
         $sale = $item->sale;
         if ($sale) {

@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuybackController;
 use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CustomerController;
-use App\Http\Controllers\Api\GemstoneController;
 use App\Http\Controllers\Api\GoldPriceController;
 use App\Http\Controllers\Api\GoldRateController;
 use App\Http\Controllers\Api\ImageController;
@@ -16,7 +15,6 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\PostController;
 use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\Api\ProductGemstoneController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\PromotionController;
 use App\Http\Controllers\Api\PurchaseController;
@@ -28,6 +26,7 @@ use App\Http\Controllers\Api\SettingController;
 use App\Http\Controllers\Api\StoreController;
 use App\Http\Controllers\Api\SupplierController;
 use App\Http\Controllers\Api\TierController;
+use App\Http\Controllers\Api\UnitController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -77,14 +76,11 @@ Route::apiResource('categories', CategoryController::class);
 Route::apiResource('material-categories', MaterialCategoryController::class);
 Route::apiResource('materials', MaterialController::class);
 
+// Units API
+Route::apiResource('units', UnitController::class);
+
 // Metal Types API
 Route::apiResource('metal-types', MetalTypeController::class);
-
-// Gemstones API
-Route::apiResource('gemstones', GemstoneController::class);
-
-// Product Gemstone Attachments API
-Route::apiResource('product-gemstones', ProductGemstoneController::class);
 
 // Gold Rates API
 Route::apiResource('gold-rates', GoldRateController::class);

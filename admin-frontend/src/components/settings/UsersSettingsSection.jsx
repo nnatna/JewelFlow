@@ -669,7 +669,7 @@ export const UsersSettingsSection = () => {
               {/* Name */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                  {isKhmer ? 'ឈ្មោះបុគ្គលិក (Full Name) *' : 'Full Name *'}
+                  {isKhmer ? 'ឈ្មោះបុគ្គលិក *' : 'Full Name *'}
                 </label>
                 <input
                   type="text"
@@ -695,7 +695,7 @@ export const UsersSettingsSection = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                    {isKhmer ? 'អ៊ីមែល (Email) *' : 'Email *'}
+                    {isKhmer ? 'អ៊ីមែល *' : 'Email *'}
                   </label>
                   <input
                     type="email"
@@ -719,7 +719,7 @@ export const UsersSettingsSection = () => {
 
                 <div>
                   <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                    {isKhmer ? 'លេខទូរស័ព្ទ (Phone)' : 'Phone Number'}
+                    {isKhmer ? 'លេខទូរស័ព្ទ' : 'Phone Number'}
                   </label>
                   <input
                     type="text"
@@ -734,7 +734,7 @@ export const UsersSettingsSection = () => {
               {/* Password */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1">
-                  {isKhmer ? 'ពាក្យសម្ងាត់ (Password)' : 'Password'} {editingUser ? `(${isKhmer ? 'ទុកទំនេរបើមិនចង់ប្តូរ' : 'leave blank to keep unchanged'})` : '*'}
+                  {isKhmer ? 'ពាក្យសម្ងាត់' : 'Password'} {editingUser ? `(${isKhmer ? 'ទុកទំនេរបើមិនចង់ប្តូរ' : 'leave blank to keep unchanged'})` : '*'}
                 </label>
                 <div className="relative">
                   <input
@@ -761,7 +761,7 @@ export const UsersSettingsSection = () => {
               {/* Role Selection */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 mb-1.5">
-                  {isKhmer ? 'ជ្រើសរើសតួនាទី (Assigned Role) *' : 'Assigned Atelier Role *'}
+                  {isKhmer ? 'ជ្រើសរើសតួនាទី *' : 'Assigned Atelier Role *'}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {(roles || []).map((r) => {
@@ -801,7 +801,7 @@ export const UsersSettingsSection = () => {
               <div className="flex items-center justify-between p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                 <div>
                   <p className="text-xs font-bold text-slate-800">
-                    {isKhmer ? 'ស្ថានភាពគណនី (Account Active)' : 'Account Active Status'}
+                    {isKhmer ? 'ស្ថានភាពគណនី' : 'Account Active Status'}
                   </p>
                   <p className="text-[11px] text-slate-400">
                     {isKhmer ? 'អនុញ្ញាតឱ្យបុគ្គលិកចូលប្រើប្រព័ន្ធ' : 'Allow user to sign in to JewelFlow'}

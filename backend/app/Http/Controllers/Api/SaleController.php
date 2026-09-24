@@ -252,12 +252,37 @@ class SaleController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
-        $sale = Sale::findOrFail($id);
+        $sale = Sale::with('saleItems')->findOrFail($id);
 
         $status = $request->input('status') ?? $request->json('status');
         if ($status && in_array($status, ['pending', 'completed', 'cancelled'])) {
-            $sale->update(['status' => $status]);
-            $sale->saleItems()->update(['status' => $status]);
+            $oldStatus = $sale->status;
+            $newStatus = $status;
+
+            $sale->update(['status' => $newStatus]);
+            $sale->saleItems()->update(['status' => $newStatus]);
+
+            // Manage product stock on status change
+            if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+                foreach ($sale->saleItems as $item) {
+                    if ($item->product_id) {
+                        $prod = Product::find($item->product_id);
+                        if ($prod) {
+                            $newStock = max(0, $prod->stock_qty - ($item->quantity ?? 1));
+                            $prod->update([
+                                'stock_qty' => $newStock,
+                                'status' => $newStock <= 0 ? 'out_of_stock' : $prod->status,
+                            ]);
+                        }
+                    }
+                }
+            } elseif ($oldStatus === 'completed' && $newStatus !== 'completed') {
+                foreach ($sale->saleItems as $item) {
+                    if ($item->product_id) {
+                        Product::where('id', $item->product_id)->increment('stock_qty', $item->quantity ?? 1);
+                    }
+                }
+            }
 
             // Re-sync customer spent/tier if status changed
             if ($sale->customer_id) {
@@ -291,9 +316,34 @@ class SaleController extends Controller
             return response()->json(['message' => 'Invalid status. Must be pending, completed, or cancelled.'], 422);
         }
 
-        $sale = Sale::findOrFail($id);
-        $sale->update(['status' => $status]);
-        $sale->saleItems()->update(['status' => $status]);
+        $sale = Sale::with('saleItems')->findOrFail($id);
+        $oldStatus = $sale->status;
+        $newStatus = $status;
+
+        $sale->update(['status' => $newStatus]);
+        $sale->saleItems()->update(['status' => $newStatus]);
+
+        // Manage product stock on status change
+        if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+            foreach ($sale->saleItems as $item) {
+                if ($item->product_id) {
+                    $prod = Product::find($item->product_id);
+                    if ($prod) {
+                        $newStock = max(0, $prod->stock_qty - ($item->quantity ?? 1));
+                        $prod->update([
+                            'stock_qty' => $newStock,
+                            'status' => $newStock <= 0 ? 'out_of_stock' : $prod->status,
+                        ]);
+                    }
+                }
+            }
+        } elseif ($oldStatus === 'completed' && $newStatus !== 'completed') {
+            foreach ($sale->saleItems as $item) {
+                if ($item->product_id) {
+                    Product::where('id', $item->product_id)->increment('stock_qty', $item->quantity ?? 1);
+                }
+            }
+        }
 
         if ($sale->customer_id) {
             $customer = Customer::find($sale->customer_id);

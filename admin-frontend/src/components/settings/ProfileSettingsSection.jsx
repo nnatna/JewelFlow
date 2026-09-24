@@ -232,7 +232,7 @@ export const ProfileSettingsSection = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-slate-900 font-serif">
-                  {isKhmer ? 'រូបភាពគណនីផ្ទាល់ខ្លួន (Profile Photo)' : 'Profile Photo'}
+                  {isKhmer ? 'រូបភាពគណនីផ្ទាល់ខ្លួន' : 'Profile Photo'}
                 </h3>
                 <p className="text-xs text-slate-400 font-normal">
                   {isKhmer ? 'រូបភាពនេះនឹងបង្ហាញនៅលើរបារខាងលើ (Navbar) និងបញ្ជីអ្នកប្រើប្រាស់' : 'This photo is displayed on the top navigation bar and user cards'}
@@ -322,7 +322,7 @@ export const ProfileSettingsSection = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 font-serif">
-                {isKhmer ? 'ព័ត៌មានផ្ទាល់ខ្លួន (Personal Information)' : 'Personal Identity & Details'}
+                {isKhmer ? 'ព័ត៌មានផ្ទាល់ខ្លួន' : 'Personal Identity & Details'}
               </h3>
               <p className="text-xs text-slate-400 font-normal">
                 {isKhmer ? 'ឈ្មោះ និងព័ត៌មានទំនាក់ទំនងសម្រាប់បង្ហាញក្នុងប្រព័ន្ធ' : 'Your name and contact info displayed across sales & reports'}
@@ -334,7 +334,7 @@ export const ProfileSettingsSection = () => {
             {/* Full Name */}
             <div>
               <label className="font-bold text-slate-700 block mb-1.5">
-                {isKhmer ? 'ឈ្មោះពេញ (Full Name) *' : 'Full Name *'}
+                {isKhmer ? 'ឈ្មោះពេញ *' : 'Full Name *'}
               </label>
               <div className="relative">
                 <FontAwesomeIcon
@@ -365,7 +365,7 @@ export const ProfileSettingsSection = () => {
             {/* Email Address */}
             <div>
               <label className="font-bold text-slate-700 block mb-1.5">
-                {isKhmer ? 'អាសយដ្ឋានអ៊ីមែល (Email Address) *' : 'Email Address *'}
+                {isKhmer ? 'អាសយដ្ឋានអ៊ីមែល *' : 'Email Address *'}
               </label>
               <div className="relative">
                 <FontAwesomeIcon
@@ -396,7 +396,7 @@ export const ProfileSettingsSection = () => {
             {/* Phone Number */}
             <div>
               <label className="font-bold text-slate-700 block mb-1.5">
-                {isKhmer ? 'លេខទូរស័ព្ទ (Phone Number)' : 'Contact Phone Number'}
+                {isKhmer ? 'លេខទូរស័ព្ទ' : 'Contact Phone Number'}
               </label>
               <div className="relative">
                 <FontAwesomeIcon
@@ -417,7 +417,7 @@ export const ProfileSettingsSection = () => {
             {/* Assigned Role (Read-only) */}
             <div>
               <label className="font-bold text-slate-700 block mb-1.5">
-                {isKhmer ? 'តួនាទីក្នុងប្រព័ន្ធ (Assigned System Role)' : 'Assigned System Role'}
+                {isKhmer ? 'តួនាទីក្នុងប្រព័ន្ធ' : 'Assigned System Role'}
               </label>
               <div className="relative">
                 <FontAwesomeIcon
@@ -449,7 +449,7 @@ export const ProfileSettingsSection = () => {
             </div>
             <div>
               <h3 className="text-sm font-bold text-slate-900 font-serif">
-                {isKhmer ? 'សុវត្ថិភាព & ពាក្យសម្ងាត់ (Security & Password)' : 'Account Security & Password'}
+                {isKhmer ? 'សុវត្ថិភាព & ពាក្យសម្ងាត់' : 'Account Security & Password'}
               </h3>
               <p className="text-xs text-slate-400 font-normal">
                 {isKhmer
@@ -463,7 +463,7 @@ export const ProfileSettingsSection = () => {
             {/* New Password */}
             <div>
               <label className="font-bold text-slate-700 block mb-1.5">
-                {isKhmer ? 'ពាក្យសម្ងាត់ថ្មី (New Password)' : 'New Password'}
+                {isKhmer ? 'ពាក្យសម្ងាត់ថ្មី' : 'New Password'}
               </label>
               <div className="relative">
                 <FontAwesomeIcon
@@ -501,7 +501,7 @@ export const ProfileSettingsSection = () => {
             {/* Confirm New Password */}
             <div>
               <label className="font-bold text-slate-700 block mb-1.5">
-                {isKhmer ? 'បញ្ជាក់ពាក្យសម្ងាត់ថ្មី (Confirm Password)' : 'Confirm New Password'}
+                {isKhmer ? 'បញ្ជាក់ពាក្យសម្ងាត់ថ្មី' : 'Confirm New Password'}
               </label>
               <div className="relative">
                 <FontAwesomeIcon

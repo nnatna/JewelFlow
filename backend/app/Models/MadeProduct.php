@@ -14,6 +14,7 @@ class MadeProduct extends Model
         'metal_type_id',
         'supplier_id',
         'user_id',
+        'unit_id',
         'order_no',
         'quantity',
         'metal_weight_used',
@@ -33,6 +34,11 @@ class MadeProduct extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
     ];
+
+    public function unit()
+    {
+        return $this->belongsTo(Unit::class, 'unit_id');
+    }
 
     /**
      * The target product being crafted.

@@ -11,6 +11,7 @@ import {
   Hammer,
   Diamond,
   TrendingUp,
+  Sparkles,
   RefreshCw,
   Users,
   Tag,
@@ -255,7 +256,7 @@ export const Sidebar = () => {
                 </span>
               </button>
 
-              {/* Made Products */}
+              {/* Made Jewelry */}
               <button
                 type="button"
                 onClick={() => setActiveTab('made_products')}
@@ -265,13 +266,13 @@ export const Sidebar = () => {
                   }`}
               >
                 <div className="flex items-center gap-2 min-w-0">
-                  <Hammer
+                  <Sparkles
                     className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'made_products' || activeTab === 'madeproducts'
                         ? 'text-amber-600'
                         : 'text-slate-400 group-hover:text-slate-600'
                       }`}
                   />
-                  <span className="truncate">{isKhmer ? 'ផលិតផលកែច្នៃ' : t('nav.madeProducts', 'Made Products')}</span>
+                  <span className="truncate">{isKhmer ? 'គ្រឿងអលង្ការកែច្នៃ' : t('nav.madeJewelry', 'Made Jewelry')}</span>
                 </div>
                 {madeProductsCount && (
                   <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">

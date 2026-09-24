@@ -287,7 +287,7 @@ export const SuppliersView = () => {
             className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs transition-all cursor-pointer"
           >
             <FontAwesomeIcon icon={faBoxesStacked} className="w-3.5 h-3.5 text-amber-600" />
-            <span>{isKhmer ? 'មើលការបញ្ជាទិញ (Purchases)' : 'View Purchase Orders'}</span>
+            <span>{isKhmer ? 'មើលការបញ្ជាទិញ' : 'View Purchase Orders'}</span>
           </button>
 
           <button
@@ -519,7 +519,7 @@ export const SuppliersView = () => {
               {/* Company Name */}
               <div>
                 <label className="block text-slate-700 font-bold mb-1.5">
-                  {isKhmer ? 'ឈ្មោះក្រុមហ៊ុន / រោងចក្រ (Company / Refinery Name)' : 'Refinery / Company Name'} <span className="text-rose-500">*</span>
+                  {isKhmer ? 'ឈ្មោះក្រុមហ៊ុន / រោងចក្រ' : 'Refinery / Company Name'} <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -547,7 +547,7 @@ export const SuppliersView = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1.5">
-                    {isKhmer ? 'ឈ្មោះតំណាង (Representative Name)' : 'Representative Name'} <span className="text-rose-500">*</span>
+                    {isKhmer ? 'ឈ្មោះតំណាង' : 'Representative Name'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -573,7 +573,7 @@ export const SuppliersView = () => {
 
                 <div>
                   <label className="block text-slate-700 font-bold mb-1.5">
-                    {isKhmer ? 'លេខទូរស័ព្ទ (Phone Number)' : 'Phone Number'} <span className="text-rose-500">*</span>
+                    {isKhmer ? 'លេខទូរស័ព្ទ' : 'Phone Number'} <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -602,7 +602,7 @@ export const SuppliersView = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
                   <label className="block text-slate-700 font-bold mb-1.5">
-                    {isKhmer ? 'អ៊ីមែល (Direct Email)' : 'Direct Email'}
+                    {isKhmer ? 'អ៊ីមែល' : 'Direct Email'}
                   </label>
                   <input
                     type="email"
@@ -615,18 +615,18 @@ export const SuppliersView = () => {
 
                 <div>
                   <label className="block text-slate-700 font-bold mb-1.5">
-                    {isKhmer ? 'ជំនាញផ្គត់ផ្គង់ (Specialty)' : 'Supply Specialty'}
+                    {isKhmer ? 'ជំនាញផ្គត់ផ្គង់' : 'Supply Specialty'}
                   </label>
                   <select
                     value={supplierForm.specialty}
                     onChange={e => setSupplierForm(f => ({ ...f, specialty: e.target.value }))}
                     className="w-full rounded-xl px-3.5 py-2.5 border border-slate-200 text-xs font-semibold text-slate-900 bg-slate-50 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all cursor-pointer"
                   >
-                    <option value="Fine Bullion & Refined Alloys">Fine Bullion & Refined Alloys (មាសសុទ្ធ & លោហៈ)</option>
-                    <option value="Certified Natural Diamonds">Certified Natural Diamonds (គ្រាប់ពេជ្រធម្មជាតិ)</option>
-                    <option value="Natural Colored Gemstones">Natural Colored Gemstones (ត្បូងធម្មជាតិ)</option>
-                    <option value="Platinum & Precious Metals">Platinum & Precious Metals (ប្លាទីន & លោហៈធាតុ)</option>
-                    <option value="Jewelry Mountings & Findings">Jewelry Mountings & Findings (គ្រោងគ្រឿងអលង្ការ)</option>
+                    <option value="Fine Bullion & Refined Alloys">{isKhmer ? 'មាសសុទ្ធ & លោហៈធាតុ' : 'Fine Bullion & Refined Alloys'}</option>
+                    <option value="Certified Natural Diamonds">{isKhmer ? 'គ្រាប់ពេជ្រធម្មជាតិ' : 'Certified Natural Diamonds'}</option>
+                    <option value="Natural Colored Gemstones">{isKhmer ? 'ត្បូងធម្មជាតិ' : 'Natural Colored Gemstones'}</option>
+                    <option value="Platinum & Precious Metals">{isKhmer ? 'ប្លាទីន & លោហៈធាតុ' : 'Platinum & Precious Metals'}</option>
+                    <option value="Jewelry Mountings & Findings">{isKhmer ? 'គ្រោងគ្រឿងអលង្ការ' : 'Jewelry Mountings & Findings'}</option>
                   </select>
                 </div>
               </div>
@@ -634,7 +634,7 @@ export const SuppliersView = () => {
               {/* Address */}
               <div>
                 <label className="block text-slate-700 font-bold mb-1.5">
-                  {isKhmer ? 'អាសយដ្ឋាន (Office / Refinery Address)' : 'Office / Refinery Address'}
+                  {isKhmer ? 'អាសយដ្ឋាន' : 'Office / Refinery Address'}
                 </label>
                 <input
                   type="text"

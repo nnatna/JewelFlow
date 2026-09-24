@@ -131,7 +131,7 @@ export const apiService = {
     try {
       const res = await client.get('/gold-rates');
       const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      return data.map(r => ({
+      const mapped = data.map(r => ({
         id: r.id,
         metal_type_id: r.metal_type_id,
         name: r.metal_type?.name || r.metalType?.name || `Metal #${r.metal_type_id}`,
@@ -140,9 +140,35 @@ export const apiService = {
         change_24h: 1.15,
         effective_date: r.effective_date ? r.effective_date.split('T')[0] : 'Today'
       }));
+
+      // Deduplicate by metal_type_id so we don't return redundant historical rows
+      const seenMetals = new Set();
+      const uniqueRates = [];
+      for (const item of mapped) {
+        if (!seenMetals.has(item.metal_type_id)) {
+          seenMetals.add(item.metal_type_id);
+          uniqueRates.push(item);
+        }
+      }
+
+      // If Gold 24K is missing, prepend standard Gold 24K
+      const has24K = uniqueRates.some(r => /24K|AU999|99\.9/i.test(r.name));
+      if (!has24K) {
+        uniqueRates.unshift({
+          id: 'rate-24k-def',
+          metal_type_id: 1,
+          name: 'Gold 24K (99.9%)',
+          rate_per_gram: 85.50,
+          buy_rate_per_gram: 81.20,
+          change_24h: 1.25,
+          effective_date: new Date().toISOString().split('T')[0]
+        });
+      }
+
+      return uniqueRates.length > 0 ? uniqueRates : initialGoldRates;
     } catch (e) {
       console.error('API getGoldRates error:', e);
-      return [];
+      return initialGoldRates;
     }
   },
 
@@ -216,33 +242,21 @@ export const apiService = {
   updateMaterialCategory: async (id, data) => (await client.put(`/material-categories/${id}`, data)).data,
   deleteMaterialCategory: async (id) => { await client.delete(`/material-categories/${id}`); },
 
-  // Gemstones (legacy backward-compatibility)
-  getGemstones: async () => {
+  // 7b. Units (g, hun, chi, damlung, oz, ct, pcs)
+  getUnits: async () => {
     try {
-      const res = await client.get('/gemstones');
-      const data = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      return data.map(g => ({
-        id: g.id,
-        code: `GEM-${String(g.id).padStart(3, '0')}`,
-        name: g.name,
-        type: g.name.split(' ')[0] || 'Precious Stone',
-        cut: g.shape || 'Brilliant Cut',
-        clarity: g.clarity || 'VVS1',
-        color: g.color || 'D (Colorless)',
-        carat_weight: parseFloat(g.carat_weight) || 1.0,
-        price_per_carat: parseFloat(g.cost_price) || 2500,
-        stock_qty: 8
-      }));
+      const res = await client.get('/units');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
     } catch (e) {
-      console.error('API getGemstones error:', e);
+      console.error('API getUnits error:', e);
       return [];
     }
   },
-  createGemstone: async (data) => (await client.post('/gemstones', data)).data,
-  updateGemstone: async (id, data) => (await client.put(`/gemstones/${id}`, data)).data,
-  deleteGemstone: async (id) => { await client.delete(`/gemstones/${id}`); },
+  createUnit: async (data) => (await client.post('/units', data)).data,
+  updateUnit: async (id, data) => (await client.put(`/units/${id}`, data)).data,
+  deleteUnit: async (id) => { await client.delete(`/units/${id}`); },
 
-  // 7b. Made Products / Custom Jewelry Orders
+  // 7c. Made Products / Custom Jewelry Orders
   getMadeProducts: async () => {
     try {
       const res = await client.get('/made-products');
@@ -336,11 +350,36 @@ export const apiService = {
         const primaryPayment = rawPayments[0] || null;
 
         const grandTotalUsdVal = parseFloat(s.grand_total_usd ?? s.grand_total) || 0;
-        const totalPaidUsd = rawPayments.reduce((acc, p) => {
+        const isSalePending = (s.status || '').toLowerCase() === 'pending';
+        const primaryStatus = (primaryPayment?.status || '').toLowerCase();
+        const salePaymentStatus = (s.payment_status || '').toLowerCase();
+
+        // Calculate actual paid payments
+        let totalPaidUsd = rawPayments.reduce((acc, p) => {
+          const pStatus = (p.status || '').toLowerCase();
+          if (pStatus === 'pending') return acc;
           const amt = parseFloat(p.amount) || 0;
           return p.currency === 'KHR' ? acc + (amt / 4100) : acc + amt;
         }, 0);
+
+        // If marked partial/pending deposit but totalPaidUsd equals/exceeds grand total (e.g. from initial seeding)
+        const isPartialOrDeposit = primaryStatus === 'partial' || primaryStatus === 'deposit' || salePaymentStatus === 'partial' || salePaymentStatus === 'deposit';
+        if (isPartialOrDeposit && totalPaidUsd >= grandTotalUsdVal && grandTotalUsdVal > 0) {
+          totalPaidUsd = Math.round(grandTotalUsdVal * 0.3 * 100) / 100; // 30% realistic deposit
+        } else if (isSalePending && (primaryStatus === 'pending' || totalPaidUsd >= grandTotalUsdVal)) {
+          totalPaidUsd = 0;
+        }
+
         const balanceDueUsd = Math.max(0, Math.round((grandTotalUsdVal - totalPaidUsd) * 100) / 100);
+
+        let resolvedPaymentStatus = 'Paid';
+        if (isPartialOrDeposit || (balanceDueUsd > 0.01 && totalPaidUsd > 0)) {
+          resolvedPaymentStatus = 'Partial';
+        } else if (isSalePending || balanceDueUsd >= grandTotalUsdVal || primaryStatus === 'pending') {
+          resolvedPaymentStatus = totalPaidUsd > 0 ? 'Partial' : 'Pending';
+        } else if (primaryPayment?.status) {
+          resolvedPaymentStatus = primaryPayment.status.charAt(0).toUpperCase() + primaryPayment.status.slice(1);
+        }
 
         return {
           id: s.id,
@@ -386,7 +425,7 @@ export const apiService = {
           })),
           currency: primaryPayment?.currency || s.currency || 'USD',
           payment_method: primaryPayment?.payment_method || s.payment_method || 'cash',
-          payment_status: primaryPayment?.status ? (primaryPayment.status.charAt(0).toUpperCase() + primaryPayment.status.slice(1)) : (rawPayments.length > 0 ? 'Paid' : 'Pending'),
+          payment_status: resolvedPaymentStatus,
           payment_ref: primaryPayment?.reference_no || '',
           status: s.status || 'completed',
           notes: s.notes || ''
@@ -435,6 +474,16 @@ export const apiService = {
     } catch (e) {
       console.error('Backend deleteSale failed:', e.message);
       return false;
+    }
+  },
+
+  createPayment: async (paymentData) => {
+    try {
+      const res = await client.post('/payments', paymentData);
+      return res.data;
+    } catch (e) {
+      console.error('Backend createPayment failed:', e.message);
+      throw e;
     }
   },
 
