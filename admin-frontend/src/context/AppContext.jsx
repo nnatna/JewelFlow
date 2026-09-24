@@ -32,6 +32,9 @@ export const AppProvider = ({ children }) => {
   const [metalTypes, setMetalTypes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [gemstones, setGemstones] = useState([]);
+  const [materials, setMaterials] = useState([]);
+  const [materialCategories, setMaterialCategories] = useState([]);
+  const [madeProducts, setMadeProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [sales, setSales] = useState([]);
   const [buybacks, setBuybacks] = useState([]);
@@ -153,16 +156,18 @@ export const AppProvider = ({ children }) => {
       setBackendConnected(isHealthy);
 
       const [
-        prodsRes, ratesRes, catsRes, metalsRes, gemsRes, custsRes,
+        prodsRes, ratesRes, catsRes, metalsRes, gemsRes, madeProdsRes, custsRes,
         slsRes, bbsRes, supsRes, purchsRes, promosRes, tierDataRes,
         usersDataRes, rolesDataRes, permsDataRes, settingsDataRes,
-        camGoldRes, spotDataRes, fxDataRes
+        camGoldRes, spotDataRes, fxDataRes,
+        matsRes, matCatsRes
       ] = await Promise.allSettled([
         apiService.getProducts(),
         apiService.getGoldRates(),
         apiService.getCategories(),
         apiService.getMetalTypes(),
         apiService.getGemstones(),
+        apiService.getMadeProducts(),
         apiService.getCustomers(),
         apiService.getSales(),
         apiService.getBuybacks(),
@@ -177,6 +182,8 @@ export const AppProvider = ({ children }) => {
         apiService.getCambodianGold(),
         apiService.getSpotPrice('XAU', 'USD', true),
         apiService.getExchangeRate('USD', 'KHR'),
+        apiService.getMaterials(),
+        apiService.getMaterialCategories(),
       ]);
 
       if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value) && prodsRes.value.length > 0) {
@@ -194,6 +201,9 @@ export const AppProvider = ({ children }) => {
       if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value)) setCategories(catsRes.value);
       if (metalsRes.status === 'fulfilled' && Array.isArray(metalsRes.value)) setMetalTypes(metalsRes.value);
       if (gemsRes.status === 'fulfilled' && Array.isArray(gemsRes.value)) setGemstones(gemsRes.value);
+      if (matsRes.status === 'fulfilled' && Array.isArray(matsRes.value)) setMaterials(matsRes.value);
+      if (matCatsRes.status === 'fulfilled' && Array.isArray(matCatsRes.value)) setMaterialCategories(matCatsRes.value);
+      if (madeProdsRes.status === 'fulfilled' && Array.isArray(madeProdsRes.value)) setMadeProducts(madeProdsRes.value);
       if (custsRes.status === 'fulfilled' && Array.isArray(custsRes.value)) setCustomers(custsRes.value);
       if (slsRes.status === 'fulfilled' && Array.isArray(slsRes.value)) setSales(slsRes.value);
       if (bbsRes.status === 'fulfilled' && Array.isArray(bbsRes.value)) setBuybacks(bbsRes.value);
@@ -383,7 +393,10 @@ export const AppProvider = ({ children }) => {
 
   // Cart actions
   const addToCart = (product) => {
+    const isOutOfStock = (Number(product.stock_qty) || 0) <= 0;
     const currentPrice = calculateProductPrice(product);
+    const itemStatus = isOutOfStock ? 'pending' : 'completed';
+
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
@@ -391,12 +404,26 @@ export const AppProvider = ({ children }) => {
           item.id === product.id ? { ...item, qty: item.qty + 1 } : item
         );
       }
-      return [...prev, { ...product, calculatedPrice: currentPrice, qty: 1, status: 'completed' }];
+      return [...prev, {
+        ...product,
+        calculatedPrice: currentPrice,
+        qty: 1,
+        is_preorder: isOutOfStock,
+        status: itemStatus
+      }];
     });
-    addNotification(`Added "${product.name}" to POS cart.`, 'success', {
-      title: 'Added to Active Ticket',
-      image: product.image
-    });
+
+    if (isOutOfStock) {
+      addNotification(`Added "${product.name}" as Pre-Order (Crafting Required).`, 'warning', {
+        title: 'Pre-Order / Pending Crafting',
+        image: product.image
+      });
+    } else {
+      addNotification(`Added "${product.name}" to POS cart.`, 'success', {
+        title: 'Added to Active Ticket',
+        image: product.image
+      });
+    }
   };
 
   const removeFromCart = (productId) => {
@@ -1043,10 +1070,108 @@ const confirmPurchaseArrival = async (id) => {
 
   try {
     await apiService.confirmPurchaseArrival(id);
+    // Refresh materials to get latest stock levels from suppliers
+    const freshMats = await apiService.getMaterials();
+    if (freshMats && Array.isArray(freshMats)) {
+      setMaterials(freshMats);
+    }
     return true;
   } catch (e) {
     console.error('API confirmPurchaseArrival error, updating locally:', e);
     return true;
+  }
+};
+
+// Quick helper to link a POS Pre-Order directly to a MadeProduct crafting order
+const createMadeProductFromSale = async (sale, item, customSpecs = {}) => {
+  const prod = products.find(p => p.id === (item?.product_id || item?.id)) || item;
+  const orderData = {
+    product_id: prod?.id || null,
+    metal_type_id: prod?.metal_type_id || metalTypes[0]?.id || null,
+    supplier_id: prod?.supplier_id || suppliers[0]?.id || null,
+    user_id: currentUser?.id || null,
+    order_no: `MP-ORD-${String(sale?.invoice_no || Math.floor(1000 + Math.random() * 9000)).replace(/[^a-zA-Z0-9]/g, '')}`,
+    quantity: item?.qty || item?.quantity || 1,
+    metal_weight_used: prod?.net_weight || customSpecs.metal_weight_used || 0,
+    waste_weight: 0.15,
+    crafting_cost: prod?.labor_cost || customSpecs.crafting_cost || 45.0,
+    status: 'pending',
+    started_at: new Date().toISOString(),
+    notes: `Pre-order for Customer: ${sale?.customer_name || 'Walk-in Guest'} (${sale?.invoice_no || 'POS Ticket'}). ${customSpecs.notes || ''}`
+  };
+
+  return await addMadeProduct(orderData);
+};
+
+const addMadeProduct = async (data) => {
+  try {
+    const res = await apiService.createMadeProduct(data);
+    setMadeProducts(prev => [res, ...prev]);
+    addNotification(`Crafting order "${res.order_no || 'Custom'}" created.`, 'success');
+    return res;
+  } catch (e) {
+    console.error('Error creating made product:', e);
+    throw e;
+  }
+};
+
+const updateMadeProduct = async (id, data) => {
+  try {
+    const res = await apiService.updateMadeProduct(id, data);
+    setMadeProducts(prev => prev.map(p => p.id === id ? res : p));
+    addNotification(`Crafting order updated.`, 'info');
+    return res;
+  } catch (e) {
+    console.error('Error updating made product:', e);
+    throw e;
+  }
+};
+
+const updateMadeProductStatus = async (id, status) => {
+  try {
+    const res = await apiService.updateMadeProductStatus(id, status);
+    const updated = res.data || res;
+    setMadeProducts(prev => prev.map(p => p.id === id ? { ...p, ...updated } : p));
+    
+    // If completed, automatically replenish the finished product's stock_qty!
+    if (status === 'completed') {
+      const targetOrder = madeProducts.find(p => p.id === id);
+      const targetProdId = targetOrder?.product_id || targetOrder?.product?.id;
+      const craftedQty = Number(targetOrder?.quantity) || 1;
+      
+      if (targetProdId) {
+        setProducts(prev => prev.map(prod => {
+          if (prod.id === targetProdId) {
+            const newStock = (Number(prod.stock_qty) || 0) + craftedQty;
+            return {
+              ...prod,
+              stock_qty: newStock,
+              status: newStock > 0 ? 'active' : prod.status
+            };
+          }
+          return prod;
+        }));
+        addNotification(`Crafted jewelry piece completed! Product stock replenished (+${craftedQty}).`, 'success');
+      }
+    } else {
+      addNotification(`Crafting status updated to ${status}.`, 'info');
+    }
+    return updated;
+  } catch (e) {
+    console.error('Error updating made product status:', e);
+    throw e;
+  }
+};
+
+const deleteMadeProduct = async (id) => {
+  try {
+    await apiService.deleteMadeProduct(id);
+    setMadeProducts(prev => prev.filter(p => p.id !== id));
+    addNotification('Crafting order removed.', 'warning');
+    return true;
+  } catch (e) {
+    console.error('Error deleting made product:', e);
+    throw e;
   }
 };
 
@@ -1231,6 +1356,100 @@ const deleteRole = async (id) => {
     }
   };
 
+  // Material Category CRUD
+  const addMaterialCategory = async (catData) => {
+    try {
+      const created = await apiService.createMaterialCategory(catData);
+      setMaterialCategories(prev => [created, ...prev]);
+      addNotification(`Material Category "${created.name}" created.`, 'success');
+      return created;
+    } catch (e) {
+      console.error('API createMaterialCategory error:', e);
+      const localCat = { id: Date.now(), ...catData, materials_count: 0 };
+      setMaterialCategories(prev => [localCat, ...prev]);
+      return localCat;
+    }
+  };
+
+  const updateMaterialCategory = async (id, catData) => {
+    try {
+      const updated = await apiService.updateMaterialCategory(id, catData);
+      setMaterialCategories(prev => prev.map(c => c.id === id ? { ...c, ...updated } : c));
+      addNotification(`Material Category updated.`, 'info');
+      return updated;
+    } catch (e) {
+      console.error('API updateMaterialCategory error:', e);
+      setMaterialCategories(prev => prev.map(c => c.id === id ? { ...c, ...catData } : c));
+      return catData;
+    }
+  };
+
+  const deleteMaterialCategory = async (id) => {
+    try {
+      await apiService.deleteMaterialCategory(id);
+    } catch (e) {
+      console.error('API deleteMaterialCategory error:', e);
+    } finally {
+      setMaterialCategories(prev => prev.filter(c => c.id !== id));
+      addNotification('Material category removed.', 'warning');
+    }
+  };
+
+  // Material CRUD & Dynamic Price Calculation (Pulls live price from MetalType / GoldRate)
+  const getMaterialEffectivePrice = (mat) => {
+    if (!mat) return 0;
+    if (mat.use_metal_rate && mat.metal_type_id) {
+      const rateObj = goldRates.find(r => Number(r.metal_type_id) === Number(mat.metal_type_id));
+      if (rateObj) {
+        const ratePerGram = Number(rateObj.rate_per_gram) || 0;
+        if (mat.unit === 'chi' || mat.unit === 'ជី') {
+          return Math.round(ratePerGram * 3.75 * 100) / 100;
+        }
+        return ratePerGram;
+      }
+    }
+    return Number(mat.cost_price) || 0;
+  };
+
+  const addMaterial = async (matData) => {
+    try {
+      const created = await apiService.createMaterial(matData);
+      setMaterials(prev => [created, ...prev]);
+      addNotification(`Material "${created.name}" added to inventory.`, 'success');
+      return created;
+    } catch (e) {
+      console.error('API createMaterial error:', e);
+      const localMat = { id: Date.now(), ...matData };
+      setMaterials(prev => [localMat, ...prev]);
+      addNotification(`Material "${localMat.name}" added locally.`, 'success');
+      return localMat;
+    }
+  };
+
+  const updateMaterial = async (id, matData) => {
+    try {
+      const updated = await apiService.updateMaterial(id, matData);
+      setMaterials(prev => prev.map(m => m.id === id ? { ...m, ...updated } : m));
+      addNotification(`Material updated successfully.`, 'info');
+      return updated;
+    } catch (e) {
+      console.error('API updateMaterial error:', e);
+      setMaterials(prev => prev.map(m => m.id === id ? { ...m, ...matData } : m));
+      return matData;
+    }
+  };
+
+  const deleteMaterial = async (id) => {
+    try {
+      await apiService.deleteMaterial(id);
+    } catch (e) {
+      console.error('API deleteMaterial error:', e);
+    } finally {
+      setMaterials(prev => prev.filter(m => m.id !== id));
+      addNotification('Material removed from inventory.', 'warning');
+    }
+  };
+
   // Cambodian Gold Measurement Standards & Conversions
 const CAMBODIAN_STANDARDS = {
   TROY_OUNCE_GRAMS: 31.1034768,
@@ -1285,6 +1504,24 @@ return (
     deleteCategory,
     refreshCategories,
     gemstones,
+    materials,
+    setMaterials,
+    materialCategories,
+    setMaterialCategories,
+    addMaterial,
+    updateMaterial,
+    deleteMaterial,
+    addMaterialCategory,
+    updateMaterialCategory,
+    deleteMaterialCategory,
+    getMaterialEffectivePrice,
+    madeProducts,
+    setMadeProducts,
+    addMadeProduct,
+    createMadeProductFromSale,
+    updateMadeProduct,
+    updateMadeProductStatus,
+    deleteMadeProduct,
     customers,
     addCustomer,
     sales,

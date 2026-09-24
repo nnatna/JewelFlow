@@ -188,7 +188,35 @@ export const apiService = {
   updateMetalType: async (id, data) => (await client.put(`/metal-types/${id}`, data)).data,
   deleteMetalType: async (id) => { await client.delete(`/metal-types/${id}`); },
 
-  // 7. Gemstones
+  // 7. Materials & Raw Inventory
+  getMaterials: async (params = {}) => {
+    try {
+      const res = await client.get('/materials', { params });
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getMaterials error:', e);
+      return [];
+    }
+  },
+  createMaterial: async (data) => (await client.post('/materials', data)).data,
+  updateMaterial: async (id, data) => (await client.put(`/materials/${id}`, data)).data,
+  deleteMaterial: async (id) => { await client.delete(`/materials/${id}`); },
+
+  // 7a. Material Categories
+  getMaterialCategories: async () => {
+    try {
+      const res = await client.get('/material-categories');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getMaterialCategories error:', e);
+      return [];
+    }
+  },
+  createMaterialCategory: async (data) => (await client.post('/material-categories', data)).data,
+  updateMaterialCategory: async (id, data) => (await client.put(`/material-categories/${id}`, data)).data,
+  deleteMaterialCategory: async (id) => { await client.delete(`/material-categories/${id}`); },
+
+  // Gemstones (legacy backward-compatibility)
   getGemstones: async () => {
     try {
       const res = await client.get('/gemstones');
@@ -213,6 +241,21 @@ export const apiService = {
   createGemstone: async (data) => (await client.post('/gemstones', data)).data,
   updateGemstone: async (id, data) => (await client.put(`/gemstones/${id}`, data)).data,
   deleteGemstone: async (id) => { await client.delete(`/gemstones/${id}`); },
+
+  // 7b. Made Products / Custom Jewelry Orders
+  getMadeProducts: async () => {
+    try {
+      const res = await client.get('/made-products');
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getMadeProducts error:', e);
+      return [];
+    }
+  },
+  createMadeProduct: async (data) => (await client.post('/made-products', data)).data,
+  updateMadeProduct: async (id, data) => (await client.put(`/made-products/${id}`, data)).data,
+  updateMadeProductStatus: async (id, status) => (await client.put(`/made-products/${id}/status`, { status })).data,
+  deleteMadeProduct: async (id) => { await client.delete(`/made-products/${id}`); },
 
   // 8. Customers
   getCustomers: async () => {

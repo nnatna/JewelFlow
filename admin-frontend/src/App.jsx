@@ -6,9 +6,10 @@ import { DashboardView } from './components/dashboard/DashboardView';
 import { PosTerminal } from './components/pos/PosTerminal';
 import { SalesHistoryView } from './components/sales/SalesHistoryView';
 import { ProductList } from './components/inventory/ProductList';
+import { MadeProductsView } from './components/inventory/MadeProductsView';
 import { GoldRatesView } from './components/goldrates/GoldRatesView';
 import { BuybackView } from './components/buyback/BuybackView';
-import { GemstonesView } from './components/gemstones/GemstonesView';
+import { MaterialsView } from './components/inventory/MaterialsView';
 import { CustomersView } from './components/customers/CustomersView';
 import { SuppliersView } from './components/suppliers/SuppliersView';
 import { PurchasesView } from './components/purchases/PurchasesView';
@@ -46,12 +47,17 @@ const MainLayout = () => {
         return <ProductList />;
       case 'categories':
         return <CategoriesView />;
+      case 'made_products':
+      case 'madeproducts':
+        return <MadeProductsView />;
       case 'goldrates':
         return <GoldRatesView />;
       case 'buyback':
         return <BuybackView />;
+      case 'materials':
+      case 'raw_materials':
       case 'gemstones':
-        return <GemstonesView />;
+        return <MaterialsView />;
       case 'customers':
         return <CustomersView />;
       case 'promotions':

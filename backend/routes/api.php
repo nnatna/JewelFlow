@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\GoldPriceController;
 use App\Http\Controllers\Api\GoldRateController;
 use App\Http\Controllers\Api\ImageController;
 use App\Http\Controllers\Api\MadeProductController;
+use App\Http\Controllers\Api\MaterialCategoryController;
+use App\Http\Controllers\Api\MaterialController;
 use App\Http\Controllers\Api\MetalTypeController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PermissionController;
@@ -70,6 +72,10 @@ Route::apiResource('made-products', MadeProductController::class);
 
 // Categories API
 Route::apiResource('categories', CategoryController::class);
+
+// Material Categories & Materials Inventory API
+Route::apiResource('material-categories', MaterialCategoryController::class);
+Route::apiResource('materials', MaterialController::class);
 
 // Metal Types API
 Route::apiResource('metal-types', MetalTypeController::class);

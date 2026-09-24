@@ -151,7 +151,18 @@ class SaleController extends Controller
                     ]);
 
                     if ($productId) {
-                        Product::where('id', $productId)->decrement('stock_qty', $qty);
+                        $prod = Product::find($productId);
+                        if ($prod) {
+                            if ($itemStatus === 'completed' && ($sale->status ?? 'completed') === 'completed') {
+                                $newStock = max(0, $prod->stock_qty - $qty);
+                                $prod->update([
+                                    'stock_qty' => $newStock,
+                                    'status' => $newStock <= 0 ? 'out_of_stock' : $prod->status,
+                                ]);
+                            } elseif ($prod->stock_qty <= 0) {
+                                $prod->update(['status' => 'out_of_stock']);
+                            }
+                        }
                     }
                 }
             }

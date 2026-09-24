@@ -73,6 +73,9 @@ export const PosTerminal = () => {
     confirmDialog,
     showToast,
     promotions,
+    createMadeProductFromSale,
+    setActiveTab,
+    materials
   } = useApp();
 
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -97,6 +100,8 @@ export const PosTerminal = () => {
   });
   const [custModalErrors, setCustModalErrors] = useState({});
   const [activeInvoice, setActiveInvoice] = useState(null);
+  const [craftingPromptModal, setCraftingPromptModal] = useState(null);
+  const [creatingCraftingOrder, setCreatingCraftingOrder] = useState(false);
 
   // Held Tickets Tray State
   const [pinnedTickets, setPinnedTickets] = useState([]);
@@ -448,19 +453,50 @@ export const PosTerminal = () => {
     }
 
     try {
+      const preOrderItems = cart.filter(i => i.is_preorder || (products.find(p => p.id === i.id)?.stock_qty || 0) <= 0);
+      const isPreOrderSale = preOrderItems.length > 0;
+
       const finalized = await completeSale(paymentMethod, paymentCurrency, {
         paymentStatus,
         paidAmount: finalPaid,
         notes: paymentNotes,
-        saleStatus
+        saleStatus: isPreOrderSale ? 'pending' : saleStatus
       });
       setShowPaymentModal(false);
       if (finalized) {
-        setActiveInvoice(finalized);
+        if (isPreOrderSale) {
+          setCraftingPromptModal({
+            sale: finalized,
+            items: preOrderItems
+          });
+        } else {
+          setActiveInvoice(finalized);
+        }
       }
     } catch (err) {
       console.error('Checkout error:', err);
       showToast(isKhmer ? 'មានបញ្ហាក្នុងការទូទាត់ប្រាក់!' : 'Checkout error occurred.', 'error');
+    }
+  };
+
+  const handleSpawnCraftingOrder = async (item) => {
+    if (!craftingPromptModal?.sale) return;
+    setCreatingCraftingOrder(true);
+    try {
+      await createMadeProductFromSale(craftingPromptModal.sale, item);
+      showToast(
+        isKhmer
+          ? `បានបង្កើតប័ណ្ណកែច្នៃសម្រាប់ "${item?.name || 'គ្រឿងអលង្ការ'}" រួចរាល់!`
+          : `Crafting order generated for "${item?.name || 'Jewelry piece'}"!`,
+        'success'
+      );
+      setCraftingPromptModal(null);
+      setActiveTab('made_products');
+    } catch (err) {
+      console.error(err);
+      showToast(isKhmer ? 'មានបញ្ហាក្នុងការបង្កើតប័ណ្ណកែច្នៃ' : 'Failed to create crafting order', 'error');
+    } finally {
+      setCreatingCraftingOrder(false);
     }
   };
 
@@ -557,19 +593,16 @@ export const PosTerminal = () => {
             {filteredProducts.map(product => {
               const currentPrice = calculateProductPrice(product);
               const metal = metalTypes.find(m => m.id === product.metal_type_id);
+              const isOutOfStock = (Number(product.stock_qty) || 0) <= 0;
 
               return (
                 <div
                   key={product.id}
-                  onClick={() => {
-                    if (product.stock_qty > 0) {
-                      addToCart(product);
-                    }
-                  }}
-                  className={`group p-4 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 hover:shadow-md transition-all flex flex-col justify-between select-none ${
-                    product.stock_qty <= 0
-                      ? 'opacity-60 cursor-not-allowed'
-                      : 'cursor-pointer active:scale-[0.99] hover:-translate-y-0.5'
+                  onClick={() => addToCart(product)}
+                  className={`group p-4 rounded-2xl bg-white border shadow-xs hover:border-amber-300 hover:shadow-md transition-all flex flex-col justify-between select-none cursor-pointer active:scale-[0.99] hover:-translate-y-0.5 ${
+                    isOutOfStock
+                      ? 'border-amber-200/90 bg-amber-50/20'
+                      : 'border-slate-200'
                   }`}
                 >
                   <div>
@@ -583,6 +616,11 @@ export const PosTerminal = () => {
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/90 text-amber-800 border border-amber-200 shadow-xs backdrop-blur-sm">
                           {metal?.name.split(' ')[0]}
                         </span>
+                        {isOutOfStock && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500 text-white shadow-xs">
+                            {isKhmer ? 'កុម្ម៉ង់កែច្នៃ' : 'Pre-Order'}
+                          </span>
+                        )}
                       </div>
                       <div className="absolute top-2 right-2">
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-white/95 text-amber-950 border border-amber-300/60 shadow-xs backdrop-blur-sm">
@@ -596,9 +634,15 @@ export const PosTerminal = () => {
                     </h3>
                     <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1 font-mono">
                       <span>{product.code_sku}</span>
-                      <span className={product.stock_qty <= 2 ? 'text-amber-700 font-bold' : 'text-slate-500'}>
-                        {product.stock_qty} {t('pos.inStockUnit', 'in stock')}
-                      </span>
+                      {isOutOfStock ? (
+                        <span className="text-amber-700 font-bold bg-amber-100/80 px-1.5 py-0.5 rounded text-[10px]">
+                          {isKhmer ? 'អស់ស្តុក (Pre-Order)' : 'Out of Stock (0)'}
+                        </span>
+                      ) : (
+                        <span className={product.stock_qty <= 2 ? 'text-amber-700 font-bold' : 'text-slate-500'}>
+                          {product.stock_qty} {t('pos.inStockUnit', 'in stock')}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -611,15 +655,18 @@ export const PosTerminal = () => {
                     </div>
 
                     <button
-                      disabled={product.stock_qty <= 0}
                       onClick={(e) => {
                         e.stopPropagation();
                         addToCart(product);
                       }}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs cursor-pointer transition-all active:scale-95 shadow-xs"
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-xs cursor-pointer transition-all active:scale-95 shadow-xs ${
+                        isOutOfStock
+                          ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                          : 'bg-amber-500 hover:bg-amber-600 text-white'
+                      }`}
                     >
                       <FontAwesomeIcon icon={faPlus} className="w-3.5 h-3.5" />
-                      {t('pos.add', 'Add')}
+                      {isOutOfStock ? (isKhmer ? 'កុម្ម៉ង់' : 'Pre-Order') : t('pos.add', 'Add')}
                     </button>
                   </div>
                 </div>
@@ -1759,6 +1806,86 @@ export const PosTerminal = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CRAFTING ORDER REQUIRED MODAL FOR PRE-ORDERS */}
+      {craftingPromptModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shrink-0">
+                <FontAwesomeIcon icon={faWandMagicSparkles} className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold font-serif text-slate-900">
+                  {isKhmer ? 'ការបញ្ជាទិញកុម្ម៉ង់កែច្នៃ (Pre-Order Crafting)' : 'Pre-Order Crafting Required'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isKhmer
+                    ? 'វិក្កយបត្រត្រូវបានកត់ត្រាជា Pending ដោយសារទំនិញអស់ពីស្តុក។'
+                    : 'Sale recorded as Pending because item(s) are out-of-stock.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="flex justify-between text-slate-700">
+                <span className="font-semibold">{isKhmer ? 'លេខវិក្កយបត្រ:' : 'Invoice No:'}</span>
+                <span className="font-mono font-bold text-amber-950">{craftingPromptModal.sale?.invoice_no}</span>
+              </div>
+              <div className="flex justify-between text-slate-700">
+                <span className="font-semibold">{isKhmer ? 'អតិថិជន:' : 'Customer:'}</span>
+                <span className="font-bold text-slate-900">{craftingPromptModal.sale?.customer_name || 'Walk-in Guest'}</span>
+              </div>
+              <div className="pt-2 border-t border-amber-200/60">
+                <div className="text-[11px] font-bold text-slate-600 mb-1">{isKhmer ? 'មុខទំនិញត្រូវកែច្នៃ:' : 'Items to Craft:'}</div>
+                {craftingPromptModal.items?.map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center py-1 font-medium">
+                    <span className="text-slate-800">{item.name} (x{item.qty})</span>
+                    <span className="text-amber-800 font-bold text-[10px] bg-amber-100 px-2 py-0.5 rounded">
+                      {isKhmer ? 'អស់ស្តុក' : 'Out of Stock'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1 text-slate-600">
+              <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                <FontAwesomeIcon icon={faCircleInfo} className="text-amber-600 w-3.5 h-3.5" />
+                <span>{isKhmer ? 'ជំហានបន្ទាប់នៃដំណើរការ:' : 'Next Pipeline Steps:'}</span>
+              </div>
+              <p className="text-[11px] leading-relaxed">
+                {isKhmer
+                  ? '1. បង្កើតប័ណ្ណកែច្នៃ MadeProduct ➔ 2. ពិនិត្យស្តុក Materials ➔ 3. ទិញចូលពី Supplier (បើខ្វះ) ➔ 4. កែច្នៃរួចកើនស្តុក & ប្រគល់ជូនអតិថិជន'
+                  : '1. Create MadeProduct order ➔ 2. Verify Materials ➔ 3. Procure from Supplier (if low) ➔ 4. Complete & Fulfill'}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const sale = craftingPromptModal.sale;
+                  setCraftingPromptModal(null);
+                  if (sale) setActiveInvoice(sale);
+                }}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+              >
+                {isKhmer ? 'បោះពុម្ពវិក្កយបត្រតែប៉ុណ្ណោះ' : 'Invoice Only'}
+              </button>
+              <button
+                type="button"
+                disabled={creatingCraftingOrder}
+                onClick={() => handleSpawnCraftingOrder(craftingPromptModal.items[0])}
+                className="inline-flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 rounded-lg shadow-xs transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                <FontAwesomeIcon icon={faWandMagicSparkles} className="w-3.5 h-3.5" />
+                <span>{creatingCraftingOrder ? (isKhmer ? 'កំពុងបង្កើត...' : 'Generating...') : (isKhmer ? 'បង្កើតបញ្ជាកែច្នៃ (MadeProduct)' : 'Create MadeProduct Order')}</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

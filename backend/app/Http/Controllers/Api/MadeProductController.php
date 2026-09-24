@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\MadeProduct;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -171,15 +172,41 @@ class MadeProductController extends Controller
             'status' => 'required|in:pending,in_progress,completed,cancelled',
         ]);
 
-        $updates = ['status' => $validated['status']];
-        if ($validated['status'] === 'in_progress' && !$madeProduct->started_at) {
+        $oldStatus = $madeProduct->status;
+        $newStatus = $validated['status'];
+
+        $updates = ['status' => $newStatus];
+        if ($newStatus === 'in_progress' && !$madeProduct->started_at) {
             $updates['started_at'] = now();
         }
-        if (in_array($validated['status'], ['completed', 'cancelled'], true) && !$madeProduct->completed_at) {
+        if (in_array($newStatus, ['completed', 'cancelled'], true) && !$madeProduct->completed_at) {
             $updates['completed_at'] = now();
         }
 
         $madeProduct->update($updates);
+
+        // Auto replenish finished Product stock when status becomes completed
+        if ($newStatus === 'completed' && $oldStatus !== 'completed') {
+            $product = $madeProduct->product;
+            if ($product) {
+                $qty = $madeProduct->quantity ?? 1;
+                $product->increment('stock_qty', $qty);
+                if ($product->stock_qty > 0 && $product->status === 'out_of_stock') {
+                    $product->update(['status' => 'active']);
+                }
+            }
+        } elseif ($oldStatus === 'completed' && $newStatus !== 'completed') {
+            $product = $madeProduct->product;
+            if ($product) {
+                $qty = $madeProduct->quantity ?? 1;
+                $newStock = max(0, $product->stock_qty - $qty);
+                $product->update([
+                    'stock_qty' => $newStock,
+                    'status' => $newStock <= 0 ? 'out_of_stock' : $product->status,
+                ]);
+            }
+        }
+
         $madeProduct->load(self::WITH);
 
         return response()->json([
