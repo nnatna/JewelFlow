@@ -41,11 +41,17 @@ export const UsersSettingsSection = () => {
     deleteUser,
     toggleUserStatus,
     confirmDialog,
-    showToast
+    showToast,
+    currentUser,
+    hasPermission,
+    hasRole
   } = useApp();
 
   const currentLang = (i18n.language || 'km').startsWith('en') ? 'en' : 'km';
   const isKhmer = currentLang === 'km';
+
+  const canManageUsers = hasPermission('manage_users') || hasRole(['super_admin', 'admin', 'manager']);
+  const canDeleteUsers = hasPermission('manage_users') || hasRole(['super_admin', 'admin']);
 
   // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -271,6 +277,11 @@ export const UsersSettingsSection = () => {
 
   // Delete User
   const handleDeleteUser = async (user) => {
+    if (!canDeleteUsers) {
+      showToast(isKhmer ? 'អ្នកមិនមានសិទ្ធិលុបគណនីបុគ្គលិកទេ!' : 'You do not have permission to delete staff accounts!', 'error');
+      return;
+    }
+
     const isSuper = user.role_name === 'super_admin' || user.email === 'superadmin@jewelflow.com';
     if (isSuper) {
       showToast(isKhmer ? 'មិនអាចលុបគណនី SuperAdmin បានទេ!' : 'SuperAdmin account cannot be deleted!', 'warning');
@@ -333,14 +344,16 @@ export const UsersSettingsSection = () => {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer shrink-0 active:scale-95"
-          >
-            <FontAwesomeIcon icon={faUserPlus} className="w-3.5 h-3.5" />
-            <span>{isKhmer ? 'បន្ថែមបុគ្គលិកថ្មី' : 'Add New Staff'}</span>
-          </button>
+          {canManageUsers && (
+            <button
+              type="button"
+              onClick={openCreateModal}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer shrink-0 active:scale-95"
+            >
+              <FontAwesomeIcon icon={faUserPlus} className="w-3.5 h-3.5" />
+              <span>{isKhmer ? 'បន្ថែមបុគ្គលិកថ្មី' : 'Add New Staff'}</span>
+            </button>
+          )}
         </div>
 
         {/* 4 Mini KPI Cards */}
@@ -596,23 +609,33 @@ export const UsersSettingsSection = () => {
 
                       {/* Actions */}
                       <td className="py-3 px-4 whitespace-nowrap text-right space-x-1.5">
-                        <button
-                          type="button"
-                          onClick={() => openEditModal(user)}
-                          className="p-2 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-950 border border-slate-200 hover:border-amber-300 transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center"
-                          title={isKhmer ? 'កែប្រែ' : 'Edit Staff'}
-                        >
-                          <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
-                        </button>
+                        {canManageUsers && (
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(user)}
+                            className="p-2 rounded-xl bg-slate-100 hover:bg-amber-100 text-slate-700 hover:text-amber-950 border border-slate-200 hover:border-amber-300 transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center"
+                            title={isKhmer ? 'កែប្រែ' : 'Edit Staff'}
+                          >
+                            <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
+                          </button>
+                        )}
 
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteUser(user)}
-                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-800 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center"
-                          title={isKhmer ? 'លុប' : 'Delete Staff'}
-                        >
-                          <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
-                        </button>
+                        {canDeleteUsers && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteUser(user)}
+                            className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 hover:text-rose-800 border border-rose-200 hover:border-rose-300 transition-all cursor-pointer shadow-2xs inline-flex items-center justify-center"
+                            title={isKhmer ? 'លុប' : 'Delete Staff'}
+                          >
+                            <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+
+                        {!canManageUsers && !canDeleteUsers && (
+                          <span className="text-xs text-slate-400 italic px-2 py-1 bg-slate-50 rounded-lg border border-slate-200">
+                            {isKhmer ? 'មើលតែប៉ុណ្ណោះ' : 'View Only'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

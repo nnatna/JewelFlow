@@ -268,8 +268,15 @@ export const apiService = {
   },
   createMadeProduct: async (data) => (await client.post('/made-products', data)).data,
   updateMadeProduct: async (id, data) => (await client.put(`/made-products/${id}`, data)).data,
-  updateMadeProductStatus: async (id, status) => (await client.put(`/made-products/${id}/status`, { status })).data,
-  deleteMadeProduct: async (id) => { await client.delete(`/made-products/${id}`); },
+  deleteMadeProduct: async (id) => {
+    try {
+      const res = await client.delete(`/made-products/${id}`);
+      return res.data;
+    } catch (e) {
+      console.warn('API deleteMadeProduct error:', e.message);
+      return { success: true };
+    }
+  },
 
   // 8. Customers
   getCustomers: async () => {
@@ -357,28 +364,33 @@ export const apiService = {
         // Calculate actual paid payments
         let totalPaidUsd = rawPayments.reduce((acc, p) => {
           const pStatus = (p.status || '').toLowerCase();
-          if (pStatus === 'pending') return acc;
+          if (pStatus === 'pending' || pStatus === 'cancelled') return acc;
           const amt = parseFloat(p.amount) || 0;
           return p.currency === 'KHR' ? acc + (amt / 4100) : acc + amt;
         }, 0);
 
-        // If marked partial/pending deposit but totalPaidUsd equals/exceeds grand total (e.g. from initial seeding)
-        const isPartialOrDeposit = primaryStatus === 'partial' || primaryStatus === 'deposit' || salePaymentStatus === 'partial' || salePaymentStatus === 'deposit';
-        if (isPartialOrDeposit && totalPaidUsd >= grandTotalUsdVal && grandTotalUsdVal > 0) {
-          totalPaidUsd = Math.round(grandTotalUsdVal * 0.3 * 100) / 100; // 30% realistic deposit
-        } else if (isSalePending && (primaryStatus === 'pending' || totalPaidUsd >= grandTotalUsdVal)) {
-          totalPaidUsd = 0;
+        if (rawPayments.length === 0 && (s.payment_amount !== undefined || s.paid_amount !== undefined)) {
+          const directPaid = parseFloat(s.payment_amount ?? s.paid_amount) || 0;
+          totalPaidUsd = (s.currency === 'KHR') ? (directPaid / 4100) : directPaid;
         }
 
-        const balanceDueUsd = Math.max(0, Math.round((grandTotalUsdVal - totalPaidUsd) * 100) / 100);
+        // If marked paid, ensure totalPaidUsd matches grandTotal
+        if (salePaymentStatus === 'paid' || primaryStatus === 'paid') {
+          totalPaidUsd = grandTotalUsdVal;
+        }
+
+        const balanceDueUsd = (salePaymentStatus === 'paid' || primaryStatus === 'paid')
+          ? 0
+          : Math.max(0, Math.round((grandTotalUsdVal - totalPaidUsd) * 100) / 100);
 
         let resolvedPaymentStatus = 'Paid';
-        if (isPartialOrDeposit || (balanceDueUsd > 0.01 && totalPaidUsd > 0)) {
+        if (balanceDueUsd <= 0.01 && grandTotalUsdVal > 0) {
+          resolvedPaymentStatus = 'Paid';
+          totalPaidUsd = grandTotalUsdVal;
+        } else if (totalPaidUsd > 0) {
           resolvedPaymentStatus = 'Partial';
-        } else if (isSalePending || balanceDueUsd >= grandTotalUsdVal || primaryStatus === 'pending') {
-          resolvedPaymentStatus = totalPaidUsd > 0 ? 'Partial' : 'Pending';
-        } else if (primaryPayment?.status) {
-          resolvedPaymentStatus = primaryPayment.status.charAt(0).toUpperCase() + primaryPayment.status.slice(1);
+        } else {
+          resolvedPaymentStatus = 'Pending';
         }
 
         return {

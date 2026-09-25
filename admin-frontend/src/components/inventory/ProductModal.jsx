@@ -11,7 +11,8 @@ import {
   faTrash,
   faCoins,
   faScaleBalanced,
-  faCircleExclamation
+  faCircleExclamation,
+  faLock
 } from '@fortawesome/free-solid-svg-icons';
 
 export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
@@ -314,15 +315,26 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
 
               {/* Inventory Quantity */}
               <div>
-                <label className="block text-slate-700 font-bold mb-1">
-                  {t('productModal.stockQty', 'Inventory Quantity')}
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-slate-700 font-bold">
+                    {t('productModal.stockQty', 'Inventory Quantity')}
+                  </label>
+                  {Boolean(initialData) && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                      <FontAwesomeIcon icon={faLock} className="w-2.5 h-2.5 text-slate-400" />
+                      <span>{isKhmer ? 'មិនអាចកែប្រែបានទេ (គ្រប់គ្រងដោយប្រតិបត្តិការ)' : 'Locked / Read-only'}</span>
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="0"
                   step="1"
+                  disabled={Boolean(initialData)}
+                  readOnly={Boolean(initialData)}
                   value={formData.stock_qty === 0 || formData.stock_qty ? formData.stock_qty : ''}
                   onChange={(e) => {
+                    if (initialData) return;
                     const raw = e.target.value;
                     if (raw === '') {
                       setFormData({ ...formData, stock_qty: '' });
@@ -336,7 +348,12 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
                       setFormData({ ...formData, stock_qty: 0 });
                     }
                   }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:border-amber-500 focus:bg-white focus:outline-none transition-colors"
+                  className={`w-full border rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold transition-colors ${
+                    initialData
+                      ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed select-none opacity-80'
+                      : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none'
+                  }`}
+                  title={initialData ? (isKhmer ? 'ចំនួនស្តុកមិនអាចកែប្រែដោយផ្ទាល់បានទេ' : 'Stock quantity is locked and managed through transactions') : ''}
                 />
               </div>
 

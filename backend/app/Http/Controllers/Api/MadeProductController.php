@@ -89,6 +89,20 @@ class MadeProductController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
+        // Sanitize empty strings to null or defaults
+        $data = $request->all();
+        foreach (['supplier_id', 'user_id', 'unit_id', 'started_at', 'completed_at', 'notes'] as $field) {
+            if (array_key_exists($field, $data) && ($data[$field] === '' || $data[$field] === 'null')) {
+                $data[$field] = null;
+            }
+        }
+        foreach (['metal_weight_used', 'waste_weight', 'crafting_cost'] as $numField) {
+            if (array_key_exists($numField, $data) && $data[$numField] === '') {
+                $data[$numField] = 0;
+            }
+        }
+        $request->merge($data);
+
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
             'metal_type_id' => 'required|exists:metal_types,id',
@@ -110,6 +124,11 @@ class MadeProductController extends Controller
             : ('MP-' . strtoupper(bin2hex(random_bytes(4))));
         $validated['quantity'] = $validated['quantity'] ?? 1;
         $validated['status'] = $validated['status'] ?? 'pending';
+        $validated['supplier_id'] = !empty($validated['supplier_id']) ? $validated['supplier_id'] : null;
+        $validated['user_id'] = !empty($validated['user_id']) ? $validated['user_id'] : null;
+        $validated['started_at'] = !empty($validated['started_at']) ? $validated['started_at'] : null;
+        $validated['completed_at'] = !empty($validated['completed_at']) ? $validated['completed_at'] : null;
+        $validated['notes'] = !empty($validated['notes']) ? $validated['notes'] : null;
 
         $madeProduct = MadeProduct::create($validated);
         $madeProduct->load(self::WITH);
@@ -134,6 +153,20 @@ class MadeProductController extends Controller
     {
         $madeProduct = MadeProduct::findOrFail($id);
 
+        // Sanitize empty strings to null or defaults
+        $data = $request->all();
+        foreach (['supplier_id', 'user_id', 'unit_id', 'started_at', 'completed_at', 'notes'] as $field) {
+            if (array_key_exists($field, $data) && ($data[$field] === '' || $data[$field] === 'null')) {
+                $data[$field] = null;
+            }
+        }
+        foreach (['metal_weight_used', 'waste_weight', 'crafting_cost'] as $numField) {
+            if (array_key_exists($numField, $data) && $data[$numField] === '') {
+                $data[$numField] = 0;
+            }
+        }
+        $request->merge($data);
+
         $validated = $request->validate([
             'product_id' => 'sometimes|required|exists:products,id',
             'metal_type_id' => 'sometimes|required|exists:metal_types,id',
@@ -155,6 +188,19 @@ class MadeProductController extends Controller
             'completed_at' => 'nullable|date',
             'notes' => 'nullable|string',
         ]);
+
+        if (array_key_exists('supplier_id', $validated)) {
+            $validated['supplier_id'] = !empty($validated['supplier_id']) ? $validated['supplier_id'] : null;
+        }
+        if (array_key_exists('user_id', $validated)) {
+            $validated['user_id'] = !empty($validated['user_id']) ? $validated['user_id'] : null;
+        }
+        if (array_key_exists('started_at', $validated)) {
+            $validated['started_at'] = !empty($validated['started_at']) ? $validated['started_at'] : null;
+        }
+        if (array_key_exists('completed_at', $validated)) {
+            $validated['completed_at'] = !empty($validated['completed_at']) ? $validated['completed_at'] : null;
+        }
 
         $madeProduct->update($validated);
         $madeProduct->load(self::WITH);
@@ -250,8 +296,13 @@ class MadeProductController extends Controller
      */
     public function destroy($id): JsonResponse
     {
-        $madeProduct = MadeProduct::findOrFail($id);
-        $madeProduct->delete();
+        $madeProduct = is_numeric($id) ? MadeProduct::find($id) : null;
+        if (!$madeProduct) {
+            $madeProduct = MadeProduct::where('order_no', $id)->first() ?? MadeProduct::find($id);
+        }
+        if ($madeProduct) {
+            $madeProduct->delete();
+        }
 
         return response()->json([
             'success' => true,

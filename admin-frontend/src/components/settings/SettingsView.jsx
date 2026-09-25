@@ -29,11 +29,18 @@ export const SettingsView = () => {
   const {
     backendConnected,
     settingsTab,
-    setSettingsTab
+    setSettingsTab,
+    hasPermission,
+    hasRole,
+    currentUser
   } = useApp();
 
   const currentLang = (i18n.language || 'km').startsWith('en') ? 'en' : 'km';
   const isKhmer = currentLang === 'km';
+
+  const isSuperOrAdmin = hasRole(['super_admin', 'admin']) || currentUser?.email === 'superadmin@jewelflow.com';
+  const canViewUsers = hasPermission('view_users') || hasPermission('manage_users') || isSuperOrAdmin;
+  const canManageSettings = hasPermission('manage_settings') || isSuperOrAdmin;
 
   // Active Settings Sidebar Tab
   const [activeTab, setActiveTab] = useState(settingsTab || 'profile');
@@ -52,7 +59,7 @@ export const SettingsView = () => {
   };
 
   // Categorized Sidebar Navigation Items
-  const settingsCategoryGroups = [
+  const rawSettingsCategoryGroups = [
     {
       groupTitle: isKhmer ? 'គណនី & សុវត្ថិភាព' : 'ACCOUNT & SECURITY',
       items: [
@@ -114,6 +121,16 @@ export const SettingsView = () => {
       ]
     }
   ];
+
+  const settingsCategoryGroups = rawSettingsCategoryGroups.map(group => {
+    const items = group.items.filter(item => {
+      if (item.id === 'profile') return true;
+      if (item.id === 'users') return canViewUsers;
+      if (item.id === 'system') return isSuperOrAdmin;
+      return canManageSettings || isSuperOrAdmin;
+    });
+    return { ...group, items };
+  }).filter(group => group.items.length > 0);
 
   return (
     <div className="w-full h-full flex flex-col min-h-0 gap-4 select-none overflow-hidden">

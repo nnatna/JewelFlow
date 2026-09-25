@@ -16,21 +16,17 @@ class AuthController extends Controller
      */
     protected function formatUserResponse(User $user): array
     {
-        $allPerms = [];
-        $directPerms = [];
-        try {
-            if (method_exists($user, 'getAllPermissions')) {
-                $allPerms = $user->getAllPermissions()->pluck('name')->toArray();
-            }
-            if (method_exists($user, 'getDirectPermissions')) {
-                $directPerms = $user->getDirectPermissions()->pluck('name')->toArray();
-            }
-        } catch (\Throwable $e) {
-            // fallback
-            if ($user->role && $user->role->permissions) {
-                $allPerms = $user->role->permissions->pluck('name')->toArray();
-            }
+        $rolePerms = [];
+        if ($user->role) {
+            $rolePerms = $user->role->permissions()->pluck('name')->toArray();
         }
+
+        $directPerms = [];
+        if (method_exists($user, 'permissions')) {
+            $directPerms = $user->permissions()->pluck('name')->toArray();
+        }
+
+        $allPerms = array_values(array_unique(array_merge($rolePerms, $directPerms)));
 
         $userData = $user->toArray();
         $userData['all_permissions'] = $allPerms;

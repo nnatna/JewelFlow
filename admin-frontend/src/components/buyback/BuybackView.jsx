@@ -471,27 +471,7 @@ export const BuybackView = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="relative min-w-[240px] sm:min-w-[280px]">
-              <FontAwesomeIcon icon={faFilter} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={isKhmer ? 'ស្វែងរកលេខប័ណ្ណ ឈ្មោះអតិថិជន លេខទូរស័ព្ទ...' : 'Search voucher #, customer, phone...'}
-                className="w-full pl-9 pr-8 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
-              />
-              {cleanQ && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
-                  title={isKhmer ? 'សម្អាត' : 'Clear'}
-                >
-                  <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
-                </button>
-              )}
-            </div>
-
+          <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 font-semibold shrink-0">
               {filteredBuybacks.length} {isKhmer ? 'ប័ណ្ណ' : 'vouchers'}
             </span>

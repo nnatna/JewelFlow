@@ -73,7 +73,7 @@ const selectCls = "w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-sl
 
 export const PromotionsView = () => {
   const { t, i18n } = useTranslation();
-  const { promotions, products, tiers, addPromotion, editPromotion, removePromotion, confirmDialog, showToast } = useApp();
+  const { promotions, products, tiers, addPromotion, editPromotion, removePromotion, confirmDialog, showToast, searchQuery } = useApp();
   const isKhmer = (i18n.language || '').startsWith('km');
   const tierOptions = (tiers || []).filter(tier => tier.is_active).map(tier => ({ value: tier.name, label: tier.name, labelEn: tier.name, labelKh: tier.name }));
 
@@ -82,7 +82,6 @@ export const PromotionsView = () => {
   const [form, setForm] = useState(DEFAULT_FORM);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [search, setSearch] = useState('');
   const [filterTier, setFilterTier] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -90,14 +89,14 @@ export const PromotionsView = () => {
   // ── Filtered list ──────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return (promotions || []).filter(p => {
-      const q = search.toLowerCase();
+      const q = (searchQuery || '').toLowerCase().trim();
       const matchSearch = !q ||
         p.name.toLowerCase().includes(q) ||
         (p.description || '').toLowerCase().includes(q);
       const matchTier = !filterTier || p.tier_requirement === filterTier;
       return matchSearch && matchTier;
     });
-  }, [promotions, search, filterTier]);
+  }, [promotions, searchQuery, filterTier]);
 
   // ── Paginated slice ────────────────────────────────────────────────────────
   const paginatedPromotions = useMemo(() => {
@@ -255,19 +254,10 @@ export const PromotionsView = () => {
       </div>
 
       {/* ── Filter Bar ───────────────────────────────────────────────────── */}
-      <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3 shadow-xs">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
-          <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 w-3.5 h-3.5 pointer-events-none" />
-          <input
-            value={search}
-            onChange={e => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-            placeholder={isKhmer ? 'ស្វែងរកឈ្មោះ ឬ ពិពណ៌នា...' : 'Search by name or description…'}
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-lg border border-slate-200 bg-slate-50 text-slate-700 placeholder-slate-300 focus:outline-none focus:ring-2 focus:ring-amber-400/30 focus:border-amber-500 transition-all"
-          />
+      <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+          <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+          <span>{filtered.length} {isKhmer ? 'ប្រម៉ូសិន' : 'promotions listed'}</span>
         </div>
 
         {/* Tier filter */}

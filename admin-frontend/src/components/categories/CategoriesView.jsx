@@ -119,13 +119,13 @@ export const CategoriesView = () => {
     deleteCategory,
     refreshCategories,
     confirmDialog,
-    showToast
+    showToast,
+    searchQuery
   } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
 
   // State
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilterType, setSelectedFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('name_asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -145,11 +145,11 @@ export const CategoriesView = () => {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedFilterType, sortBy]);
+  }, [searchQuery, selectedFilterType, sortBy]);
 
   // Filtered & Sorted Categories
   const filteredCategories = useMemo(() => {
-    const q = searchTerm.toLowerCase().trim();
+    const q = (searchQuery || '').toLowerCase().trim();
     let list = (categories || []).filter(cat => {
       const matchesSearch = !q || (
         (cat.name || '').toLowerCase().includes(q) ||
@@ -175,7 +175,7 @@ export const CategoriesView = () => {
     });
 
     return list;
-  }, [categories, products, searchTerm, selectedFilterType, sortBy]);
+  }, [categories, products, searchQuery, selectedFilterType, sortBy]);
 
   // Paginated Slice
   const totalPages = Math.ceil(filteredCategories.length / pageSize) || 1;
@@ -424,35 +424,12 @@ export const CategoriesView = () => {
         </div>
       </div>
 
-      {/* ── Filter Toolbar (Matching Jewel Catalog Filter Bar) ──────────────── */}
+      {/* ── Filter Toolbar ────────────────────────────────────────────────── */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs w-full">
-        {/* Left Side: Search input & filter tag */}
-        <div className="flex items-center gap-3 w-full md:w-auto flex-1">
-          <div className="relative flex-1 max-w-xs">
-            <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder={isKhmer ? 'ស្វែងរកឈ្មោះប្រភេទ ឬ Slug...' : 'Search category name or slug...'}
-              className="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 font-semibold focus:outline-none focus:border-amber-500 focus:bg-white focus:ring-2 focus:ring-amber-200/50 transition-all"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-
-          {searchTerm && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
-              <FontAwesomeIcon icon={faFilter} className="w-3 h-3 text-amber-600" />
-              <span>"{searchTerm}"</span>
-            </div>
-          )}
+        {/* Left Side: Count summary */}
+        <div className="flex items-center gap-2 text-slate-500 font-medium">
+          <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+          <span>{filteredCategories.length} {isKhmer ? 'ប្រភេទត្រូវបានរកឃើញ' : 'categories listed'}</span>
         </div>
 
         {/* Right Side: Collection Type Chips & Sort */}

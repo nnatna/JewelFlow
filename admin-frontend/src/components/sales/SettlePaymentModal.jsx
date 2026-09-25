@@ -24,31 +24,22 @@ export const SettlePaymentModal = ({ sale, onClose, onSuccess }) => {
   const fxRate = Number(exchangeRate?.rate) || 4100;
   const grandTotalUsd = parseFloat(sale?.grand_total_usd ?? sale?.grand_total) || 0;
   const grandTotalKhr = parseFloat(sale?.grand_total_khr) || Math.round(grandTotalUsd * fxRate);
+  const isCancelled = (sale?.status || '').toLowerCase() === 'cancelled';
   
-  // Calculate paid and balance due accurately
-  let rawBalanceDueUsd = parseFloat(sale?.balance_due);
-  let paidAmountUsd = parseFloat(sale?.paid_amount);
-
-  if (isNaN(paidAmountUsd)) {
+  // Calculate paid and balance due accurately (if cancelled, charge full price again)
+  let paidAmountUsd = isCancelled ? 0 : parseFloat(sale?.paid_amount);
+  if (!isCancelled && isNaN(paidAmountUsd)) {
     paidAmountUsd = (sale?.payments || [])
       .filter(p => (p.status || '').toLowerCase() === 'paid')
       .reduce((sum, p) => sum + (p.currency === 'KHR' ? (parseFloat(p.amount) || 0) / fxRate : (parseFloat(p.amount) || 0)), 0);
   }
 
-  // If sale was pending or partial, but paid was recorded as 100% / full grand total, adjust it
-  if (paidAmountUsd >= grandTotalUsd && grandTotalUsd > 0) {
-    paidAmountUsd = Math.round(grandTotalUsd * 0.3 * 100) / 100; // 30% deposit default
-  }
-
-  let balanceDueUsd = (!isNaN(rawBalanceDueUsd) && rawBalanceDueUsd > 0.01)
-    ? rawBalanceDueUsd
-    : Math.max(0, Math.round((grandTotalUsd - paidAmountUsd) * 100) / 100);
-
-  // If balanceDueUsd is still 0 but grandTotal > 0, make full grand total due
-  if (balanceDueUsd <= 0.01 && grandTotalUsd > 0) {
-    balanceDueUsd = grandTotalUsd;
-    paidAmountUsd = 0;
-  }
+  let rawBalanceDueUsd = parseFloat(sale?.balance_due);
+  let balanceDueUsd = isCancelled
+    ? grandTotalUsd
+    : ((!isNaN(rawBalanceDueUsd) && rawBalanceDueUsd >= 0)
+        ? rawBalanceDueUsd
+        : Math.max(0, Math.round((grandTotalUsd - (paidAmountUsd || 0)) * 100) / 100));
 
   const balanceDueKhr = Math.round(balanceDueUsd * fxRate);
 
@@ -149,10 +140,15 @@ export const SettlePaymentModal = ({ sale, onClose, onSuccess }) => {
         notes: notes || (isKhmer ? 'ទូទាត់ប្រាក់បង្គ្រប់ការកក់ (Deposit Settlement)' : 'Deposit Settlement Payment')
       });
 
+      const isPendingCrafting = updated?.status === 'pending';
       showToast(
-        isKhmer
-          ? `បានទូទាត់ប្រាក់បង្គ្រប់ និងបញ្ចប់វិក្កយបត្រ #${sale.invoice_no} ជោគជ័យ!`
-          : `Invoice #${sale.invoice_no} balance settled & order completed!`,
+        isPendingCrafting
+          ? (isKhmer
+              ? `បានទូទាត់ប្រាក់បង្គ្រប់វិក្កយបត្រ #${sale.invoice_no}! ស្ថានភាពនៅ Pending (រង់ចាំជាងផលិតរួច)`
+              : `Invoice #${sale.invoice_no} paid in full! Status remains Pending awaiting crafting completion.`)
+          : (isKhmer
+              ? `បានទូទាត់ប្រាក់បង្គ្រប់ និងបញ្ចប់វិក្កយបត្រ #${sale.invoice_no} (Completed) ជោគជ័យ!`
+              : `Invoice #${sale.invoice_no} balance settled & order Completed!`),
         'success'
       );
 
@@ -208,42 +204,61 @@ export const SettlePaymentModal = ({ sale, onClose, onSuccess }) => {
                 <span className="text-slate-700 font-medium">{sale.customer_name || 'Walk-in Guest'}</span>
                 {sale.customer_phone && <span className="text-slate-400 font-mono text-[11px]">({sale.customer_phone})</span>}
               </div>
-              <span className="px-2 py-0.5 rounded-full font-bold text-[10.5px] bg-amber-50 text-amber-900 border border-amber-300">
-                {isKhmer ? 'កក់ប្រាក់ (Deposit)' : 'Partial / Deposit'}
-              </span>
+              {isCancelled ? (
+                <span className="px-2 py-0.5 rounded-full font-bold text-[10.5px] bg-rose-50 text-rose-800 border border-rose-300">
+                  {isKhmer ? 'បោះបង់កន្លងមក (Cancelled Order)' : 'Cancelled Order'}
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full font-bold text-[10.5px] bg-amber-50 text-amber-900 border border-amber-300">
+                  {isKhmer ? 'កក់ប្រាក់ (Deposit)' : 'Partial / Deposit'}
+                </span>
+              )}
             </div>
 
             {/* Total Due Banner with Financial Summary Breakdown (POS Style) */}
-            <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-50 to-amber-100/60 border border-amber-200">
-              <div className="text-center pb-2 border-b border-amber-200/80">
-                <span className="text-xs text-amber-900/80 uppercase font-semibold tracking-wider block">
-                  {isKhmer ? 'សមតុល្យនៅខ្វះត្រូវទូទាត់' : 'Remaining Balance Due'}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-50/90 via-amber-100/50 to-yellow-50/80 border border-amber-200/90 shadow-2xs space-y-3">
+              <div className="text-center pb-2.5 border-b border-amber-200/70">
+                <span className="text-[11px] text-amber-900/90 uppercase font-bold tracking-wider block">
+                  {isCancelled 
+                    ? (isKhmer ? 'គិតតម្លៃពេញវិញ (Full Amount Due)' : 'Order Re-settlement (Full Grand Total)')
+                    : (isKhmer ? 'សមតុល្យនៅខ្វះត្រូវទូទាត់បង្គ្រប់' : 'Remaining Balance Due to Settle')}
                 </span>
-                <div className="mt-0.5">
-                  <span className="text-2xl sm:text-3xl font-mono font-extrabold text-amber-950 block">
+                <div className="mt-1">
+                  <span className="text-3xl sm:text-4xl font-mono font-black text-amber-950 block tracking-tight">
                     ${balanceDueUsd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
-                  <span className="text-xs font-mono font-bold text-amber-800 block mt-0.5">
+                  <span className="text-xs font-mono font-extrabold text-amber-800 block mt-0.5">
                     ≈ ៛{balanceDueKhr.toLocaleString()} KHR
                   </span>
                 </div>
               </div>
 
               {/* Subtotal / Deposit / Balance Ledger */}
-              <div className="pt-2 grid grid-cols-3 gap-2 text-center text-[11px] font-mono">
-                <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
-                  <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'សរុបដើម' : 'Grand Total'}</span>
-                  <span className="font-bold text-slate-800">${grandTotalUsd.toFixed(2)}</span>
-                </div>
-                <div className="bg-emerald-50 p-1.5 rounded-lg border border-emerald-200">
-                  <span className="text-[10px] text-emerald-700 block font-sans font-semibold">
-                    {isKhmer ? 'បានកក់' : 'Deposit Paid'}
+              <div className="grid grid-cols-3 gap-2.5 text-center text-xs font-mono">
+                <div className="bg-white/90 p-2 rounded-xl border border-slate-200 shadow-2xs flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-500 block font-sans font-semibold mb-0.5">
+                    {isKhmer ? 'តម្លៃសរុប (Total)' : 'Grand Total'}
                   </span>
-                  <span className="font-bold text-emerald-700">${paidAmountUsd.toFixed(2)}</span>
+                  <span className="font-extrabold text-slate-900 text-[13px]">${grandTotalUsd.toFixed(2)}</span>
+                  <span className="text-[9.5px] text-slate-400 font-sans">≈ ៛{grandTotalKhr.toLocaleString()}</span>
                 </div>
-                <div className="bg-rose-50 p-1.5 rounded-lg border border-rose-200">
-                  <span className="text-[10px] text-rose-700 block font-sans font-semibold">{isKhmer ? 'នៅខ្វះ' : 'Due'}</span>
-                  <span className="font-bold text-rose-800">${balanceDueUsd.toFixed(2)}</span>
+                <div className="bg-emerald-50/90 p-2 rounded-xl border border-emerald-200 shadow-2xs flex flex-col justify-center">
+                  <span className="text-[10px] text-emerald-700 block font-sans font-semibold mb-0.5">
+                    {isKhmer ? 'បានកក់រួច (Paid)' : 'Deposit Paid'}
+                  </span>
+                  <span className="font-extrabold text-emerald-700 text-[13px]">${paidAmountUsd.toFixed(2)}</span>
+                  <span className="text-[9.5px] text-emerald-600 font-sans">
+                    {grandTotalUsd > 0 ? `${((paidAmountUsd / grandTotalUsd) * 100).toFixed(0)}%` : '0%'}
+                  </span>
+                </div>
+                <div className="bg-rose-50/90 p-2 rounded-xl border border-rose-200 shadow-2xs flex flex-col justify-center">
+                  <span className="text-[10px] text-rose-700 block font-sans font-semibold mb-0.5">
+                    {isKhmer ? 'នៅសល់ (Due)' : 'Balance Due'}
+                  </span>
+                  <span className="font-extrabold text-rose-800 text-[13px]">${balanceDueUsd.toFixed(2)}</span>
+                  <span className="text-[9.5px] text-rose-600 font-sans">
+                    {grandTotalUsd > 0 ? `${((balanceDueUsd / grandTotalUsd) * 100).toFixed(0)}%` : '0%'}
+                  </span>
                 </div>
               </div>
             </div>

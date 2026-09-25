@@ -42,7 +42,6 @@ export const SuppliersView = () => {
   const isKhmer = currentLang === 'km';
 
   // Search & Pagination State
-  const [localSearch, setLocalSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
@@ -73,12 +72,7 @@ export const SuppliersView = () => {
   const [poErrors, setPoErrors] = useState({});
   const [savingPo, setSavingPo] = useState(false);
 
-  // Sync global search with local
-  useEffect(() => {
-    if (searchQuery) setLocalSearch(searchQuery);
-  }, [searchQuery]);
-
-  const activeSearch = (localSearch || '').toLowerCase().trim();
+  const activeSearch = (searchQuery || '').toLowerCase().trim();
 
   // Filtered suppliers
   const filteredSuppliers = suppliers.filter(s => {
@@ -300,39 +294,16 @@ export const SuppliersView = () => {
         </div>
       </div>
 
-      {/* ── Search & Filter Toolbar ──────────────────────────────────────── */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5">
-        
-        <div className="relative flex-1 max-w-md">
-          <FontAwesomeIcon icon={faSearch} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-          <input
-            type="text"
-            value={localSearch}
-            onChange={e => {
-              setLocalSearch(e.target.value);
-              setSearchQuery(e.target.value);
-            }}
-            placeholder={isKhmer ? 'ស្វែងរកឈ្មោះក្រុមហ៊ុន, អ្នកតំណាង, លេខទូរស័ព្ទ...' : 'Search supplier name, representative, phone...'}
-            className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:outline-none focus:border-amber-500 focus:bg-white transition-colors"
-          />
-          {localSearch && (
-            <button
-              onClick={() => {
-                setLocalSearch('');
-                setSearchQuery('');
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
-            >
-              <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
-            </button>
-          )}
+      {/* ── Partner Certification Banner ─────────────────────────────────── */}
+      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2 text-slate-500 font-medium">
+          <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+          <span>{filteredSuppliers.length} {isKhmer ? 'ដៃគូផ្គត់ផ្គង់' : 'suppliers listed'}</span>
         </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-200">
+        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200">
           <FontAwesomeIcon icon={faShieldHalved} className="w-3.5 h-3.5 text-emerald-600" />
           <span className="font-semibold">{isKhmer ? 'ដៃគូទាំងអស់មានវិញ្ញាបនបត្រ LBMA & RJC' : '100% Certified LBMA & RJC Partners'}</span>
         </div>
-
       </div>
 
       {/* ── Suppliers Table ──────────────────────────────────────────────── */}

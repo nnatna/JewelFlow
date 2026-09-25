@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
 import { InvoiceModal } from '../pos/InvoiceModal';
 import { SettlePaymentModal } from './SettlePaymentModal';
+import { CancelRefundModal } from './CancelRefundModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faClockRotateLeft,
@@ -29,7 +30,19 @@ import {
 
 export const SalesHistoryView = () => {
   const { t, i18n } = useTranslation();
-  const { sales, setActiveTab, updateSaleStatus, updateSaleItemStatus, searchQuery, setSearchQuery } = useApp();
+  const {
+    sales,
+    madeProducts,
+    updateSaleStatus,
+    updateSaleItemStatus,
+    updateMadeProductStatus,
+    exchangeRate,
+    setActiveTab,
+    searchQuery,
+    setSearchQuery,
+    confirmDialog,
+    showToast
+  } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
 
@@ -40,6 +53,7 @@ export const SalesHistoryView = () => {
   const [expandedSaleId, setExpandedSaleId] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [settleModalSale, setSettleModalSale] = useState(null);
+  const [cancelModalSale, setCancelModalSale] = useState(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -133,17 +147,96 @@ export const SalesHistoryView = () => {
     setExpandedSaleId(prev => (prev === id ? null : id));
   };
 
-  // Status Change Interceptor: If changing to completed and has deposit / balance due, popup payment modal
-  const handleStatusChange = (sale, newStatus) => {
+  // Status Change Interceptor: If changing to completed and has deposit / balance due, popup payment modal; if already paid in full, show alert confirm only
+  const handleStatusChange = async (sale, newStatus) => {
+    if (sale.status === newStatus) return;
+
+    const totalVal = parseFloat(sale.grand_total_usd ?? sale.grand_total) || 0;
+    const paidVal = parseFloat(sale.paid_amount ?? 0);
     const rawBalance = parseFloat(sale.balance_due);
-    const hasBalanceDue = (!isNaN(rawBalance) && rawBalance > 0.01) || (sale.payment_status || '').toLowerCase() === 'partial';
-    
-    if (newStatus === 'completed' && hasBalanceDue) {
-      setSettleModalSale(sale);
+    const pStatus = (sale.payment_status || '').toLowerCase();
+
+    // Check if fully paid
+    const isPaidInFull = (pStatus === 'paid') || (paidVal >= totalVal && totalVal > 0) || (rawBalance <= 0.01 && totalVal > 0);
+    const hasBalanceDue = !isPaidInFull && ((!isNaN(rawBalance) && rawBalance > 0.01) || pStatus === 'partial');
+
+    if (newStatus === 'completed') {
+      if (hasBalanceDue) {
+        // Only show payment settlement modal if there is remaining balance due
+        setSettleModalSale(sale);
+        return;
+      }
+
+      // If already paid in full, show alert confirm (not choose payment method modal)
+      const confirmed = await confirmDialog({
+        title: isKhmer ? 'បញ្ជាក់ការបញ្ចប់ការបញ្ជាទិញ?' : 'Complete Order Fulfillment?',
+        text: isKhmer
+          ? `វិក្កយបត្រ #${sale.invoice_no} បានទូទាត់ប្រាក់គ្រប់ចំនួនរួចរាល់។ តើអ្នកចង់ប្តូរស្ថានភាពទៅជា "រួចរាល់ (Completed)" មែនទេ?`
+          : `Invoice #${sale.invoice_no} is already Paid in Full ($${totalVal.toFixed(2)}). Do you want to mark this order as Completed?`,
+        confirmButtonText: isKhmer ? 'យល់ព្រម (Completed)' : 'Yes, Complete Order',
+        cancelButtonText: isKhmer ? 'បោះបង់' : 'Cancel',
+        icon: 'question'
+      });
+
+      if (confirmed) {
+        await updateSaleStatus(sale.id, 'completed');
+        showToast(
+          isKhmer
+            ? `វិក្កយបត្រ #${sale.invoice_no} បានប្តូរជា Completed រួចរាល់!`
+            : `Invoice #${sale.invoice_no} marked as Completed!`,
+          'success'
+        );
+      }
+      return;
+    }
+
+    if (newStatus === 'cancelled') {
+      // Trigger Intelligent Cancellation & Refund Modal
+      setCancelModalSale(sale);
       return;
     }
 
     updateSaleStatus(sale.id, newStatus);
+  };
+
+  // Confirm cancellation and process refund/deduction
+  const handleCancelRefundConfirm = async (refundDetails) => {
+    if (!cancelModalSale) return;
+    try {
+      // 1. Update sale status to cancelled
+      await updateSaleStatus(cancelModalSale.id, 'cancelled');
+
+      // 2. Also cancel any linked Made Jewelry crafting orders that were pending or in-progress
+      const cleanInvNo = String(cancelModalSale.invoice_no || '').replace(/[^a-zA-Z0-9]/g, '');
+      const linked = (madeProducts || []).filter(mp => {
+        const orderNo = String(mp.order_no || '').replace(/[^a-zA-Z0-9]/g, '');
+        const mpNotes = String(mp.notes || '');
+        return cleanInvNo && (orderNo.includes(cleanInvNo) || mpNotes.includes(cancelModalSale.invoice_no));
+      });
+
+      for (const mp of linked) {
+        if (mp.status !== 'cancelled' && mp.status !== 'completed') {
+          await updateMadeProductStatus(mp.id, 'cancelled');
+        }
+      }
+
+      // 3. Inform user with rich notification
+      const stageText = refundDetails.craftingStage === 'pending'
+        ? (isKhmer ? 'មិនទាន់ចាប់ផ្តើមជាង (Pending) - មិនកាត់ថ្លៃឈ្នួលទេ' : 'Not started (Pending) - No labor fee charged')
+        : (isKhmer ? 'កំពុង/បានធ្វើរួច (In Progress/Completed) - បានកាត់ថ្លៃឈ្នួលជាង' : 'In Progress/Completed - Labor fee deducted');
+
+      showToast(
+        isKhmer
+          ? `វិក្កយបត្រ #${cancelModalSale.invoice_no} បានបោះបង់ជោគជ័យ! ដកប្រាក់ជូនអតិថិជន: $${refundDetails.refundAmount?.toFixed(2)} (${stageText})`
+          : `Invoice #${cancelModalSale.invoice_no} cancelled! Refunded: $${refundDetails.refundAmount?.toFixed(2)} (${stageText})`,
+        'warning'
+      );
+
+      setCancelModalSale(null);
+    } catch (err) {
+      console.error('Failed to cancel order:', err);
+      showToast(isKhmer ? 'មានបញ្ហាក្នុងការបោះបង់ការបញ្ជាទិញ' : 'Failed to cancel order', 'error');
+    }
   };
 
   // Payment method badge helper
@@ -321,26 +414,9 @@ export const SalesHistoryView = () => {
 
       {/* Filter & Search Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
-        {/* Active Filter Indicator */}
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          {searchQuery ? (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium text-xs">
-              <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
-              <span>{t('catalog.filterActive', 'Navbar Filter:')} <strong className="font-bold font-mono text-amber-950">"{searchQuery}"</strong></span>
-              <button
-                onClick={() => setSearchQuery('')}
-                className="ml-1 text-slate-400 hover:text-amber-700 p-0.5 rounded transition-colors cursor-pointer"
-                title={t('common.clear', 'Clear')}
-              >
-                <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-              <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
-              <span>{filteredSales.length} {t('salesHistory.recordsFound', 'transactions on record')}</span>
-            </div>
-          )}
+        <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+          <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+          <span>{filteredSales.length} {t('salesHistory.recordsFound', 'transactions on record')}</span>
         </div>
 
         {/* Date & Payment Method Filters */}
@@ -753,6 +829,17 @@ export const SalesHistoryView = () => {
             setSettleModalSale(null);
             setSelectedInvoice(updatedSale || settleModalSale);
           }}
+        />
+      )}
+
+      {/* Intelligent Cancellation & Refund Modal */}
+      {cancelModalSale && (
+        <CancelRefundModal
+          sale={cancelModalSale}
+          madeProducts={madeProducts}
+          exchangeRate={exchangeRate}
+          onClose={() => setCancelModalSale(null)}
+          onConfirm={handleCancelRefundConfirm}
         />
       )}
     </div>

@@ -298,20 +298,7 @@ export const GoldRatesView = () => {
                 </p>
               </div>
 
-              {/* Active Navbar Search Indicator */}
-              {cleanQ && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium text-xs">
-                  <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
-                  <span>{t('catalog.filterActive', 'Navbar Filter:')} <strong className="font-bold font-mono text-amber-950">"{cleanQ}"</strong></span>
-                  <button
-                    onClick={() => setSearchQuery('')}
-                    className="ml-1 text-slate-400 hover:text-amber-700 p-0.5 rounded transition-colors cursor-pointer"
-                    title={t('common.clear', 'Clear')}
-                  >
-                    <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
-                  </button>
-                </div>
-              )}
+
             </div>
 
             <div className="overflow-x-auto">

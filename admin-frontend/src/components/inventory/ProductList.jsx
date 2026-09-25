@@ -188,25 +188,9 @@ export const ProductList = () => {
 
       {/* Filter Toolbar */}
       <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs w-full">
-        <div className="flex items-center gap-2 w-full md:w-auto">
-          {cleanQ ? (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-medium">
-              <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
-              <span>{t('catalog.filterActive', 'Navbar Filter:')} <strong className="font-bold font-mono text-amber-950">"{cleanQ}"</strong></span>
-              <button
-                onClick={() => setSearchQuery('')}
-                className="ml-1 text-slate-400 hover:text-amber-700 p-0.5 rounded transition-colors cursor-pointer"
-                title={t('common.clear', 'Clear')}
-              >
-                <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-slate-500 font-medium">
-              <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
-              <span>{filteredProducts.length} {t('catalog.itemsFound', 'items listed')}</span>
-            </div>
-          )}
+        <div className="flex items-center gap-2 text-slate-500 font-medium">
+          <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+          <span>{filteredProducts.length} {t('catalog.itemsFound', 'items listed')}</span>
         </div>
 
         <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto">

@@ -44,10 +44,28 @@ export const Sidebar = () => {
     currentUser,
     logout,
     confirmDialog,
-    showToast
+    showToast,
+    hasPermission,
+    hasRole
   } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
+
+  // Permission & Role Checks for Navigation
+  const isSuperOrAdmin = hasRole(['super_admin', 'admin']) || currentUser?.email === 'superadmin@jewelflow.com';
+  const canViewPos = isSuperOrAdmin || hasPermission(['view_sales', 'create_sales']) || hasRole(['cashier', 'manager']);
+  const canViewSalesHistory = isSuperOrAdmin || hasPermission('view_sales') || hasRole(['cashier', 'manager', 'accountant']);
+  const canViewProducts = isSuperOrAdmin || hasPermission('view_products');
+  const canViewCategories = isSuperOrAdmin || hasPermission(['view_categories', 'view_products']) || hasRole(['manager', 'cashier']);
+  const canViewMadeProducts = isSuperOrAdmin || hasPermission('view_made_products') || hasRole(['manager', 'cashier', 'goldsmith']);
+  const canViewMaterials = isSuperOrAdmin || hasPermission(['view_materials', 'view_gemstones']) || hasRole(['manager', 'goldsmith']);
+  const canViewInventory = canViewProducts || canViewCategories || canViewMadeProducts || canViewMaterials;
+  const canViewGoldRates = isSuperOrAdmin || hasPermission('view_gold_rates') || hasRole(['cashier', 'manager', 'goldsmith', 'accountant']);
+  const canViewBuybacks = isSuperOrAdmin || hasPermission('view_buybacks') || hasRole(['manager', 'goldsmith', 'accountant']);
+  const canViewCustomers = isSuperOrAdmin || hasPermission(['view_customers', 'manage_customers']) || hasRole(['cashier', 'manager', 'accountant']);
+  const canViewPromotions = isSuperOrAdmin || hasPermission('view_promotions') || hasRole(['cashier', 'manager']);
+  const canViewPurchases = isSuperOrAdmin || hasPermission(['view_purchases', 'manage_suppliers']) || hasRole(['manager', 'accountant']);
+  const canViewReports = isSuperOrAdmin || hasPermission('view_reports') || hasRole(['manager', 'accountant']);
 
   // Inventory Collapsible State
   const isInventoryTab = ['products', 'categories', 'made_products', 'madeproducts', 'materials', 'gemstones'].includes(activeTab);
@@ -140,334 +158,360 @@ export const Sidebar = () => {
         </button>
 
         {/* 2. POS Sales Terminal */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('pos')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'pos'
-              ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-            }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <ShoppingCart
-              className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'pos' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                }`}
-            />
-            <span className="truncate">{t('nav.pos', 'POS Sales Terminal')}</span>
-          </div>
-          {cart.length > 0 && (
-            <span className="bg-amber-100 text-amber-800 border border-amber-200 text-xs px-2 py-0.5 rounded-full font-bold shrink-0">
-              {cart.length}
-            </span>
-          )}
-        </button>
+        {canViewPos && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('pos')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'pos'
+                ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+              }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <ShoppingCart
+                className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'pos' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                  }`}
+              />
+              <span className="truncate">{t('nav.pos', 'POS Sales Terminal')}</span>
+            </div>
+            {cart.length > 0 && (
+              <span className="bg-amber-100 text-amber-800 border border-amber-200 text-xs px-2 py-0.5 rounded-full font-bold shrink-0">
+                {cart.length}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* 3. History Sales */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('sales_history')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'sales_history' || activeTab === 'sales'
-              ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-            }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <History
-              className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'sales_history' || activeTab === 'sales'
-                  ? 'text-amber-600'
-                  : 'text-slate-400 group-hover:text-slate-600'
-                }`}
-            />
-            <span className="truncate">{t('nav.salesHistory', 'History Sales')}</span>
-          </div>
-          <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
-            {salesCount}
-          </span>
-        </button>
+        {canViewSalesHistory && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('sales_history')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'sales_history' || activeTab === 'sales'
+                ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+              }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <History
+                className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'sales_history' || activeTab === 'sales'
+                    ? 'text-amber-600'
+                    : 'text-slate-400 group-hover:text-slate-600'
+                  }`}
+              />
+              <span className="truncate">{t('nav.salesHistory', 'History Sales')}</span>
+            </div>
+            <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+              {salesCount}
+            </span>
+          </button>
+        )}
 
         {/* 4. Inventory Management (Collapsible Accordion) */}
-        <div className="pt-0.5">
-          <button
-            type="button"
-            onClick={() => {
-              setIsInventoryOpen(prev => !prev);
-              if (!isInventoryOpen && !isInventoryTab) {
-                setActiveTab('products');
-              }
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border border-transparent ${isInventoryOpen ? 'text-slate-900 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-              }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <Boxes
-                className={`w-4 h-4 shrink-0 transition-colors ${isInventoryTab ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+        {canViewInventory && (
+          <div className="pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setIsInventoryOpen(prev => !prev);
+                if (!isInventoryOpen && !isInventoryTab) {
+                  setActiveTab('products');
+                }
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border border-transparent ${isInventoryOpen ? 'text-slate-900 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Boxes
+                  className={`w-4 h-4 shrink-0 transition-colors ${isInventoryTab ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                    }`}
+                />
+                <span className="truncate">{t('nav.inventory', 'Inventory Management')}</span>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${isInventoryOpen ? 'rotate-180 text-amber-600' : ''
                   }`}
               />
-              <span className="truncate">{t('nav.inventory', 'Inventory Management')}</span>
-            </div>
-            <ChevronDown
-              className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${isInventoryOpen ? 'rotate-180 text-amber-600' : ''
-                }`}
-            />
-          </button>
+            </button>
 
-          {/* Sub-menu Items with matching subtle tree-line border */}
-          {isInventoryOpen && (
-            <div className="mt-1 ml-4 pl-3 border-l border-amber-200/80 space-y-1 my-1">
-              {/* Jewelry Catalog */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('products')}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'products'
-                    ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-                  }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Gem
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'products' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+            {/* Sub-menu Items with matching subtle tree-line border */}
+            {isInventoryOpen && (
+              <div className="mt-1 ml-4 pl-3 border-l border-amber-200/80 space-y-1 my-1">
+                {/* Jewelry Catalog */}
+                {canViewProducts && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('products')}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'products'
+                        ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
                       }`}
-                  />
-                  <span className="truncate">{t('nav.catalog', 'Jewelry Catalog')}</span>
-                </div>
-                <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
-                  {productsCount}
-                </span>
-              </button>
-
-              {/* Categories */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('categories')}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'categories'
-                    ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-                  }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Layers
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'categories' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                      }`}
-                  />
-                  <span className="truncate">{isKhmer ? 'ប្រភេទគ្រឿង' : t('nav.categories', 'Categories')}</span>
-                </div>
-                <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
-                  {categoriesCount}
-                </span>
-              </button>
-
-              {/* Made Jewelry */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('made_products')}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'made_products' || activeTab === 'madeproducts'
-                    ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-                  }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Sparkles
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'made_products' || activeTab === 'madeproducts'
-                        ? 'text-amber-600'
-                        : 'text-slate-400 group-hover:text-slate-600'
-                      }`}
-                  />
-                  <span className="truncate">{isKhmer ? 'គ្រឿងអលង្ការកែច្នៃ' : t('nav.madeJewelry', 'Made Jewelry')}</span>
-                </div>
-                {madeProductsCount && (
-                  <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
-                    {madeProductsCount}
-                  </span>
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Gem
+                        className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'products' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                          }`}
+                      />
+                      <span className="truncate">{t('nav.catalog', 'Jewelry Catalog')}</span>
+                    </div>
+                    <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+                      {productsCount}
+                    </span>
+                  </button>
                 )}
-              </button>
 
-              {/* Materials & Raw Inventory */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('materials')}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'materials' || activeTab === 'gemstones'
-                    ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-                  }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Diamond
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'materials' || activeTab === 'gemstones' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                {/* Categories */}
+                {canViewCategories && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('categories')}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'categories'
+                        ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
                       }`}
-                  />
-                  <span className="truncate">{isKhmer ? 'សម្ភារៈ & វត្ថុធាតុដើម' : t('nav.materials', 'Materials & Raw')}</span>
-                </div>
-                <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
-                  {materialsCount}
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Layers
+                        className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'categories' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                          }`}
+                      />
+                      <span className="truncate">{isKhmer ? 'ប្រភេទគ្រឿង' : t('nav.categories', 'Categories')}</span>
+                    </div>
+                    <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+                      {categoriesCount}
+                    </span>
+                  </button>
+                )}
+
+                {/* Made Jewelry */}
+                {canViewMadeProducts && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('made_products')}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'made_products' || activeTab === 'madeproducts'
+                        ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Sparkles
+                        className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'made_products' || activeTab === 'madeproducts'
+                            ? 'text-amber-600'
+                            : 'text-slate-400 group-hover:text-slate-600'
+                          }`}
+                      />
+                      <span className="truncate">{isKhmer ? 'គ្រឿងអលង្ការកែច្នៃ' : t('nav.madeJewelry', 'Made Jewelry')}</span>
+                    </div>
+                    {madeProductsCount && (
+                      <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+                        {madeProductsCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {/* Materials & Raw Inventory */}
+                {canViewMaterials && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('materials')}
+                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'materials' || activeTab === 'gemstones'
+                        ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+                      }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Diamond
+                        className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'materials' || activeTab === 'gemstones' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                          }`}
+                      />
+                      <span className="truncate">{isKhmer ? 'សម្ភារៈ & វត្ថុធាតុដើម' : t('nav.materials', 'Materials & Raw')}</span>
+                    </div>
+                    <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+                      {materialsCount}
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 5. Daily Metal Fix */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('goldrates')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'goldrates'
-              ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-            }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <TrendingUp
-              className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'goldrates' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                }`}
-            />
-            <span className="truncate">{t('nav.goldRates', 'Daily Metal Fix')}</span>
-          </div>
-        </button>
-
-        {/* 6. Scrap Gold Buybacks */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('buyback')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'buyback'
-              ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-            }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <RefreshCw
-              className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'buyback' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                }`}
-            />
-            <span className="truncate">{t('nav.buybacks', 'Scrap Gold Buybacks')}</span>
-          </div>
-        </button>
-
-        {/* 7. Customers */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('customers')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'customers'
-              ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-            }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Users
-              className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'customers' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                }`}
-            />
-            <span className="truncate">{t('nav.customers', 'Customers')}</span>
-          </div>
-        </button>
-
-        {/* 8. Promotions */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('promotions')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'promotions'
-              ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-            }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <Tag
-              className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'promotions' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                }`}
-            />
-            <span className="truncate">{t('nav.promotions', 'Promotions')}</span>
-          </div>
-        </button>
-
-        {/* 9. Procurement & Supplies (Collapsible Accordion) */}
-        <div className="pt-0.5">
+        {canViewGoldRates && (
           <button
             type="button"
-            onClick={() => {
-              setIsSuppliesOpen(prev => !prev);
-              if (!isSuppliesOpen && !isSuppliesTab) {
-                setActiveTab('purchases');
-              }
-            }}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border border-transparent ${isSuppliesOpen ? 'text-slate-900 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            onClick={() => setActiveTab('goldrates')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'goldrates'
+                ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
               }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
-              <Truck
-                className={`w-4 h-4 shrink-0 transition-colors ${isSuppliesTab ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+              <TrendingUp
+                className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'goldrates' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
                   }`}
               />
-              <span className="truncate">{t('nav.supplies', 'Procurement & Supplies')}</span>
+              <span className="truncate">{t('nav.goldRates', 'Daily Metal Fix')}</span>
             </div>
-            <ChevronDown
-              className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${isSuppliesOpen ? 'rotate-180 text-amber-600' : ''
-                }`}
-            />
           </button>
+        )}
 
-          {/* Sub-menu Items with matching subtle tree-line border */}
-          {isSuppliesOpen && (
-            <div className="mt-1 ml-4 pl-3 border-l border-amber-200/80 space-y-1 my-1">
-              {/* Purchase Orders */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('purchases')}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'purchases'
-                    ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+        {/* 6. Scrap Gold Buybacks */}
+        {canViewBuybacks && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('buyback')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'buyback'
+                ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+              }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <RefreshCw
+                className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'buyback' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
                   }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <FileText
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'purchases' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                      }`}
-                  />
-                  <span className="truncate">{t('nav.purchases', 'Purchase Orders')}</span>
-                </div>
-                <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
-                  {purchasesBadge}
-                </span>
-              </button>
-
-              {/* Suppliers Directory */}
-              <button
-                type="button"
-                onClick={() => setActiveTab('suppliers')}
-                className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'suppliers'
-                    ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-                  }`}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Building2
-                    className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'suppliers' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                      }`}
-                  />
-                  <span className="truncate">{t('nav.suppliers', 'Suppliers Directory')}</span>
-                </div>
-                <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
-                  {suppliersCount}
-                </span>
-              </button>
+              />
+              <span className="truncate">{t('nav.buybacks', 'Scrap Gold Buybacks')}</span>
             </div>
-          )}
-        </div>
+          </button>
+        )}
+
+        {/* 7. Customers */}
+        {canViewCustomers && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('customers')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'customers'
+                ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+              }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Users
+                className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'customers' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                  }`}
+              />
+              <span className="truncate">{t('nav.customers', 'Customers')}</span>
+            </div>
+          </button>
+        )}
+
+        {/* 8. Promotions */}
+        {canViewPromotions && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('promotions')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'promotions'
+                ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+              }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <Tag
+                className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'promotions' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                  }`}
+              />
+              <span className="truncate">{t('nav.promotions', 'Promotions')}</span>
+            </div>
+          </button>
+        )}
+
+        {/* 9. Procurement & Supplies (Collapsible Accordion) */}
+        {canViewPurchases && (
+          <div className="pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setIsSuppliesOpen(prev => !prev);
+                if (!isSuppliesOpen && !isSuppliesTab) {
+                  setActiveTab('purchases');
+                }
+              }}
+              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border border-transparent ${isSuppliesOpen ? 'text-slate-900 font-semibold' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Truck
+                  className={`w-4 h-4 shrink-0 transition-colors ${isSuppliesTab ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                    }`}
+                />
+                <span className="truncate">{t('nav.supplies', 'Procurement & Supplies')}</span>
+              </div>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-400 transition-transform duration-200 shrink-0 ${isSuppliesOpen ? 'rotate-180 text-amber-600' : ''
+                  }`}
+              />
+            </button>
+
+            {/* Sub-menu Items with matching subtle tree-line border */}
+            {isSuppliesOpen && (
+              <div className="mt-1 ml-4 pl-3 border-l border-amber-200/80 space-y-1 my-1">
+                {/* Purchase Orders */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('purchases')}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'purchases'
+                      ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+                    }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText
+                      className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'purchases' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                        }`}
+                    />
+                    <span className="truncate">{t('nav.purchases', 'Purchase Orders')}</span>
+                  </div>
+                  <span className="bg-amber-50 text-amber-700 border border-amber-200 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+                    {purchasesBadge}
+                  </span>
+                </button>
+
+                {/* Suppliers Directory */}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('suppliers')}
+                  className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'suppliers'
+                      ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+                    }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building2
+                      className={`w-3.5 h-3.5 shrink-0 transition-colors ${activeTab === 'suppliers' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                        }`}
+                    />
+                    <span className="truncate">{t('nav.suppliers', 'Suppliers Directory')}</span>
+                  </div>
+                  <span className="bg-slate-100 text-slate-600 border border-slate-200/80 text-xs px-2 py-0.5 rounded-full font-medium shrink-0">
+                    {suppliersCount}
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 10. Reports & Analytics */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('reports')}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'reports'
-              ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
-            }`}
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <BarChart3
-              className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'reports' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
-                }`}
-            />
-            <span className="truncate">{t('nav.reports', 'Reports & Analytics')}</span>
-          </div>
-        </button>
+        {canViewReports && (
+          <button
+            type="button"
+            onClick={() => setActiveTab('reports')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all cursor-pointer group border ${activeTab === 'reports'
+                ? 'bg-amber-50 text-amber-900 font-medium border-amber-200/80 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50 border-transparent'
+              }`}
+          >
+            <div className="flex items-center gap-2.5 min-w-0">
+              <BarChart3
+                className={`w-4 h-4 shrink-0 transition-colors ${activeTab === 'reports' ? 'text-amber-600' : 'text-slate-400 group-hover:text-slate-600'
+                  }`}
+              />
+              <span className="truncate">{t('nav.reports', 'Reports & Analytics')}</span>
+            </div>
+          </button>
+        )}
 
         {/* 11. Settings */}
         <button

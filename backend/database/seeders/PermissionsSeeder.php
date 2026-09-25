@@ -20,6 +20,18 @@ class PermissionsSeeder extends Seeder
             'create_products'   => 'Add New Jewelry Items & Variants',
             'edit_products'     => 'Edit Product Pricing & Specifications',
             'delete_products'   => 'Delete Products from Catalog',
+            'view_categories'   => 'View Jewelry Categories & Collections',
+            'manage_categories' => 'Manage Jewelry Categories & Collections',
+
+            // Raw Metal Materials (Gold / Silver Bullion / Grain)
+            'view_materials'    => 'View Raw Gold & Silver Materials Inventory',
+            'manage_materials'  => 'Add, Edit & Manage Raw Metal Material Stock',
+
+            // Bespoke Made Jewelry & Atelier Crafting
+            'view_made_products'   => 'View Made Jewelry & Crafting Orders',
+            'create_made_products' => 'Create Atelier Crafting Work Orders',
+            'edit_made_products'   => 'Update Crafting Status & Jewelers',
+            'delete_made_products' => 'Delete Atelier Crafting Records',
 
             // POS Sales Terminal
             'view_sales'        => 'View Sales Invoices & Orders',
@@ -47,9 +59,13 @@ class PermissionsSeeder extends Seeder
             'delete_purchases'  => 'Delete / Cancel Purchase Orders',
             'manage_suppliers'  => 'Manage Suppliers & Refineries Directory',
 
-            // Customers CRM
+            // Customers CRM & VIP
             'view_customers'    => 'View Customer Directory & Tiers',
             'manage_customers'  => 'Create & Edit Customer Profiles',
+
+            // Promotions & Campaigns
+            'view_promotions'   => 'View Seasonal Campaigns & Promotions',
+            'manage_promotions' => 'Create & Edit Promotional Discounts',
 
             // Reports & Audits
             'view_reports'      => 'View Financial & Revenue Reports',

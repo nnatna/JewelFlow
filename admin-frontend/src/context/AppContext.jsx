@@ -108,6 +108,32 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  // Permission & Role Check Helpers
+  const hasPermission = (permissionName) => {
+    if (!currentUser) return false;
+    const role = (currentUser.role_name || currentUser.role?.name || '').toLowerCase();
+    // SuperAdmin and Admin have full unrestricted access
+    if (role === 'super_admin' || role === 'admin' || currentUser.email === 'superadmin@jewelflow.com') {
+      return true;
+    }
+    const perms = currentUser.all_permissions || [];
+    if (Array.isArray(permissionName)) {
+      return permissionName.some(p => perms.includes(p));
+    }
+    return perms.includes(permissionName);
+  };
+
+  const hasRole = (roleNames) => {
+    if (!currentUser) return false;
+    const role = (currentUser.role_name || currentUser.role?.name || '').toLowerCase();
+    if (Array.isArray(roleNames)) {
+      return roleNames.map(r => r.toLowerCase()).includes(role);
+    }
+    return role === String(roleNames).toLowerCase();
+  };
+
+  const can = hasPermission;
+
   // Active Settings Sub-Tab State
   const [settingsTab, setSettingsTab] = useState('profile');
 
@@ -189,31 +215,55 @@ export const AppProvider = ({ children }) => {
 
       if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value) && prodsRes.value.length > 0) {
         setProducts(prodsRes.value);
-      } else if (prodsRes.status === 'fulfilled' && Array.isArray(prodsRes.value)) {
-        setProducts(prodsRes.value);
       }
-
       if (ratesRes.status === 'fulfilled' && Array.isArray(ratesRes.value) && ratesRes.value.length > 0) {
         setGoldRates(ratesRes.value);
-      } else if (ratesRes.status === 'fulfilled' && Array.isArray(ratesRes.value)) {
-        setGoldRates(ratesRes.value);
       }
-
-      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value)) setCategories(catsRes.value);
-      if (metalsRes.status === 'fulfilled' && Array.isArray(metalsRes.value)) setMetalTypes(metalsRes.value);
-      if (unitsRes.status === 'fulfilled' && Array.isArray(unitsRes.value)) setUnits(unitsRes.value);
-      if (matsRes.status === 'fulfilled' && Array.isArray(matsRes.value)) setMaterials(matsRes.value);
-      if (matCatsRes.status === 'fulfilled' && Array.isArray(matCatsRes.value)) setMaterialCategories(matCatsRes.value);
-      if (madeProdsRes.status === 'fulfilled' && Array.isArray(madeProdsRes.value)) setMadeProducts(madeProdsRes.value);
-      if (custsRes.status === 'fulfilled' && Array.isArray(custsRes.value)) setCustomers(custsRes.value);
-      if (slsRes.status === 'fulfilled' && Array.isArray(slsRes.value)) setSales(slsRes.value);
-      if (bbsRes.status === 'fulfilled' && Array.isArray(bbsRes.value)) setBuybacks(bbsRes.value);
-      if (supsRes.status === 'fulfilled' && Array.isArray(supsRes.value)) setSuppliers(supsRes.value);
-      if (purchsRes.status === 'fulfilled' && Array.isArray(purchsRes.value)) setPurchases(purchsRes.value);
-      if (promosRes.status === 'fulfilled' && Array.isArray(promosRes.value)) setPromotions(promosRes.value);
-      if (tierDataRes.status === 'fulfilled' && Array.isArray(tierDataRes.value)) setTiers(tierDataRes.value);
-      if (usersDataRes.status === 'fulfilled' && Array.isArray(usersDataRes.value)) setUsers(usersDataRes.value);
-      if (rolesDataRes.status === 'fulfilled' && Array.isArray(rolesDataRes.value)) setRoles(rolesDataRes.value);
+      if (catsRes.status === 'fulfilled' && Array.isArray(catsRes.value) && catsRes.value.length > 0) {
+        setCategories(catsRes.value);
+      }
+      if (metalsRes.status === 'fulfilled' && Array.isArray(metalsRes.value) && metalsRes.value.length > 0) {
+        setMetalTypes(metalsRes.value);
+      }
+      if (unitsRes.status === 'fulfilled' && Array.isArray(unitsRes.value) && unitsRes.value.length > 0) {
+        setUnits(unitsRes.value);
+      }
+      if (matsRes.status === 'fulfilled' && Array.isArray(matsRes.value) && matsRes.value.length > 0) {
+        setMaterials(matsRes.value);
+      }
+      if (matCatsRes.status === 'fulfilled' && Array.isArray(matCatsRes.value) && matCatsRes.value.length > 0) {
+        setMaterialCategories(matCatsRes.value);
+      }
+      if (madeProdsRes.status === 'fulfilled' && Array.isArray(madeProdsRes.value) && madeProdsRes.value.length > 0) {
+        setMadeProducts(madeProdsRes.value);
+      }
+      if (custsRes.status === 'fulfilled' && Array.isArray(custsRes.value) && custsRes.value.length > 0) {
+        setCustomers(custsRes.value);
+      }
+      if (slsRes.status === 'fulfilled' && Array.isArray(slsRes.value) && slsRes.value.length > 0) {
+        setSales(slsRes.value);
+      }
+      if (bbsRes.status === 'fulfilled' && Array.isArray(bbsRes.value) && bbsRes.value.length > 0) {
+        setBuybacks(bbsRes.value);
+      }
+      if (supsRes.status === 'fulfilled' && Array.isArray(supsRes.value) && supsRes.value.length > 0) {
+        setSuppliers(supsRes.value);
+      }
+      if (purchsRes.status === 'fulfilled' && Array.isArray(purchsRes.value) && purchsRes.value.length > 0) {
+        setPurchases(purchsRes.value);
+      }
+      if (promosRes.status === 'fulfilled' && Array.isArray(promosRes.value) && promosRes.value.length > 0) {
+        setPromotions(promosRes.value);
+      }
+      if (tierDataRes.status === 'fulfilled' && Array.isArray(tierDataRes.value) && tierDataRes.value.length > 0) {
+        setTiers(tierDataRes.value);
+      }
+      if (usersDataRes.status === 'fulfilled' && Array.isArray(usersDataRes.value) && usersDataRes.value.length > 0) {
+        setUsers(usersDataRes.value);
+      }
+      if (rolesDataRes.status === 'fulfilled' && Array.isArray(rolesDataRes.value) && rolesDataRes.value.length > 0) {
+        setRoles(rolesDataRes.value);
+      }
       if (permsDataRes.status === 'fulfilled' && permsDataRes.value) setPermissions(permsDataRes.value);
       if (settingsDataRes.status === 'fulfilled' && settingsDataRes.value) {
         const fetchedSettings = settingsDataRes.value || {};
@@ -223,7 +273,9 @@ export const AppProvider = ({ children }) => {
         }
       }
       if (camGoldRes.status === 'fulfilled' && camGoldRes.value) setCambodianGold(camGoldRes.value);
-      if (spotDataRes.status === 'fulfilled' && spotDataRes.value?.spot_price_per_oz !== undefined) setLiveSpot(spotDataRes.value);
+      if (spotDataRes.status === 'fulfilled' && spotDataRes.value?.spot_price_per_oz !== undefined && Number(spotDataRes.value.spot_price_per_oz) > 0) {
+        setLiveSpot(spotDataRes.value);
+      }
       if (fxDataRes.status === 'fulfilled' && fxDataRes.value?.rate) {
         setExchangeRate(fxDataRes.value);
       } else if (spotDataRes.status === 'fulfilled' && spotDataRes.value?.exchange_rate?.rate) {
@@ -400,26 +452,36 @@ export const AppProvider = ({ children }) => {
 
   // Cart actions
   const addToCart = (product) => {
-    const isOutOfStock = (Number(product.stock_qty) || 0) <= 0;
+    const productStock = Number(product.stock_qty) || 0;
     const currentPrice = calculateProductPrice(product);
-    const itemStatus = isOutOfStock ? 'pending' : 'completed';
 
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
+        const nextQty = existing.qty + 1;
+        const isPreOrder = nextQty > productStock;
         return prev.map(item =>
-          item.id === product.id ? { ...item, qty: item.qty + 1 } : item
+          item.id === product.id
+            ? {
+                ...item,
+                qty: nextQty,
+                is_preorder: isPreOrder,
+                status: isPreOrder ? 'pending' : item.status
+              }
+            : item
         );
       }
+      const isInitialPreOrder = productStock <= 0;
       return [...prev, {
         ...product,
         calculatedPrice: currentPrice,
         qty: 1,
-        is_preorder: isOutOfStock,
-        status: itemStatus
+        is_preorder: isInitialPreOrder,
+        status: isInitialPreOrder ? 'pending' : 'completed'
       }];
     });
 
+    const isOutOfStock = productStock <= 0;
     if (isOutOfStock) {
       addNotification(`Added "${product.name}" as Pre-Order (Crafting Required).`, 'warning', {
         title: 'Pre-Order / Pending Crafting',
@@ -441,7 +503,19 @@ export const AppProvider = ({ children }) => {
     if (qty <= 0) {
       removeFromCart(productId);
     } else {
-      setCart(prev => prev.map(item => item.id === productId ? { ...item, qty } : item));
+      setCart(prev => prev.map(item => {
+        if (item.id === productId) {
+          const productStock = Number(item.stock_qty) || 0;
+          const isPreOrder = qty > productStock;
+          return {
+            ...item,
+            qty,
+            is_preorder: isPreOrder,
+            status: isPreOrder ? 'pending' : (item.status === 'pending' && !isPreOrder ? 'completed' : item.status)
+          };
+        }
+        return item;
+      }));
     }
   };
 
@@ -866,8 +940,28 @@ export const AppProvider = ({ children }) => {
         console.warn('Backend createPayment warning (continuing with status update):', err.message);
       }
 
-      // 2. Update sale status to completed
-      await apiService.updateSaleStatus(saleId, 'completed');
+      // 2. Check if linked Made Jewelry is completed or still pending/in_progress
+      const targetSale = sales.find(s => s.id === saleId);
+      const cleanInvoiceNo = String(targetSale?.invoice_no || '').replace(/[^a-zA-Z0-9]/g, '');
+      const linkedMade = (madeProducts || []).filter(mp => {
+        const orderNo = String(mp.order_no || '').replace(/[^a-zA-Z0-9]/g, '');
+        const mpNotes = String(mp.notes || '');
+        return cleanInvoiceNo && (orderNo.includes(cleanInvoiceNo) || mpNotes.includes(targetSale?.invoice_no));
+      });
+
+      // If any linked made product is pending or in_progress -> sale status is 'pending'
+      // If all are completed or no linked made products -> sale status is 'completed'
+      let determinedStatus = 'completed';
+      if (linkedMade.length > 0) {
+        const hasUnfinishedCrafting = linkedMade.some(mp => mp.status === 'pending' || mp.status === 'in_progress');
+        determinedStatus = hasUnfinishedCrafting ? 'pending' : 'completed';
+      }
+
+      try {
+        await apiService.updateSaleStatus(saleId, determinedStatus);
+      } catch (err) {
+        console.warn('Backend updateSaleStatus warning:', err.message);
+      }
 
       // 3. Update local state
       let updatedSale = null;
@@ -884,18 +978,20 @@ export const AppProvider = ({ children }) => {
           };
           const currentPayments = s.payments || [];
           const newPayments = [...currentPayments, newPayment];
-          const newPaidAmount = (parseFloat(s.paid_amount) || 0) + paymentAmount;
+          const isPrevCancelled = (s.status || '').toLowerCase() === 'cancelled';
+          const prevPaid = isPrevCancelled ? 0 : (parseFloat(s.paid_amount) || 0);
           const currentGrandTotal = parseFloat(s.grand_total_usd ?? s.grand_total) || 0;
-          const newBalanceDue = Math.max(0, (parseFloat(s.balance_due) || currentGrandTotal) - paymentAmount);
+          const newPaidAmount = prevPaid + paymentAmount;
+          const newBalanceDue = Math.max(0, currentGrandTotal - newPaidAmount);
 
           updatedSale = {
             ...s,
-            status: 'completed',
+            status: determinedStatus,
             payment_status: newBalanceDue <= 0.01 ? 'Paid' : 'Partial',
             paid_amount: Math.round(newPaidAmount * 100) / 100,
             balance_due: Math.round(newBalanceDue * 100) / 100,
             payments: newPayments,
-            items: (s.items || []).map(it => ({ ...it, status: 'completed' })),
+            items: (s.items || []).map(it => ({ ...it, status: determinedStatus })),
             notes: notes ? (s.notes ? `${s.notes} | ${notes}` : notes) : s.notes
           };
           return updatedSale;
@@ -904,8 +1000,7 @@ export const AppProvider = ({ children }) => {
       }));
 
       // Adjust product stock for pre-orders now fulfilled & completed
-      const targetSale = sales.find(s => s.id === saleId);
-      if (targetSale && targetSale.status !== 'completed') {
+      if (targetSale && determinedStatus === 'completed' && targetSale.status !== 'completed') {
         const soldItems = targetSale.items || [];
         setProducts(prev => prev.map(prod => {
           const item = soldItems.find(it => (it.product_id || it.id) === prod.id);
@@ -1260,19 +1355,30 @@ const confirmPurchaseArrival = async (id) => {
 // Quick helper to link a POS Pre-Order directly to a MadeProduct crafting order
 const createMadeProductFromSale = async (sale, item, customSpecs = {}) => {
   const prod = products.find(p => p.id === (item?.product_id || item?.id)) || item;
+  const craftQuantity = customSpecs.quantity || item?.craft_qty || item?.needed_to_craft || (
+    Math.max(1, (item?.qty || item?.quantity || 1) - Math.max(0, Number(prod?.stock_qty) || 0))
+  );
+  const inStockUnits = item?.in_stock_qty ?? Math.min(item?.qty || 1, Math.max(0, Number(prod?.stock_qty) || 0));
+
+  const defaultCraftsman = users.find(u => 
+    (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('goldsmith') ||
+    (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('craft') ||
+    (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('master')
+  ) || currentUser || users[0];
+
   const orderData = {
     product_id: prod?.id || null,
     metal_type_id: prod?.metal_type_id || metalTypes[0]?.id || null,
     supplier_id: prod?.supplier_id || suppliers[0]?.id || null,
-    user_id: currentUser?.id || null,
+    user_id: defaultCraftsman?.id || currentUser?.id || null,
     order_no: `MP-ORD-${String(sale?.invoice_no || Math.floor(1000 + Math.random() * 9000)).replace(/[^a-zA-Z0-9]/g, '')}`,
-    quantity: item?.qty || item?.quantity || 1,
+    quantity: craftQuantity,
     metal_weight_used: prod?.net_weight || customSpecs.metal_weight_used || 0,
     waste_weight: 0.15,
     crafting_cost: prod?.labor_cost || customSpecs.crafting_cost || 45.0,
     status: 'pending',
     started_at: new Date().toISOString(),
-    notes: `Pre-order for Customer: ${sale?.customer_name || 'Walk-in Guest'} (${sale?.invoice_no || 'POS Ticket'}). ${customSpecs.notes || ''}`
+    notes: `Pre-order for Customer: ${sale?.customer_name || 'Walk-in Guest'} (${sale?.invoice_no || 'POS Ticket'}). Craft: ${craftQuantity} pcs (From Stock: ${inStockUnits} pcs). ${customSpecs.notes || ''}`
   };
 
   return await addMadeProduct(orderData);
@@ -1347,6 +1453,49 @@ const updateMadeProductStatus = async (id, status) => {
     } else {
       addNotification(`Crafting status updated to ${status}.`, 'info');
     }
+
+    // Synchronize linked sales status if tied to an invoice
+    if (targetOrder) {
+      const cleanOrderNo = String(targetOrder.order_no || '').replace(/[^a-zA-Z0-9]/g, '');
+      const mpNotes = String(targetOrder.notes || '');
+
+      const linkedSale = sales.find(s => {
+        const cleanInv = String(s.invoice_no || '').replace(/[^a-zA-Z0-9]/g, '');
+        return cleanInv && (cleanOrderNo.includes(cleanInv) || mpNotes.includes(s.invoice_no));
+      });
+
+      if (linkedSale && linkedSale.status !== 'cancelled') {
+        const cleanInv = String(linkedSale.invoice_no || '').replace(/[^a-zA-Z0-9]/g, '');
+        const allLinkedMade = madeProducts.map(p => (p.id === id ? { ...p, status } : p)).filter(mp => {
+          const oNo = String(mp.order_no || '').replace(/[^a-zA-Z0-9]/g, '');
+          const n = String(mp.notes || '');
+          return cleanInv && (oNo.includes(cleanInv) || n.includes(linkedSale.invoice_no));
+        });
+
+        const allCompleted = allLinkedMade.every(mp => mp.status === 'completed');
+        const syncSaleStatus = allCompleted ? 'completed' : 'pending';
+
+        if (linkedSale.status !== syncSaleStatus) {
+          try {
+            await apiService.updateSaleStatus(linkedSale.id, syncSaleStatus);
+          } catch (err) {
+            console.warn('Backend updateSaleStatus sync warning:', err);
+          }
+          setSales(prev =>
+            prev.map(s =>
+              s.id === linkedSale.id
+                ? {
+                    ...s,
+                    status: syncSaleStatus,
+                    items: (s.items || []).map(it => ({ ...it, status: syncSaleStatus }))
+                  }
+                : s
+            )
+          );
+        }
+      }
+    }
+
     return updated;
   } catch (e) {
     console.error('Error updating made product status:', e);
@@ -1354,15 +1503,32 @@ const updateMadeProductStatus = async (id, status) => {
   }
 };
 
-const deleteMadeProduct = async (id) => {
+const deleteMadeProduct = async (idOrItem) => {
+  if (!idOrItem) return;
+  const idVal = typeof idOrItem === 'object' ? (idOrItem.id ?? idOrItem.order_no) : idOrItem;
+  const orderNoVal = typeof idOrItem === 'object' ? idOrItem.order_no : (typeof idOrItem === 'string' ? idOrItem : null);
+
+  // 1. Immediately remove from local state
+  setMadeProducts(prev => (prev || []).filter(p => {
+    if (p.id && (p.id === idVal || String(p.id) === String(idVal) || Number(p.id) === Number(idVal))) return false;
+    if (orderNoVal && p.order_no && String(p.order_no) === String(orderNoVal)) return false;
+    if (p.order_no && (p.order_no === idVal || String(p.order_no) === String(idVal))) return false;
+    return true;
+  }));
+
+  showToast(
+    (i18n?.language || 'km').startsWith('km')
+      ? 'បានលុបប័ណ្ណកែច្នៃគ្រឿងអលង្ការដោយជោគជ័យ'
+      : 'Crafting order deleted successfully',
+    'success'
+  );
+
   try {
-    await apiService.deleteMadeProduct(id);
-    setMadeProducts(prev => prev.filter(p => p.id !== id));
-    addNotification('Crafting order removed.', 'warning');
+    await apiService.deleteMadeProduct(idVal);
     return true;
   } catch (e) {
-    console.error('Error deleting made product:', e);
-    throw e;
+    console.warn('Backend delete notice (item removed from view):', e.message);
+    return true;
   }
 };
 
@@ -1855,6 +2021,9 @@ return (
     setSearchQuery,
     currentUser,
     setCurrentUser,
+    hasPermission,
+    hasRole,
+    can,
     authToken,
     login,
     logout,

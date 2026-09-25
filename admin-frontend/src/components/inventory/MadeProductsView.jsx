@@ -20,7 +20,8 @@ import {
   faScaleBalanced,
   faUserTie,
   faTruck,
-  faCalendarDays
+  faCalendarDays,
+  faLock
 } from '@fortawesome/free-solid-svg-icons';
 
 const fallbackImg = 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80';
@@ -40,15 +41,30 @@ export const MadeProductsView = () => {
     confirmDialog,
     showToast,
     refreshAllData,
+    currentUser,
     materials,
     getMaterialEffectivePrice,
-    setActiveTab
+    setActiveTab,
+    searchQuery
   } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
 
+  // Auto-detect best suited craftsman (Master Goldsmith / Jeweler / Logged-in Staff)
+  const getDefaultCraftsman = () => {
+    return (
+      users.find(u => 
+        (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('goldsmith') ||
+        (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('craft') ||
+        (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('master')
+      ) ||
+      users.find(u => u.id === currentUser?.id) ||
+      users[0] ||
+      null
+    );
+  };
+
   // Search & Filter State
-  const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [metalFilter, setMetalFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -79,13 +95,14 @@ export const MadeProductsView = () => {
 
   const openAddModal = () => {
     setEditingItem(null);
+    const autoCraftsman = getDefaultCraftsman();
     setFormData({
       ...initialForm,
       order_no: `MJ-${Math.floor(1000 + Math.random() * 9000)}`,
       product_id: products[0]?.id || '',
       metal_type_id: metalTypes[0]?.id || '',
       supplier_id: suppliers[0]?.id || '',
-      user_id: users[0]?.id || ''
+      user_id: autoCraftsman?.id || currentUser?.id || ''
     });
     setIsModalOpen(true);
   };
@@ -119,11 +136,27 @@ export const MadeProductsView = () => {
 
     setIsSubmitting(true);
     try {
+      const payload = {
+        product_id: Number(formData.product_id),
+        metal_type_id: Number(formData.metal_type_id),
+        supplier_id: formData.supplier_id ? Number(formData.supplier_id) : null,
+        user_id: formData.user_id ? Number(formData.user_id) : null,
+        order_no: formData.order_no ? formData.order_no.trim() : null,
+        quantity: Math.max(1, parseInt(formData.quantity, 10) || 1),
+        metal_weight_used: formData.metal_weight_used !== '' ? parseFloat(formData.metal_weight_used) : 0,
+        waste_weight: formData.waste_weight !== '' ? parseFloat(formData.waste_weight) : 0,
+        crafting_cost: formData.crafting_cost !== '' ? parseFloat(formData.crafting_cost) : 0,
+        status: formData.status || 'pending',
+        started_at: formData.started_at ? formData.started_at : null,
+        completed_at: formData.completed_at ? formData.completed_at : null,
+        notes: formData.notes ? formData.notes.trim() : null
+      };
+
       if (editingItem) {
-        await updateMadeProduct(editingItem.id, formData);
+        await updateMadeProduct(editingItem.id, payload);
         showToast(isKhmer ? 'បានកែប្រែទិន្នន័យដោយជោគជ័យ!' : 'Crafting order updated successfully!', 'success');
       } else {
-        await addMadeProduct(formData);
+        await addMadeProduct(payload);
         showToast(isKhmer ? 'បានបង្កើតការបញ្ជាកែច្នៃថ្មីដោយជោគជ័យ!' : 'Crafting order created successfully!', 'success');
       }
       setIsModalOpen(false);
@@ -149,13 +182,7 @@ export const MadeProductsView = () => {
     });
 
     if (confirmed) {
-      try {
-        await deleteMadeProduct(item.id);
-        showToast(isKhmer ? 'បានលុបដោយជោគជ័យ' : 'Order deleted successfully', 'success');
-        refreshAllData(true);
-      } catch (err) {
-        showToast(isKhmer ? 'មិនអាចលុបបានទេ' : 'Failed to delete order', 'error');
-      }
+      await deleteMadeProduct(item);
     }
   };
 
@@ -291,17 +318,11 @@ export const MadeProductsView = () => {
         </div>
       </div>
 
-      {/* ── Filter and Search Bar ── */}
+      {/* ── Filter Toolbar ── */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div className="relative flex-1">
-          <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-3.5 h-3.5" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-            placeholder={isKhmer ? 'ស្វែងរកលេខប័ណ្ណ ឈ្មោះគ្រឿងអលង្ការ SKU ឬជាងទង...' : 'Search by order #, jewelry piece, SKU, or craftsman...'}
-            className="w-full pl-10 pr-4 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 transition-all"
-          />
+        <div className="flex items-center gap-2 text-slate-500 font-medium text-xs">
+          <FontAwesomeIcon icon={faFilter} className="w-3.5 h-3.5 text-amber-600" />
+          <span>{filteredItems.length} {isKhmer ? 'បញ្ជាកែច្នៃគ្រឿងអលង្ការ' : 'orders listed'}</span>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
@@ -459,7 +480,7 @@ export const MadeProductsView = () => {
                       </td>
 
                       {/* Sticky Actions */}
-                      <td className="py-3.5 px-4 text-center whitespace-nowrap w-28 min-w-[110px] sticky right-0 bg-white group-hover:bg-amber-50/50 transition-colors shadow-[-4px_0_8px_rgba(0,0,0,0.03)] z-10">
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap w-20 min-w-[80px] sticky right-0 bg-white group-hover:bg-amber-50/50 transition-colors shadow-[-4px_0_8px_rgba(0,0,0,0.03)] z-10">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             type="button"
@@ -471,17 +492,6 @@ export const MadeProductsView = () => {
                             title={isKhmer ? 'កែប្រែ' : 'Edit'}
                           >
                             <FontAwesomeIcon icon={faPenToSquare} className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(item);
-                            }}
-                            className="p-1.5 rounded-lg bg-slate-100 hover:bg-rose-100 text-slate-500 hover:text-rose-600 cursor-pointer transition-colors"
-                            title={isKhmer ? 'លុប' : 'Delete'}
-                          >
-                            <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       </td>
@@ -697,13 +707,19 @@ export const MadeProductsView = () => {
                     {/* Craftsman & Status */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                       <div>
-                        <label className="block text-slate-700 font-bold mb-1.5">
-                          {isKhmer ? 'ជាងទងទទួលខុសត្រូវ' : 'Assigned Craftsman'}
-                        </label>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="block text-slate-700 font-bold">
+                            {isKhmer ? 'ជាងទងទទួលខុសត្រូវ' : 'Assigned Craftsman'}
+                          </label>
+                          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                            <FontAwesomeIcon icon={faLock} className="w-2.5 h-2.5 text-slate-400" />
+                            <span>{isKhmer ? 'ស្វ័យប្រវត្តិ' : 'Auto Locked'}</span>
+                          </span>
+                        </div>
                         <select
+                          disabled
                           value={formData.user_id}
-                          onChange={(e) => setFormData({ ...formData, user_id: e.target.value })}
-                          className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all cursor-pointer"
+                          className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-600 bg-slate-100 border border-slate-200 rounded-xl cursor-not-allowed select-none opacity-90 transition-all"
                         >
                           <option value="">{isKhmer ? '-- ជាងទងទូទៅ --' : '-- General Atelier Staff --'}</option>
                           {users.map(u => (

@@ -79,7 +79,7 @@ class UserSeeder extends Seeder
             $roleName = $userData['role_name'];
             unset($userData['role_name']);
 
-            $user = User::firstOrCreate(
+            $user = User::updateOrCreate(
                 ['email' => $userData['email']],
                 $userData
             );

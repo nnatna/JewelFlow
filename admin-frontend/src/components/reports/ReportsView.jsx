@@ -44,7 +44,7 @@ const getDatePresets = () => {
 export const ReportsView = () => {
   const { t, i18n } = useTranslation();
   const isKhmer = (i18n.language || '').startsWith('km');
-  const { customers, categories, metalTypes, showToast, exchangeRate, settings } = useApp();
+  const { customers, categories, metalTypes, showToast, exchangeRate, settings, searchQuery } = useApp();
 
   const presets = useMemo(() => getDatePresets(), []);
 
@@ -62,7 +62,6 @@ export const ReportsView = () => {
   const [filterMetal, setFilterMetal] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
 
   // Selected Sale for Detail Modal
   const [selectedSaleDetail, setSelectedSaleDetail] = useState(null);
@@ -342,7 +341,7 @@ export const ReportsView = () => {
             className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5" />
-            <span>{isKhmer ? 'បោះពុម្ព' : 'Print Table'}</span>
+            <span>{isKhmer ? 'បោះពុម្ពរបាយការណ៍' : 'Print Report'}</span>
           </button>
         </div>
       </div>
@@ -409,21 +408,9 @@ export const ReportsView = () => {
           </div>
         </div>
 
-        {/* Row 2: Granular Filters (Customer, User/Cashier, Metal, Category, Status, Search) */}
-        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+        {/* Row 2: Granular Filters (Customer, User/Cashier, Metal, Category, Status) */}
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
           
-          {/* Keyword Search */}
-          <div className="relative">
-            <FontAwesomeIcon icon={faMagnifyingGlass} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 w-3 h-3 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder={isKhmer ? 'ស្វែងរកវិក្កយបត្រ...' : 'Search invoice / name...'}
-              className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 focus:bg-white transition-all font-medium"
-            />
-          </div>
-
           {/* Customer Filter */}
           <div className="relative">
             <select
@@ -582,14 +569,6 @@ export const ReportsView = () => {
                 <span className="text-[11px] text-slate-400 font-normal">
                   {(salesData?.sales_list?.data || []).length} {isKhmer ? 'កំណត់ត្រា' : 'records'}
                 </span>
-                <button
-                  onClick={handlePrint}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-900 text-xs font-semibold rounded-lg shadow-2xs hover:bg-amber-50/50 transition-all cursor-pointer"
-                  title={isKhmer ? 'បោះពុម្ពតារាងនេះ' : 'Print this table'}
-                >
-                  <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
-                  <span>{isKhmer ? 'បោះពុម្ព' : 'Print Table'}</span>
-                </button>
               </div>
             </div>
 
@@ -771,14 +750,6 @@ export const ReportsView = () => {
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] font-mono text-slate-500">{startDate} → {endDate}</span>
-                <button
-                  onClick={() => setIsPrintModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-900 text-xs font-semibold rounded-lg shadow-2xs hover:bg-amber-50/50 transition-all cursor-pointer"
-                  title={isKhmer ? 'បោះពុម្ពតារាងនេះ' : 'Print this table'}
-                >
-                  <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
-                  <span>{isKhmer ? 'បោះពុម្ព' : 'Print Table'}</span>
-                </button>
               </div>
             </div>
 
@@ -955,14 +926,6 @@ export const ReportsView = () => {
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] text-slate-400 font-normal">{(buybackData?.buybacks_list?.data || []).length} {isKhmer ? 'កំណត់ត្រា' : 'records'}</span>
-                <button
-                  onClick={() => setIsPrintModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-900 text-xs font-semibold rounded-lg shadow-2xs hover:bg-amber-50/50 transition-all cursor-pointer"
-                  title={isKhmer ? 'បោះពុម្ពតារាងនេះ' : 'Print this table'}
-                >
-                  <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
-                  <span>{isKhmer ? 'បោះពុម្ព' : 'Print Table'}</span>
-                </button>
               </div>
             </div>
 
@@ -1054,14 +1017,6 @@ export const ReportsView = () => {
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] text-slate-400 font-normal">{(inventoryData?.products_list?.data || []).length} {isKhmer ? 'មុខទំនិញ' : 'items'}</span>
-                <button
-                  onClick={() => setIsPrintModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-900 text-xs font-semibold rounded-lg shadow-2xs hover:bg-amber-50/50 transition-all cursor-pointer"
-                  title={isKhmer ? 'បោះពុម្ពតារាងនេះ' : 'Print this table'}
-                >
-                  <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
-                  <span>{isKhmer ? 'បោះពុម្ព' : 'Print Table'}</span>
-                </button>
               </div>
             </div>
 
@@ -1180,14 +1135,6 @@ export const ReportsView = () => {
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] text-slate-400 font-normal">{(cashFlowData?.daily_timeline || []).length} {isKhmer ? 'ថ្ងៃ' : 'days'}</span>
-                <button
-                  onClick={() => setIsPrintModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-900 text-xs font-semibold rounded-lg shadow-2xs hover:bg-amber-50/50 transition-all cursor-pointer"
-                  title={isKhmer ? 'បោះពុម្ពតារាងនេះ' : 'Print this table'}
-                >
-                  <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
-                  <span>{isKhmer ? 'បោះពុម្ព' : 'Print Table'}</span>
-                </button>
               </div>
             </div>
 
@@ -1243,14 +1190,6 @@ export const ReportsView = () => {
               </div>
               <div className="flex items-center gap-2.5">
                 <span className="text-[11px] text-slate-400 font-normal">{(goldRateData?.rates || []).length} {isKhmer ? 'កំណត់ត្រា' : 'records'}</span>
-                <button
-                  onClick={() => setIsPrintModalOpen(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 hover:border-amber-300 text-slate-700 hover:text-amber-900 text-xs font-semibold rounded-lg shadow-2xs hover:bg-amber-50/50 transition-all cursor-pointer"
-                  title={isKhmer ? 'បោះពុម្ពតារាងនេះ' : 'Print this table'}
-                >
-                  <FontAwesomeIcon icon={faPrint} className="w-3 h-3 text-amber-600" />
-                  <span>{isKhmer ? 'បោះពុម្ព' : 'Print Table'}</span>
-                </button>
               </div>
             </div>
 
