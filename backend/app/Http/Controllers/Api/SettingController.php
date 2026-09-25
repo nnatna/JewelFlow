@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\Setting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,6 +37,14 @@ class SettingController extends Controller
                     ['value' => is_bool($val) ? ($val ? 'true' : 'false') : (string) $val]
                 );
             }
+
+            ActivityLog::record(
+                action: 'update',
+                module: 'settings',
+                description: 'Updated store configuration parameters',
+                newValues: $settingsData,
+                status: 'success'
+            );
         }
 
         $all = Setting::all()->pluck('value', 'key')->toArray();

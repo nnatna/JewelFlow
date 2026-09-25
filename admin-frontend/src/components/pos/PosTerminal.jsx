@@ -61,8 +61,8 @@ export const PosTerminal = () => {
     clearCart,
     selectedCustomer,
     setSelectedCustomer,
-    discountPercent,
-    setDiscountPercent,
+    discountPercent: contextDiscountPercent,
+    setDiscountPercent: setContextDiscountPercent,
     taxRate,
     calculateProductPrice,
     completeSale,
@@ -113,13 +113,17 @@ export const PosTerminal = () => {
       id: Date.now(),
       cart: [...cart],
       selectedCustomer,
-      discountPercent,
+      discountMode,
+      customDiscountVal,
+      selectedPromotionId,
       subtotal,
       grandTotal,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
     setPinnedTickets(prev => [newTicket, ...prev]);
     clearCart();
+    setSelectedPromotionId('auto');
+    setCustomDiscountVal(0);
     showToast(isKhmer ? 'បានផ្អាកការបញ្ជាទិញ (Parked Ticket)!' : 'POS ticket parked on hold.', 'info');
   };
 
@@ -127,7 +131,9 @@ export const PosTerminal = () => {
   const handleRestoreTicket = (ticket) => {
     setCart(ticket.cart);
     setSelectedCustomer(ticket.selectedCustomer || null);
-    setDiscountPercent(ticket.discountPercent || 0);
+    setDiscountMode(ticket.discountMode || 'percent');
+    setCustomDiscountVal(ticket.customDiscountVal !== undefined ? ticket.customDiscountVal : 0);
+    setSelectedPromotionId(ticket.selectedPromotionId || 'auto');
     setPinnedTickets(prev => prev.filter(t => t.id !== ticket.id));
     showToast(isKhmer ? 'បានស្ដារការបញ្ជាទិញមកវិញ!' : 'Parked ticket restored to active cart.', 'success');
   };
@@ -167,12 +173,16 @@ export const PosTerminal = () => {
 
     if (confirmed) {
       clearCart();
+      setSelectedPromotionId('auto');
+      setCustomDiscountVal(0);
       showToast(isKhmer ? 'កន្ត្រកត្រូវបានសម្អាត!' : 'Cart cleared.', 'info');
     }
   };
 
-  // Active Promotion Selection ('auto' | 'vip' | 'none' | 'custom' | promo_id)
+  // Active Promotion & Discount State ('auto' | 'vip' | 'none' | 'custom' | promo_id)
   const [selectedPromotionId, setSelectedPromotionId] = useState('auto');
+  const [discountMode, setDiscountMode] = useState('percent'); // 'percent' | 'fixed'
+  const [customDiscountVal, setCustomDiscountVal] = useState(0);
 
   // Filter products using global searchQuery
   const cleanQ = (searchQuery || '').toLowerCase().trim();
@@ -192,69 +202,194 @@ export const PosTerminal = () => {
   const totalWeightGrams = cart.reduce((acc, item) => acc + ((Number(item.net_weight) || 0) * item.qty), 0);
   const totalWeightChi = totalWeightGrams / 3.75;
 
+  // All active promotions in system
+  const allActivePromotions = React.useMemo(() => {
+    if (!promotions || !Array.isArray(promotions)) return [];
+    return promotions.filter(p => {
+      const activeVal = p.is_active;
+      return activeVal === true || activeVal === 1 || activeVal === '1';
+    });
+  }, [promotions]);
+
+  const tierLevel = (tier) => {
+    const t = String(tier || '').toLowerCase();
+    if (t.includes('diamond')) return 4;
+    if (t.includes('platinum')) return 3;
+    if (t.includes('gold')) return 2;
+    if (t.includes('silver')) return 1;
+    return 0;
+  };
+
   // Live Promotion matching: matches active promotions based on customer tier, min purchase, cart items, and valid dates
   const applicablePromotions = React.useMemo(() => {
-    if (!promotions || promotions.length === 0) return [];
+    if (allActivePromotions.length === 0) return [];
     const today = new Date().toISOString().split('T')[0];
     const customerTier = selectedCustomer?.tier || 'Standard';
+    const currentTierLvl = tierLevel(customerTier);
 
-    return promotions.filter(p => {
-      if (!p.is_active) return false;
+    return allActivePromotions.filter(p => {
       if (p.start_date && p.start_date.split('T')[0] > today) return false;
       if (p.end_date && p.end_date.split('T')[0] < today) return false;
-      if (p.tier_requirement && p.tier_requirement !== '' && p.tier_requirement !== customerTier) return false;
       if (p.product_id && !cart.some(item => Number(item.id) === Number(p.product_id))) return false;
       if (Number(p.min_purchase) > 0 && subtotal < Number(p.min_purchase)) return false;
+
+      // Tier check
+      const req = p.tier_requirement;
+      if (req && req !== '' && req !== 'All' && req !== 'all' && req !== 'Standard') {
+        const reqLvl = tierLevel(req);
+        if (selectedCustomer && currentTierLvl < reqLvl) return false;
+      }
+
       return true;
     });
-  }, [promotions, selectedCustomer, cart, subtotal]);
+  }, [allActivePromotions, selectedCustomer, cart, subtotal]);
 
-  // Determine active promotion based on selectedPromotionId or auto-best
+  // Determine active promotion object based on selectedPromotionId or auto-best
   const activePromotion = React.useMemo(() => {
     if (selectedPromotionId === 'none' || selectedPromotionId === 'vip' || selectedPromotionId === 'custom') return null;
     if (selectedPromotionId !== 'auto') {
-      return applicablePromotions.find(p => String(p.id) === String(selectedPromotionId)) || null;
+      return (promotions || []).find(p => String(p.id) === String(selectedPromotionId)) || null;
     }
     if (applicablePromotions.length === 0) return null;
-    // Auto mode: find promotion giving highest discount percent / value
+    // Auto mode: find promotion giving highest discount savings in USD
     return applicablePromotions.slice().sort((a, b) => {
-      const valA = a.discount_type === 'percent' ? Number(a.discount_value) : (subtotal > 0 ? (Number(a.discount_value) / subtotal) * 100 : 0);
-      const valB = b.discount_type === 'percent' ? Number(b.discount_value) : (subtotal > 0 ? (Number(b.discount_value) / subtotal) * 100 : 0);
-      return valB - valA;
+      const savingA = a.discount_type === 'percent' ? (subtotal * Number(a.discount_value)) / 100 : Number(a.discount_value);
+      const savingB = b.discount_type === 'percent' ? (subtotal * Number(b.discount_value)) / 100 : Number(b.discount_value);
+      return savingB - savingA;
     })[0];
-  }, [selectedPromotionId, applicablePromotions, subtotal]);
+  }, [selectedPromotionId, applicablePromotions, promotions, subtotal]);
 
-  // Dynamically synchronize discountPercent whenever active promotion, customer tier, or subtotal updates in auto mode
-  React.useEffect(() => {
+  const [showQuickDiscountMenu, setShowQuickDiscountMenu] = useState(false);
+
+  // Helper to get effective VIP discount rate from customer tier or discount_rate
+  const getCustomerEffectiveDiscountRate = (cust) => {
+    if (!cust) return 0;
+    const rate = Number(cust.discount_rate || 0);
+    if (rate > 0) return rate;
+    const tier = String(cust.tier || '').toLowerCase();
+    if (tier.includes('diamond')) return 5.0;
+    if (tier.includes('platinum')) return 3.0;
+    if (tier.includes('gold')) return 2.0;
+    if (tier.includes('silver')) return 1.0;
+    return 0;
+  };
+
+  // Deterministically compute final discount amount ($) and percentage (%)
+  const { discountAmount, discountPercent } = React.useMemo(() => {
+    if (subtotal <= 0) return { discountAmount: 0, discountPercent: 0 };
+
     if (selectedPromotionId === 'auto') {
+      let promoSaving = 0;
+      let promoPct = 0;
       if (activePromotion) {
-        const promoRate = activePromotion.discount_type === 'percent'
-          ? Number(activePromotion.discount_value)
-          : (subtotal > 0 ? Math.min(100, Math.round(((Number(activePromotion.discount_value) / subtotal) * 100) * 100) / 100) : 0);
-        const vipRate = Number(selectedCustomer?.discount_rate || 0);
-        setDiscountPercent(Math.max(promoRate, vipRate));
-      } else if (selectedCustomer) {
-        setDiscountPercent(Number(selectedCustomer.discount_rate || 0));
-      } else {
-        setDiscountPercent(0);
+        if (activePromotion.discount_type === 'percent') {
+          promoPct = Number(activePromotion.discount_value) || 0;
+          promoSaving = (subtotal * promoPct) / 100;
+        } else {
+          promoSaving = Math.min(subtotal, Number(activePromotion.discount_value) || 0);
+          promoPct = subtotal > 0 ? (promoSaving / subtotal) * 100 : 0;
+        }
       }
-    } else if (selectedPromotionId === 'vip') {
-      setDiscountPercent(Number(selectedCustomer?.discount_rate || 0));
-    } else if (selectedPromotionId === 'none') {
-      setDiscountPercent(0);
-    } else if (selectedPromotionId !== 'custom') {
-      const promo = applicablePromotions.find(p => String(p.id) === String(selectedPromotionId));
-      if (promo) {
-        const promoRate = promo.discount_type === 'percent'
-          ? Number(promo.discount_value)
-          : (subtotal > 0 ? Math.min(100, Math.round(((Number(promo.discount_value) / subtotal) * 100) * 100) / 100) : 0);
-        setDiscountPercent(promoRate);
+      const vipRate = getCustomerEffectiveDiscountRate(selectedCustomer);
+      const vipSaving = (subtotal * vipRate) / 100;
+
+      if (promoSaving > 0 || vipSaving > 0) {
+        if (vipSaving > promoSaving) {
+          return {
+            discountAmount: Math.min(subtotal, Math.round(vipSaving * 100) / 100),
+            discountPercent: vipRate
+          };
+        } else {
+          return {
+            discountAmount: Math.min(subtotal, Math.round(promoSaving * 100) / 100),
+            discountPercent: Math.round(promoPct * 100) / 100
+          };
+        }
+      }
+      return { discountAmount: 0, discountPercent: 0 };
+    }
+
+    if (selectedPromotionId === 'vip') {
+      const vipRate = getCustomerEffectiveDiscountRate(selectedCustomer);
+      const amt = Math.min(subtotal, (subtotal * vipRate) / 100);
+      return { discountAmount: Math.round(amt * 100) / 100, discountPercent: vipRate };
+    }
+
+    if (selectedPromotionId === 'none') {
+      return { discountAmount: 0, discountPercent: 0 };
+    }
+
+    if (selectedPromotionId === 'custom') {
+      if (discountMode === 'fixed') {
+        const amt = Math.min(subtotal, Math.max(0, Number(customDiscountVal) || 0));
+        const pct = subtotal > 0 ? (amt / subtotal) * 100 : 0;
+        return { discountAmount: Math.round(amt * 100) / 100, discountPercent: Math.round(pct * 100) / 100 };
+      } else {
+        const pct = Math.min(100, Math.max(0, Number(customDiscountVal) || 0));
+        const amt = (subtotal * pct) / 100;
+        return { discountAmount: Math.round(amt * 100) / 100, discountPercent: pct };
       }
     }
-  }, [selectedPromotionId, activePromotion, selectedCustomer, subtotal]);
+
+    // Specific promotion ID selected
+    const promo = (promotions || []).find(p => String(p.id) === String(selectedPromotionId));
+    if (promo) {
+      if (promo.discount_type === 'percent') {
+        const pct = Number(promo.discount_value) || 0;
+        const amt = (subtotal * pct) / 100;
+        return { discountAmount: Math.round(amt * 100) / 100, discountPercent: pct };
+      } else {
+        const amt = Math.min(subtotal, Number(promo.discount_value) || 0);
+        const pct = subtotal > 0 ? (amt / subtotal) * 100 : 0;
+        return { discountAmount: Math.round(amt * 100) / 100, discountPercent: Math.round(pct * 100) / 100 };
+      }
+    }
+
+    return { discountAmount: 0, discountPercent: 0 };
+  }, [subtotal, selectedPromotionId, activePromotion, selectedCustomer, discountMode, customDiscountVal, promotions]);
+
+  // Keep AppContext discountPercent in sync for other components if needed
+  React.useEffect(() => {
+    if (typeof setContextDiscountPercent === 'function') {
+      setContextDiscountPercent(discountPercent);
+    }
+  }, [discountPercent]);
+
+  // Toast Notification Trigger for Auto-Applied Promotions (លោត Auto Promos)
+  const lastNotifiedPromoRef = React.useRef(null);
+  React.useEffect(() => {
+    if (selectedPromotionId === 'auto' && subtotal > 0) {
+      if (activePromotion && discountAmount > 0) {
+        const promoKey = `promo_${activePromotion.id}_${activePromotion.discount_value}`;
+        if (lastNotifiedPromoRef.current !== promoKey) {
+          lastNotifiedPromoRef.current = promoKey;
+          showToast(
+            isKhmer
+              ? `🎉 ប្រម៉ូសិន "${activePromotion.name}" ត្រូវបានអនុវត្តដោយស្វ័យប្រវត្តិ (-${activePromotion.discount_value}${activePromotion.discount_type === 'percent' ? '%' : '$'})!`
+              : `🎉 Auto-applied promotion "${activePromotion.name}" (-${activePromotion.discount_value}${activePromotion.discount_type === 'percent' ? '%' : '$'})!`,
+            'success'
+          );
+        }
+      } else if (selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && discountPercent > 0) {
+        const vipKey = `vip_${selectedCustomer.id}_${selectedCustomer.tier}_${selectedCustomer.discount_rate}`;
+        if (lastNotifiedPromoRef.current !== vipKey) {
+          lastNotifiedPromoRef.current = vipKey;
+          showToast(
+            isKhmer
+              ? `👑 អតិថិជន VIP "${selectedCustomer.tier}" ទទួលបានការបញ្ចុះតម្លៃ ${selectedCustomer.discount_rate}% ដោយស្វ័យប្រវត្តិ!`
+              : `👑 Auto-applied VIP discount (${selectedCustomer.discount_rate}%) for ${selectedCustomer.tier}!`,
+            'success'
+          );
+        }
+      } else {
+        lastNotifiedPromoRef.current = null;
+      }
+    } else if (selectedPromotionId !== 'auto' || subtotal === 0) {
+      lastNotifiedPromoRef.current = null;
+    }
+  }, [activePromotion, selectedPromotionId, selectedCustomer, subtotal, discountAmount, discountPercent, isKhmer, showToast]);
 
   // Final ledger values
-  const discountAmount = subtotal * (discountPercent / 100);
   const taxableTotal = Math.max(0, subtotal - discountAmount);
   const taxAmount = taxableTotal * (taxRate / 100);
   const grandTotal = taxableTotal + taxAmount;
@@ -474,7 +609,9 @@ export const PosTerminal = () => {
         paymentStatus,
         paidAmount: finalPaid,
         notes: paymentNotes,
-        saleStatus: isPreOrderSale ? 'pending' : saleStatus
+        saleStatus: isPreOrderSale ? 'pending' : saleStatus,
+        discountAmount,
+        discountPercent,
       });
       setShowPaymentModal(false);
       if (finalized) {
@@ -682,35 +819,46 @@ export const PosTerminal = () => {
       {/* Right Area: Active POS Ticket / Cart (Compact Width: 4 cols on LG, 3 cols on XL) - Fixed Full Height */}
       <div
         id="active-pos-ticket"
-        className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 h-full min-h-0 bg-white border border-slate-200 shadow-xs rounded-2xl p-3 sm:p-3.5 flex flex-col overflow-hidden"
+        className="lg:col-span-4 xl:col-span-3 2xl:col-span-3 h-full min-h-0 bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl shadow-slate-200/50 rounded-3xl p-3.5 sm:p-4 flex flex-col overflow-hidden transition-all relative"
       >
+        {/* Top Gold Subtle Accent Line */}
+        <div className="absolute top-0 left-8 right-8 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent pointer-events-none" />
+
+        {/* Ticket Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
-          <div className="flex items-center gap-2 font-serif text-lg font-bold text-slate-900">
-            <FontAwesomeIcon icon={faBagShopping} className="w-5 h-5 text-amber-600" />
-            <span>{isKhmer ? 'កន្ត្រកបញ្ជាទិញ (POS)' : 'Active POS Ticket'}</span>
-            {cart.length > 0 && (
-              <span className="text-[11px] font-sans font-bold bg-amber-100 text-amber-900 px-2 py-0.5 rounded-full border border-amber-200">
-                {cart.reduce((sum, item) => sum + item.qty, 0)} {isKhmer ? 'មុខ' : (cart.reduce((sum, item) => sum + item.qty, 0) === 1 ? 'item' : 'items')}
-              </span>
-            )}
+          <div className="flex items-center gap-2.5 font-serif text-lg font-bold text-slate-900">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-white shadow-sm shadow-amber-500/20 shrink-0">
+              <FontAwesomeIcon icon={faBagShopping} className="w-4 h-4" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="tracking-tight">{isKhmer ? 'កន្ត្រកបញ្ជាទិញ (POS)' : 'Active POS Ticket'}</span>
+              {cart.length > 0 && (
+                <span className="text-[11px] font-mono font-bold bg-amber-50 text-amber-900 px-2.5 py-0.5 rounded-full border border-amber-200 shadow-2xs">
+                  {cart.reduce((sum, item) => sum + item.qty, 0)} {isKhmer ? 'មុខ' : (cart.reduce((sum, item) => sum + item.qty, 0) === 1 ? 'item' : 'items')}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-1.5">
             {/* Hold Ticket to recall later */}
             {cart.length > 0 && (
               <button
+                type="button"
                 onClick={handlePinTicket}
-                className="text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 font-semibold px-2.5 py-1 rounded-lg cursor-pointer flex items-center gap-1 transition-all active:scale-95"
+                className="text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 font-bold px-2.5 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shadow-2xs"
                 title={isKhmer ? 'ផ្អាកកន្ត្រកដើម្បីបំរើអតិថិជនផ្សេង' : 'Hold ticket to serve another guest'}
               >
-                <FontAwesomeIcon icon={faBookmark} className="w-3.5 h-3.5 text-amber-700" />
-                {isKhmer ? 'ផ្អាកសិន' : 'Hold'}
+                <FontAwesomeIcon icon={faBookmark} className="w-3 h-3 text-amber-700" />
+                <span>{isKhmer ? 'ផ្អាកសិន' : 'Hold'}</span>
               </button>
             )}
 
             {cart.length > 0 && (
               <button
+                type="button"
                 onClick={handleClearCart}
-                className="text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-1 cursor-pointer hover:bg-rose-50 rounded-lg transition-colors"
+                className="text-xs text-rose-600 hover:text-rose-700 font-semibold px-2 py-1.5 cursor-pointer hover:bg-rose-50 rounded-xl transition-all active:scale-95"
+                title={isKhmer ? 'សម្អាតកន្ត្រកទាំងមូល' : 'Clear all items from ticket'}
               >
                 {isKhmer ? 'សម្អាត' : 'Clear'}
               </button>
@@ -720,18 +868,21 @@ export const PosTerminal = () => {
 
         {/* Held Tickets Tray */}
         {pinnedTickets.length > 0 && (
-          <div className="shrink-0 p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl space-y-2 mt-2">
+          <div className="shrink-0 p-3 bg-gradient-to-br from-amber-50/90 to-yellow-50/50 border border-amber-200/90 rounded-2xl space-y-2 mt-2.5 shadow-2xs">
             <div className="flex items-center justify-between text-xs font-bold text-amber-900">
               <span className="flex items-center gap-1.5">
                 <FontAwesomeIcon icon={faBookmark} className="w-3.5 h-3.5 text-amber-600" />
-                {isKhmer ? 'កន្ត្រកបានផ្អាក' : 'Held Tickets'} ({pinnedTickets.length})
+                <span>{isKhmer ? 'កន្ត្រកបានផ្អាក' : 'Held Tickets'}</span>
+                <span className="bg-amber-200/80 text-amber-950 px-1.5 py-0.2 rounded-full text-[10px] font-mono">
+                  {pinnedTickets.length}
+                </span>
               </span>
             </div>
-            <div className="space-y-1.5 max-h-28 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+            <div className="space-y-1.5 max-h-28 overflow-y-auto pr-0.5" style={{ scrollbarWidth: 'thin' }}>
               {pinnedTickets.map(pt => (
                 <div
                   key={pt.id}
-                  className="p-2 bg-white rounded-lg border border-amber-200 flex items-center justify-between text-xs shadow-2xs gap-2"
+                  className="p-2 bg-white rounded-xl border border-amber-200 flex items-center justify-between text-xs shadow-2xs gap-2 hover:border-amber-300 transition-colors"
                 >
                   <div className="flex items-center gap-2 min-w-0 flex-1">
                     {/* Overlapping thumbnail images preview */}
@@ -752,24 +903,28 @@ export const PosTerminal = () => {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-slate-800 truncate">
-                        {pt.selectedCustomer ? pt.selectedCustomer.name : (isKhmer ? 'ភ្ញៀវទូទៅ' : 'Walk-in Guest')} ({pt.cart.length} {isKhmer ? 'មុខ' : 'items'})
+                      <div className="font-bold text-slate-800 truncate">
+                        {pt.selectedCustomer ? pt.selectedCustomer.name : (isKhmer ? 'ភ្ញៀវទូទៅ' : 'Walk-in Guest')}
                       </div>
-                      <div className="text-[10px] text-slate-500 font-mono">
-                        {pt.time} • ${pt.grandTotal.toFixed(2)}
+                      <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                        <span>{pt.time}</span>
+                        <span>•</span>
+                        <span className="font-bold text-amber-900">${pt.grandTotal.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button
+                      type="button"
                       onClick={() => handleRestoreTicket(pt)}
-                      className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-semibold text-[11px] cursor-pointer"
+                      className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-[11px] cursor-pointer shadow-2xs transition-all active:scale-95"
                     >
-                      {isKhmer ? 'បន្តការលក់' : 'Resume'}
+                      {isKhmer ? 'បន្ត' : 'Resume'}
                     </button>
                     <button
+                      type="button"
                       onClick={() => handleDeletePinnedTicket(pt)}
-                      className="p-1 text-slate-400 hover:text-rose-600 cursor-pointer"
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
                       title={isKhmer ? 'លុប' : 'Delete'}
                     >
                       <FontAwesomeIcon icon={faTrashCan} className="w-3 h-3" />
@@ -781,10 +936,10 @@ export const PosTerminal = () => {
           </div>
         )}
 
-        {/* Customer Selector */}
-        <div className="shrink-0 my-2">
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+        {/* Customer Selector Card */}
+        <div className="shrink-0 my-2.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2.5 sm:p-3 transition-all">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <FontAwesomeIcon icon={faUser} className="w-3.5 h-3.5 text-amber-600" />
               <span>{t('pos.selectClient', 'Select Customer')}</span>
             </label>
@@ -800,63 +955,47 @@ export const PosTerminal = () => {
           <select
             value={selectedCustomer?.id || ''}
             onChange={(e) => handleCustomerChange(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:border-amber-500 focus:bg-white focus:outline-none font-medium cursor-pointer"
+            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 focus:outline-none font-medium cursor-pointer shadow-2xs transition-all"
           >
             <option value="">{t('pos.walkInGuest', 'Walk-in Guest')}</option>
             <option value="__NEW__" className="font-bold text-amber-700 bg-amber-50">
               {isKhmer ? '+ បញ្ចូលអតិថិជនថ្មី...' : '+ Add New Customer...'}
             </option>
             {customers.map(c => {
-              const today = new Date().toISOString().split('T')[0];
-              const promo = (promotions || []).find(p => {
-                if (!p.is_active) return false;
-                if (p.start_date && p.start_date.split('T')[0] > today) return false;
-                if (p.end_date && p.end_date.split('T')[0] < today) return false;
-                return p.tier_requirement === c.tier;
-              });
-
+              const effRate = getCustomerEffectiveDiscountRate(c);
+              const tierName = c.tier || 'Standard';
               return (
                 <option key={c.id} value={c.id}>
-                  {c.name} — {c.tier} {promo ? `(${promo.discount_value}% Promo: ${promo.name})` : `(${c.discount_rate}% Privilege)`}
+                  {c.name} — {tierName} {effRate > 0 ? `(${effRate}% Privilege)` : ''}
                 </option>
               );
             })}
           </select>
-          {selectedCustomer && (
-            <div className="mt-1.5 flex items-center justify-between text-[11px] text-amber-800 px-1 font-semibold flex-wrap gap-1">
-              <span className="flex items-center gap-1.5">
-                <span>{isKhmer ? 'កម្រិត' : 'Tier'}:</span>
-                <strong className="text-amber-950">{selectedCustomer.tier}</strong>
-                {activePromotion ? (
-                  <span className="inline-flex items-center gap-1 text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-300 font-bold shadow-2xs">
-                    <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
-                    <span>{activePromotion.name} (-{activePromotion.discount_value}{activePromotion.discount_type === 'percent' ? '%' : '$'})</span>
-                  </span>
-                ) : (
-                  <span className="text-slate-500 font-normal">({selectedCustomer.discount_rate}% Privilege)</span>
-                )}
-              </span>
-              <span>{isKhmer ? 'ពិន្ទុសន្សំ' : 'Loyalty'}: {selectedCustomer.loyalty_points} {t('customers.pts', 'pts')}</span>
-            </div>
-          )}
         </div>
 
         {/* Cart Item List - Scrollable inside ticket */}
-        <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1 my-2" style={{ scrollbarWidth: 'thin' }}>
+        <div className="space-y-2.5 flex-1 min-h-0 overflow-y-auto pr-1 my-1" style={{ scrollbarWidth: 'thin' }}>
           {cart.length === 0 ? (
-            <div className="h-full min-h-[140px] flex flex-col items-center justify-center py-8 text-center text-slate-400 text-xs">
-              <FontAwesomeIcon icon={faBagShopping} className="w-8 h-8 text-slate-300 mb-2" />
-              <span>{t('pos.emptyCart', 'No jewelry items in register. Select pieces from inventory grid.')}</span>
+            <div className="h-full min-h-[160px] flex flex-col items-center justify-center py-8 text-center text-slate-400 text-xs px-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-50 to-slate-100 border border-amber-200/60 flex items-center justify-center text-amber-600/70 mb-3 shadow-inner">
+                <FontAwesomeIcon icon={faCartShopping} className="w-6 h-6" />
+              </div>
+              <p className="font-serif font-bold text-slate-700 text-sm mb-0.5">
+                {isKhmer ? 'កន្ត្រកទំនិញទទេ' : 'Your cart is empty'}
+              </p>
+              <p className="text-[11px] text-slate-400 max-w-[200px]">
+                {t('pos.emptyCart', 'Select jewelry pieces from the catalog to build ticket')}
+              </p>
             </div>
           ) : (
             cart.map(item => (
               <div
                 key={item.id}
-                className="p-2.5 sm:p-3 rounded-xl bg-slate-50 hover:bg-amber-50/40 border border-slate-200 hover:border-amber-200 transition-colors flex items-center justify-between gap-3 text-xs group"
+                className="p-3 rounded-2xl bg-white hover:bg-amber-50/30 border border-slate-200/80 hover:border-amber-300/80 transition-all duration-200 flex items-center justify-between gap-3 text-xs shadow-xs hover:shadow-md group relative"
               >
                 {/* Product Thumbnail Image */}
                 <div className="relative w-12 h-12 shrink-0">
-                  <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shadow-2xs">
+                  <div className="w-full h-full rounded-xl overflow-hidden bg-slate-100 border border-slate-200/80 shadow-2xs">
                     <img
                       src={item.image || fallbackImg}
                       alt={item.name}
@@ -865,21 +1004,25 @@ export const PosTerminal = () => {
                     />
                   </div>
                   {item.qty > 1 && (
-                    <span className="absolute -bottom-1.5 -right-1.5 bg-amber-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full shadow-xs border border-white z-10">
+                    <span className="absolute -bottom-1 -right-1 bg-amber-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full shadow-xs border border-white z-10">
                       x{item.qty}
                     </span>
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <div className="font-bold text-slate-900 truncate leading-snug">{item.name}</div>
-                  <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5">
+                  <div className="font-bold text-slate-900 group-hover:text-amber-950 transition-colors truncate leading-snug">
+                    {item.name}
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-mono flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <span className="text-[10px] text-slate-400 font-sans font-medium">{item.code_sku}</span>
                     <span>•</span>
-                    <span className="font-bold text-amber-950">{((item.net_weight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}</span>
+                    <span className="font-bold text-amber-950 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 text-[10.5px]">
+                      {((item.net_weight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}
+                    </span>
                     <span className="text-[10px] text-slate-400 font-normal">({item.net_weight}g)</span>
                   </div>
-                  <div className="text-xs text-amber-800 font-bold font-mono mt-0.5">
+                  <div className="text-xs text-amber-800 font-bold font-mono mt-1">
                     ${(item.calculatedPrice * item.qty).toFixed(2)}
                     {item.qty > 1 && (
                       <span className="text-[10px] text-slate-400 font-normal ml-1">
@@ -910,7 +1053,7 @@ export const PosTerminal = () => {
                             }
                             updateCartItemStatus(item.id, item.status === 'pending' ? 'completed' : 'pending');
                           }}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10.5px] font-semibold border cursor-pointer transition-all active:scale-95 ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[10.5px] font-semibold border cursor-pointer transition-all active:scale-95 whitespace-nowrap shrink-0 ${
                             isPending
                               ? 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100 shadow-2xs'
                               : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100 shadow-2xs'
@@ -921,13 +1064,13 @@ export const PosTerminal = () => {
                               : (isKhmer ? 'ចុចដើម្បីប្តូរស្ថានភាពទំនិញ (រួចរាល់ ↔ រង់ចាំកែ)' : 'Click to toggle item status (Ready ↔ Pending)')
                           }
                         >
-                          <FontAwesomeIcon icon={isPending ? faClock : faCircleCheck} className={`w-3 h-3 ${isPending ? 'text-amber-600' : 'text-emerald-600'}`} />
-                          <span>
+                          <FontAwesomeIcon icon={isPending ? faClock : faCircleCheck} className={`w-3 h-3 shrink-0 ${isPending ? 'text-amber-600' : 'text-emerald-600'}`} />
+                          <span className="whitespace-nowrap">
                             {exceedsStock
-                              ? (isKhmer ? 'កុម្ម៉ង់កែច្នៃ (Pre-Order)' : 'Pre-Order (Crafting)')
+                              ? (isKhmer ? 'កុម្ម៉ង់ (Pre-Order)' : 'Pre-Order')
                               : (item.status === 'pending'
-                                  ? (isKhmer ? 'រង់ចាំកែ' : 'Pending / Sizing')
-                                  : (isKhmer ? 'យកភ្លាម (រួចរាល់)' : 'Ready (In-Stock)'))}
+                                  ? (isKhmer ? 'រង់ចាំកែ' : 'Pending')
+                                  : (isKhmer ? 'យកភ្លាម' : 'Ready'))}
                           </span>
                         </button>
                       );
@@ -936,13 +1079,14 @@ export const PosTerminal = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <div className="flex items-center bg-white rounded-lg border border-slate-200 shadow-2xs">
+                  <div className="flex items-center bg-slate-50 rounded-xl border border-slate-200 shadow-2xs p-0.5">
                     <button
+                      type="button"
                       onClick={() => updateCartQty(item.id, item.qty - 1)}
-                      className="p-1 text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+                      className="p-1 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg cursor-pointer transition-colors"
                       title={isKhmer ? 'បន្ថយ' : 'Decrease'}
                     >
-                      <FontAwesomeIcon icon={faMinus} className="w-3 h-3" />
+                      <FontAwesomeIcon icon={faMinus} className="w-2.5 h-2.5" />
                     </button>
                     <input
                       type="number"
@@ -957,16 +1101,18 @@ export const PosTerminal = () => {
                       className="w-7 text-center font-mono text-xs font-bold text-slate-800 focus:outline-none bg-transparent"
                     />
                     <button
+                      type="button"
                       onClick={() => updateCartQty(item.id, item.qty + 1)}
-                      className="p-1 text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"
+                      className="p-1 text-slate-500 hover:text-slate-800 hover:bg-white rounded-lg cursor-pointer transition-colors"
                       title={isKhmer ? 'បន្ថែម' : 'Increase'}
                     >
-                      <FontAwesomeIcon icon={faPlus} className="w-3 h-3" />
+                      <FontAwesomeIcon icon={faPlus} className="w-2.5 h-2.5" />
                     </button>
                   </div>
                   <button
+                    type="button"
                     onClick={() => removeFromCart(item.id)}
-                    className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
+                    className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl cursor-pointer transition-colors"
                     title={isKhmer ? 'លុបចេញពីកន្ត្រក' : 'Remove from ticket'}
                   >
                     <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
@@ -977,153 +1123,194 @@ export const PosTerminal = () => {
           )}
         </div>
 
-        {/* Financial Summary */}
-        <div className="pt-3 border-t border-slate-100 space-y-2 text-xs font-mono shrink-0 mt-auto">
-          <div className="flex justify-between text-slate-700 pb-1 border-b border-dashed border-slate-200">
-            <span className="font-sans font-medium">{t('pos.totalWeightChi', 'Total Weight (Chi):')}</span>
-            <span className="font-bold text-amber-950">{totalWeightChi.toFixed(2)} {isKhmer ? 'ជី' : 'Chi'} <span className="text-slate-400 font-normal text-[10px]">({totalWeightGrams.toFixed(2)}g)</span></span>
-          </div>
-          <div className="flex justify-between text-slate-600">
-            <span>{t('pos.subtotal', 'Metal & Labor Subtotal')}:</span>
-            <span>${subtotal.toFixed(2)}</span>
+        {/* Financial Summary Card */}
+        <div className="pt-3 border-t border-slate-200/80 space-y-2 text-xs font-mono shrink-0 mt-auto">
+          {/* Total Gold Weight Pill */}
+          <div className="flex justify-between items-center bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5">
+            <span className="font-sans font-bold text-slate-700 flex items-center gap-1.5">
+              <FontAwesomeIcon icon={faScaleBalanced} className="text-amber-600 w-3 h-3" />
+              <span>{t('pos.totalWeightChi', 'Total Weight (Chi):')}</span>
+            </span>
+            <span className="font-bold text-amber-950 font-mono">
+              {totalWeightChi.toFixed(2)} {isKhmer ? 'ជី' : 'Chi'} <span className="text-slate-400 font-normal text-[10px]">({totalWeightGrams.toFixed(2)}g)</span>
+            </span>
           </div>
 
-          {/* Always-Visible & Interactive Discount / Promotion Section */}
-          <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-50/90 to-amber-100/50 border border-amber-300/80 space-y-2">
-            <div className="flex justify-between items-center text-slate-700">
-              <div className="flex items-center gap-1.5 font-sans min-w-0 flex-1 mr-2">
-                <FontAwesomeIcon icon={faPercent} className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="font-bold text-slate-800 text-[11.5px] truncate">
-                  {isKhmer ? 'បញ្ចុះតម្លៃ / ប្រម៉ូសិន:' : 'Discount / Promo:'}
-                </span>
+          <div className="flex justify-between text-slate-600 px-1">
+            <span>{t('pos.subtotal', 'Metal & Labor Subtotal')}:</span>
+            <span className="font-bold">${subtotal.toFixed(2)}</span>
+          </div>
+
+          {/* Clean & Interactive Discount Row on Active POS Ticket */}
+          <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 overflow-hidden transition-all">
+            <button
+              type="button"
+              onClick={() => setShowQuickDiscountMenu(prev => !prev)}
+              className="w-full flex justify-between items-center text-slate-700 px-2.5 py-1.5 hover:bg-amber-50/70 transition-colors cursor-pointer text-left text-xs"
+              title={isKhmer ? 'ចុចដើម្បីកែប្រែការបញ្ចុះតម្លៃ' : 'Click to adjust discount'}
+            >
+              <span className="flex items-center gap-1.5 min-w-0">
+                <FontAwesomeIcon icon={faPercent} className="text-amber-600 w-3 h-3 shrink-0" />
+                <span className="font-semibold">{t('pos.discount', 'Discount')}:</span>
                 {activePromotion ? (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-2xs truncate">
-                    <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1 truncate max-w-[130px]" title={activePromotion.name}>
+                    <FontAwesomeIcon icon={faGift} className="w-2 h-2 text-emerald-600 shrink-0" />
                     <span className="truncate">{activePromotion.name} (-{activePromotion.discount_value}{activePromotion.discount_type === 'percent' ? '%' : '$'})</span>
                   </span>
                 ) : (
-                  selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && (
-                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-200/90 text-amber-950 border border-amber-300 shadow-2xs shrink-0">
-                      {selectedCustomer.tier} VIP ({selectedCustomer.discount_rate}%)
+                  selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && discountPercent > 0 ? (
+                    <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300 flex items-center gap-1">
+                      <FontAwesomeIcon icon={faCrown} className="w-2 h-2 text-amber-600 shrink-0" />
+                      <span>{selectedCustomer.tier} ({discountPercent}%)</span>
                     </span>
+                  ) : (
+                    discountPercent > 0 ? (
+                      <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 font-mono">
+                        {discountPercent}%
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-normal hover:text-amber-700 underline underline-offset-2">
+                        {isKhmer ? '+ ជ្រើសរើស' : '+ Select'}
+                      </span>
+                    )
                   )
                 )}
-              </div>
+              </span>
+              <span className={`font-mono font-bold text-xs ${discountAmount > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
+                {discountAmount > 0 ? `-$${discountAmount.toFixed(2)}` : '$0.00'}
+              </span>
+            </button>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <div className="inline-flex items-center gap-0.5 bg-white border border-amber-300 rounded-md px-1.5 py-0.5 shadow-2xs">
+            {/* Expandable Inline Quick Discount Tray */}
+            {showQuickDiscountMenu && (
+              <div className="p-2.5 bg-white border-t border-slate-200/80 space-y-2 animate-fadeIn text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10.5px] font-bold text-slate-600">
+                    {isKhmer ? 'បញ្ចុះតម្លៃរហ័ស (Quick Discount):' : 'Quick Discount:'}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setDiscountMode('percent')}
+                      className={`px-1.5 py-0.5 text-[9.5px] font-bold rounded cursor-pointer ${discountMode === 'percent' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'}`}
+                    >
+                      %
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDiscountMode('fixed')}
+                      className={`px-1.5 py-0.5 text-[9.5px] font-bold rounded cursor-pointer ${discountMode === 'fixed' ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'}`}
+                    >
+                      $
+                    </button>
+                  </div>
+                </div>
+
+                {/* Preset Pills */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedPromotionId('auto');
+                      setCustomDiscountVal(0);
+                    }}
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold cursor-pointer transition-all ${
+                      selectedPromotionId === 'auto'
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    ⚡ Auto
+                  </button>
+
+                  {discountMode === 'percent' ? (
+                    [0, 2, 3, 5, 10, 15].map(pct => (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPromotionId(pct === 0 ? 'none' : 'custom');
+                          setDiscountMode('percent');
+                          setCustomDiscountVal(pct);
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                          (pct === 0 && selectedPromotionId === 'none') || (selectedPromotionId === 'custom' && Number(customDiscountVal) === pct)
+                            ? 'bg-amber-600 text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-900 border border-slate-200'
+                        }`}
+                      >
+                        {pct}%
+                      </button>
+                    ))
+                  ) : (
+                    [0, 5, 10, 20, 50].map(amt => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPromotionId(amt === 0 ? 'none' : 'custom');
+                          setDiscountMode('fixed');
+                          setCustomDiscountVal(amt);
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                          (amt === 0 && selectedPromotionId === 'none') || (selectedPromotionId === 'custom' && Number(customDiscountVal) === amt)
+                            ? 'bg-amber-600 text-white shadow-2xs'
+                            : 'bg-slate-100 text-slate-700 hover:bg-amber-50 hover:text-amber-900 border border-slate-200'
+                        }`}
+                      >
+                        ${amt}
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                {/* Custom input */}
+                <div className="flex items-center gap-1.5 pt-1">
+                  <span className="text-[10px] text-slate-500 font-medium">{isKhmer ? 'បញ្ចូលផ្ទាល់:' : 'Custom:'}</span>
                   <input
                     type="number"
                     min="0"
-                    max="100"
-                    step="0.5"
-                    value={discountPercent}
+                    max={discountMode === 'percent' ? 100 : subtotal}
+                    step="any"
+                    value={selectedPromotionId === 'custom' ? customDiscountVal : ''}
+                    placeholder={discountMode === 'percent' ? 'e.g. 8%' : 'e.g. $25'}
                     onChange={(e) => {
                       setSelectedPromotionId('custom');
-                      const val = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
-                      setDiscountPercent(val);
+                      setCustomDiscountVal(e.target.value);
                     }}
-                    className="w-10 bg-transparent text-center font-mono font-bold text-xs text-slate-900 focus:outline-none"
-                    title={isKhmer ? 'ភាគរយបញ្ចុះតម្លៃ (%)' : 'Discount percentage (%)'}
+                    className="flex-1 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900 focus:outline-none focus:border-amber-500"
                   />
-                  <span className="text-[10px] font-bold text-amber-800 font-mono">%</span>
-                </div>
-                <span className={`font-mono font-bold text-xs ${discountPercent > 0 ? 'text-emerald-700' : 'text-slate-500'}`}>
-                  -${discountAmount.toFixed(2)}
-                </span>
-              </div>
-            </div>
-
-            {/* Applicable Promotions Quick Selector */}
-            <div className="space-y-1.5 pt-1.5 border-t border-amber-200/70 text-[11px]">
-              {applicablePromotions.length > 0 && (
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-sans font-bold text-amber-900 flex items-center gap-1">
-                    <FontAwesomeIcon icon={faTag} className="w-2.5 h-2.5 text-amber-600" />
-                    <span>{isKhmer ? 'ប្រម៉ូសិន:' : 'Promos:'}</span>
-                  </span>
                   <button
                     type="button"
-                    onClick={() => setSelectedPromotionId('auto')}
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                      selectedPromotionId === 'auto'
-                        ? 'bg-emerald-600 text-white shadow-2xs ring-1 ring-emerald-500'
-                        : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-300'
-                    }`}
-                    title={isKhmer ? 'អនុវត្តប្រម៉ូសិនដែលល្អបំផុតដោយស្វ័យប្រវត្តិ' : 'Auto-apply best matching promotion'}
+                    onClick={() => setShowQuickDiscountMenu(false)}
+                    className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[10.5px] font-bold rounded-lg cursor-pointer"
                   >
-                    <FontAwesomeIcon icon={faWandMagicSparkles} className="w-2.5 h-2.5" />
-                    <span>{isKhmer ? 'ស្វ័យប្រវត្តិ' : 'Auto Best'}</span>
+                    {isKhmer ? 'យល់ព្រម' : 'Done'}
                   </button>
-                  {applicablePromotions.map(promo => (
-                    <button
-                      key={promo.id}
-                      type="button"
-                      onClick={() => setSelectedPromotionId(promo.id)}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                        String(selectedPromotionId) === String(promo.id)
-                          ? 'bg-amber-600 text-white shadow-2xs ring-1 ring-amber-500'
-                          : 'bg-white text-amber-900 hover:bg-amber-50 border border-amber-300'
-                      }`}
-                      title={promo.description || promo.name}
-                    >
-                      <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5" />
-                      <span>{promo.name} (-{promo.discount_value}{promo.discount_type === 'percent' ? '%' : '$'})</span>
-                    </button>
-                  ))}
-                  {selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPromotionId('vip')}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all ${
-                        selectedPromotionId === 'vip'
-                          ? 'bg-amber-500 text-white shadow-2xs'
-                          : 'bg-white text-slate-700 hover:bg-amber-50 border border-slate-200'
-                      }`}
-                    >
-                      <FontAwesomeIcon icon={faCrown} className="w-2.5 h-2.5 text-amber-600" />
-                      <span>{selectedCustomer.tier} ({selectedCustomer.discount_rate}%)</span>
-                    </button>
-                  )}
                 </div>
-              )}
-
-              {/* Quick % chips */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-[10px] font-sans font-medium text-slate-500 mr-0.5">{isKhmer ? 'ជ្រើសរើស:' : 'Quick %:'}</span>
-                {[0, 2, 3, 5, 10].map(pct => (
-                  <button
-                    key={pct}
-                    type="button"
-                    onClick={() => {
-                      setSelectedPromotionId('custom');
-                      setDiscountPercent(pct);
-                    }}
-                    className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-all ${
-                      discountPercent === pct && selectedPromotionId === 'custom'
-                        ? 'bg-amber-500 text-white shadow-2xs'
-                        : 'bg-white text-slate-700 hover:bg-amber-100 border border-slate-200 hover:border-amber-300'
-                    }`}
-                  >
-                    {pct}%
-                  </button>
-                ))}
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="flex justify-between text-slate-600">
+          <div className="flex justify-between text-slate-600 px-1">
             <span>{t('pos.tax', 'Sales Tax')} ({taxRate}%):</span>
-            <span>+${taxAmount.toFixed(2)}</span>
+            <span className="font-bold">+${taxAmount.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between items-baseline text-lg font-bold text-slate-900 pt-2 border-t border-slate-200 font-mono">
-            <span>{t('pos.grandTotal', 'Grand Total')}:</span>
-            <div className="text-right">
-              <span className="text-amber-700 font-extrabold block">
-                ${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+
+          {/* Grand Total Area (Matching Daily Metal Fix Valuation Box) */}
+          <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-2xl p-3.5 shadow-md flex justify-between items-center">
+            <div>
+              <span className="text-[11px] font-medium text-amber-100 uppercase tracking-wider block">
+                {t('pos.grandTotal', 'Grand Total')}
               </span>
-              <span className="text-xs text-slate-500 font-medium block">
-                ៛{grandTotalKhr.toLocaleString()}
+              <span className="text-xs sm:text-sm font-mono font-bold text-amber-200 block mt-0.5">
+                {grandTotalKhr.toLocaleString()} {isKhmer ? '៛ KHR' : 'KHR'}
+              </span>
+            </div>
+            <div className="text-right">
+              <span className="text-xl sm:text-2xl font-mono font-bold text-white tracking-tight block">
+                ${grandTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                <span className="text-xs font-sans font-normal text-amber-200 ml-1">USD</span>
               </span>
             </div>
           </div>
@@ -1136,7 +1323,7 @@ export const PosTerminal = () => {
             type="button"
             disabled={cart.length === 0}
             onClick={handleOpenStatusModal}
-            className="col-span-4 py-2.5 px-2 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-bold rounded-xl text-xs flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-2xs"
+            className="col-span-4 py-2.5 px-2 bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-950 font-bold rounded-2xl text-xs flex flex-col items-center justify-center gap-0.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95 shadow-2xs"
             title={isKhmer ? 'កំណត់ស្ថានភាពការលក់ & មុខទំនិញ' : 'Configure Sale & Item Statuses'}
           >
             <span className="flex items-center gap-1 text-[11px]">
@@ -1150,9 +1337,10 @@ export const PosTerminal = () => {
 
           {/* Primary Checkout Button: opens Modal 1 (Status) */}
           <button
+            type="button"
             disabled={cart.length === 0}
             onClick={handleOpenStatusModal}
-            className="col-span-8 py-2.5 px-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl text-sm shadow-md shadow-amber-500/20 cursor-pointer transition-all active:scale-98 flex items-center justify-center gap-2"
+            className="col-span-8 py-2.5 px-3 bg-gradient-to-r from-amber-500 via-amber-600 to-yellow-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-sm shadow-lg shadow-amber-500/25 cursor-pointer transition-all active:scale-98 flex items-center justify-center gap-2"
           >
             <span>{isKhmer ? 'បន្តការលក់ & បង់ប្រាក់' : 'Checkout & Pay'}</span>
             <FontAwesomeIcon icon={faArrowRight} className="w-3.5 h-3.5" />
@@ -1448,6 +1636,219 @@ export const PosTerminal = () => {
                   <div className="bg-white/70 p-1.5 rounded-lg border border-amber-200/60">
                     <span className="text-[10px] text-slate-500 block font-sans">{isKhmer ? 'ពន្ធ' : 'Tax'} ({taxRate}%)</span>
                     <span className="font-bold text-slate-800">+${taxAmount.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Interactive Promotions & Discounts Manager (Inside Modal 2) */}
+              <div className="p-3 rounded-2xl bg-amber-50/80 border border-amber-200 space-y-2.5">
+                <div className="flex justify-between items-center text-slate-700">
+                  <div className="flex items-center gap-1.5 font-sans min-w-0 flex-1 mr-2">
+                    <FontAwesomeIcon icon={faPercent} className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span className="font-bold text-slate-800 text-[11.5px] truncate">
+                      {isKhmer ? 'បញ្ចុះតម្លៃ / ប្រម៉ូសិន:' : 'Discount / Promo:'}
+                    </span>
+                    {activePromotion ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300 flex items-center gap-1 shadow-2xs truncate">
+                        <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                        <span className="truncate">{activePromotion.name} (-{activePromotion.discount_value}{activePromotion.discount_type === 'percent' ? '%' : '$'})</span>
+                      </span>
+                    ) : (
+                      selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && (selectedPromotionId === 'vip' || selectedPromotionId === 'auto') && discountPercent > 0 ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-200/90 text-amber-950 border border-amber-300 shadow-2xs shrink-0 flex items-center gap-1">
+                          <FontAwesomeIcon icon={faCrown} className="w-2.5 h-2.5 text-amber-700 shrink-0" />
+                          <span>{selectedCustomer.tier} VIP ({selectedCustomer.discount_rate}%)</span>
+                        </span>
+                      ) : null
+                    )}
+                  </div>
+
+                  {/* Input + Mode Toggle (% / $) + Amount Display */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="inline-flex items-center bg-white border border-amber-300 rounded-lg p-0.5 shadow-2xs">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDiscountMode('percent');
+                          setSelectedPromotionId('custom');
+                        }}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                          discountMode === 'percent' ? 'bg-amber-500 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                        title="Percentage discount (%)"
+                      >
+                        %
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDiscountMode('fixed');
+                          setSelectedPromotionId('custom');
+                        }}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                          discountMode === 'fixed' ? 'bg-amber-500 text-white shadow-2xs' : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                        title="Fixed dollar discount ($)"
+                      >
+                        $
+                      </button>
+                      <input
+                        type="number"
+                        min="0"
+                        max={discountMode === 'percent' ? '100' : (subtotal || '999999')}
+                        step={discountMode === 'percent' ? '0.5' : '1'}
+                        value={selectedPromotionId === 'custom' ? customDiscountVal : (discountMode === 'percent' ? discountPercent : discountAmount)}
+                        onChange={(e) => {
+                          setSelectedPromotionId('custom');
+                          const val = Math.max(0, parseFloat(e.target.value) || 0);
+                          setCustomDiscountVal(discountMode === 'percent' ? Math.min(100, val) : Math.min(subtotal, val));
+                        }}
+                        className="w-12 bg-transparent text-center font-mono font-bold text-xs text-slate-900 focus:outline-none px-0.5"
+                        title={isKhmer ? 'បញ្ចូលចំនួនបញ្ចុះតម្លៃ' : 'Enter discount value'}
+                      />
+                    </div>
+
+                    <span className={`font-mono font-bold text-xs min-w-14 text-right ${discountAmount > 0 ? 'text-emerald-700' : 'text-slate-400'}`}>
+                      -${discountAmount.toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Promotions Quick Selectors & Active Promos List */}
+                <div className="space-y-1.5 pt-1.5 border-t border-amber-200/70 text-[11px]">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-sans font-bold text-amber-900 flex items-center gap-1 shrink-0">
+                      <FontAwesomeIcon icon={faTag} className="w-2.5 h-2.5 text-amber-600" />
+                      <span>{isKhmer ? 'ប្រម៉ូសិន:' : 'Promos:'}</span>
+                    </span>
+
+                    {/* Auto Best Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedPromotionId('auto');
+                        setCustomDiscountVal(0);
+                      }}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                        selectedPromotionId === 'auto'
+                          ? 'bg-emerald-600 text-white shadow-2xs ring-1 ring-emerald-500'
+                          : 'bg-white text-emerald-800 hover:bg-emerald-50 border border-emerald-300'
+                      }`}
+                      title={isKhmer ? 'អនុវត្តប្រម៉ូសិនដែលល្អបំផុតដោយស្វ័យប្រវត្តិ' : 'Auto-apply best matching promotion'}
+                    >
+                      <FontAwesomeIcon icon={faWandMagicSparkles} className="w-2.5 h-2.5" />
+                      <span>{isKhmer ? 'ស្វ័យប្រវត្តិ' : 'Auto Best'}</span>
+                    </button>
+
+                    {/* All Active Store Promotions */}
+                    {allActivePromotions.map(promo => {
+                      const isEligible = applicablePromotions.some(p => p.id === promo.id);
+                      const isManuallySelected = String(selectedPromotionId) === String(promo.id);
+                      const isAutoApplied = selectedPromotionId === 'auto' && activePromotion?.id === promo.id;
+                      return (
+                        <button
+                          key={promo.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPromotionId(promo.id);
+                            setCustomDiscountVal(0);
+                          }}
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                            isManuallySelected
+                              ? 'bg-amber-600 text-white shadow-2xs ring-1 ring-amber-500'
+                              : isAutoApplied
+                                ? 'bg-emerald-600 text-white shadow-2xs ring-1 ring-emerald-500'
+                                : isEligible
+                                  ? 'bg-white text-amber-900 hover:bg-amber-50 border border-amber-300'
+                                  : 'bg-white/70 text-slate-500 hover:bg-white border border-slate-200 opacity-80'
+                          }`}
+                          title={promo.description || promo.name}
+                        >
+                          <FontAwesomeIcon icon={faGift} className="w-2.5 h-2.5" />
+                          <span>{promo.name} (-{promo.discount_value}{promo.discount_type === 'percent' ? '%' : '$'})</span>
+                          {isAutoApplied && <span className="text-[9px] bg-emerald-700/80 text-white px-1 py-0.2 rounded-sm ml-0.5">✓ Auto</span>}
+                        </button>
+                      );
+                    })}
+
+                    {/* Customer VIP Privilege Tier Chip */}
+                    {selectedCustomer?.tier && selectedCustomer.tier !== 'Standard' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPromotionId('vip');
+                          setCustomDiscountVal(0);
+                        }}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${
+                          selectedPromotionId === 'vip'
+                            ? 'bg-amber-500 text-white shadow-2xs'
+                            : 'bg-white text-slate-700 hover:bg-amber-50 border border-slate-200'
+                        }`}
+                      >
+                        <FontAwesomeIcon icon={faCrown} className="w-2.5 h-2.5 text-amber-600" />
+                        <span>{selectedCustomer.tier} ({selectedCustomer.discount_rate}%)</span>
+                      </button>
+                    )}
+
+                    {/* Clear / No Discount Button */}
+                    {(selectedPromotionId !== 'none' || discountAmount > 0) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedPromotionId('none');
+                          setCustomDiscountVal(0);
+                        }}
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 cursor-pointer transition-all"
+                        title={isKhmer ? 'សម្អាតការបញ្ចុះតម្លៃ' : 'Clear discount'}
+                      >
+                        <FontAwesomeIcon icon={faXmark} className="w-2 h-2" />
+                        <span>{isKhmer ? 'គ្មាន' : 'None'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Quick % and $ Presets */}
+                  <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                    <span className="text-[10px] font-sans font-medium text-slate-500 mr-0.5">{isKhmer ? 'ជ្រើសរើស:' : 'Quick:'}</span>
+                    {discountMode === 'percent' ? (
+                      [0, 2, 3, 5, 10, 15].map(pct => (
+                        <button
+                          key={pct}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPromotionId('custom');
+                            setDiscountMode('percent');
+                            setCustomDiscountVal(pct);
+                          }}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                            selectedPromotionId === 'custom' && Number(customDiscountVal) === pct
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-2xs'
+                              : 'bg-white text-slate-700 hover:bg-amber-50 border border-slate-200 hover:border-amber-300'
+                          }`}
+                        >
+                          {pct}%
+                        </button>
+                      ))
+                    ) : (
+                      [0, 5, 10, 20, 50, 100].map(amt => (
+                        <button
+                          key={amt}
+                          type="button"
+                          onClick={() => {
+                            setSelectedPromotionId('custom');
+                            setDiscountMode('fixed');
+                            setCustomDiscountVal(amt);
+                          }}
+                          className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold cursor-pointer transition-all ${
+                            selectedPromotionId === 'custom' && Number(customDiscountVal) === amt
+                              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-2xs'
+                              : 'bg-white text-slate-700 hover:bg-amber-50 border border-slate-200 hover:border-amber-300'
+                          }`}
+                        >
+                          ${amt}
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
               </div>

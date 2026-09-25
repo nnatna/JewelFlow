@@ -9,6 +9,7 @@ import {
   TiersSettingsSection,
   InventorySettingsSection,
   UsersSettingsSection,
+  LogsSettingsSection,
   SystemSettingsSection
 } from './';
 import {
@@ -21,7 +22,8 @@ import {
   Coins as LucideCoins,
   Database as LucideDatabase,
   Settings as LucideSettings,
-  ShieldCheck as LucideShieldCheck
+  ShieldCheck as LucideShieldCheck,
+  History as LucideHistory
 } from 'lucide-react';
 
 export const SettingsView = () => {
@@ -38,7 +40,7 @@ export const SettingsView = () => {
   const currentLang = (i18n.language || 'km').startsWith('en') ? 'en' : 'km';
   const isKhmer = currentLang === 'km';
 
-  const isSuperOrAdmin = hasRole(['super_admin', 'admin']) || currentUser?.email === 'superadmin@jewelflow.com';
+  const isSuperOrAdmin = hasRole(['super_admin', 'admin']) || currentUser?.email === 'superadmin@gmail.com' || currentUser?.email === 'superadmin@jewelflow.com';
   const canViewUsers = hasPermission('view_users') || hasPermission('manage_users') || isSuperOrAdmin;
   const canManageSettings = hasPermission('manage_settings') || isSuperOrAdmin;
 
@@ -114,6 +116,11 @@ export const SettingsView = () => {
           icon: LucideUsers,
         },
         {
+          id: 'logs',
+          label: isKhmer ? 'កំណត់ហេតុសកម្មភាព (Audit)' : 'Activity & Audit Logs',
+          icon: LucideHistory,
+        },
+        {
           id: 'system',
           label: isKhmer ? 'ប្រព័ន្ធ & ទិន្នន័យ' : 'System Architecture & DB',
           icon: LucideDatabase,
@@ -126,6 +133,7 @@ export const SettingsView = () => {
     const items = group.items.filter(item => {
       if (item.id === 'profile') return true;
       if (item.id === 'users') return canViewUsers;
+      if (item.id === 'logs') return isSuperOrAdmin || canViewUsers;
       if (item.id === 'system') return isSuperOrAdmin;
       return canManageSettings || isSuperOrAdmin;
     });
@@ -146,7 +154,7 @@ export const SettingsView = () => {
                 {isKhmer ? 'ការកំណត់ប្រព័ន្ធ & ហាងអលង្ការ' : 'System Settings & Atelier Configuration'}
               </h1>
               <span className="text-[10px] uppercase font-bold tracking-wider text-amber-800 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
-                v2.4 PRO
+                v1.0.0
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -228,32 +236,6 @@ export const SettingsView = () => {
               </div>
             ))}
           </nav>
-
-          {/* System Status in Sidebar Footer */}
-          <div className="p-3 border-t border-slate-200 bg-white shrink-0">
-            <div className="p-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-400/15 to-yellow-500/10 border border-amber-300/80 shadow-2xs relative overflow-hidden">
-              <div className="flex items-center justify-between text-xs mb-1">
-                <span className="flex items-center gap-1.5 text-amber-900 font-bold">
-                  <LucideShieldCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                  <span>{isKhmer ? 'ស្ថានភាពប្រព័ន្ធ' : 'System Health'}</span>
-                </span>
-                <span className="inline-flex items-center gap-1 text-[10px] text-emerald-800 bg-emerald-100/80 border border-emerald-300/80 font-bold px-1.5 py-0.5 rounded-md">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                  {backendConnected ? (isKhmer ? 'ភ្ជាប់ជោគជ័យ' : 'Connected') : 'Online'}
-                </span>
-              </div>
-              <div className="text-xs font-bold font-mono text-slate-900 mt-1 flex items-center justify-between">
-                <span>Laravel 12 (Central)</span>
-                <span className="text-[10px] text-amber-800 bg-amber-100 font-bold px-1.5 py-0.5 rounded border border-amber-200 font-sans">v2.4 Pro</span>
-              </div>
-              <div className="text-[10.5px] text-slate-500 mt-1 flex items-center justify-between">
-                <span>{isKhmer ? 'ទិន្នន័យ:' : 'Database:'}</span>
-                <span className="font-semibold text-emerald-700">
-                  {isKhmer ? 'ដំណើរការធម្មតា' : 'Active & Synced'}
-                </span>
-              </div>
-            </div>
-          </div>
         </aside>
 
         {/* Right Side: Active Settings Panel Component (Scrollable) */}
@@ -265,6 +247,7 @@ export const SettingsView = () => {
           {activeTab === 'tiers' && <TiersSettingsSection />}
           {activeTab === 'inventory' && <InventorySettingsSection />}
           {activeTab === 'users' && <UsersSettingsSection />}
+          {activeTab === 'logs' && <LogsSettingsSection />}
           {activeTab === 'system' && <SystemSettingsSection />}
         </div>
       </div>

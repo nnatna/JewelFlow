@@ -26,6 +26,7 @@ export const ProductList = () => {
     products,
     categories,
     metalTypes,
+    materials,
     deleteProduct,
     calculateProductPrice,
     searchQuery,
@@ -285,7 +286,7 @@ export const ProductList = () => {
                       <th className="py-3.5 px-4 whitespace-nowrap min-w-[220px]">{t('catalog.piece', 'Jewelry Piece')}</th>
                       <th className="py-3.5 px-3 whitespace-nowrap">{t('catalog.skuBarcode', 'SKU & Barcode')}</th>
                       <th className="py-3.5 px-3 whitespace-nowrap">{t('catalog.category', 'Category')}</th>
-                      <th className="py-3.5 px-3 whitespace-nowrap">{t('catalog.metalPurity', 'Metal & Purity')}</th>
+                      <th className="py-3.5 px-3 whitespace-nowrap">{t('catalog.materials', 'Materials')}</th>
                       <th className="py-3.5 px-3 whitespace-nowrap text-center">{t('catalog.chiWeight', 'Weight (Chi)')}</th>
                       <th className="py-3.5 px-3 whitespace-nowrap text-center">{t('catalog.laborFee', 'Labor Fee')}</th>
                       <th className="py-3.5 px-3 whitespace-nowrap text-center">{t('catalog.markup', 'Markup')}</th>
@@ -298,6 +299,10 @@ export const ProductList = () => {
                   <tbody className="divide-y divide-slate-100">
                     {paginatedProducts.map(product => {
                       const currentPrice = calculateProductPrice(product);
+                      const matchedMaterial = materials?.find(m =>
+                        (product.material_id && Number(m.id) === Number(product.material_id)) ||
+                        (product.metal_type_id && Number(m.metal_type_id) === Number(product.metal_type_id))
+                      );
                       const metal = metalTypes.find(m => m.id === product.metal_type_id) || product.metal_type || product.metalType;
                       const category = categories.find(c => c.id === product.category_id) || product.category;
 
@@ -308,7 +313,7 @@ export const ProductList = () => {
                           className="hover:bg-amber-50/50 transition-colors group cursor-pointer"
                           title={t('common.edit', 'Click to view / edit')}
                         >
-                          <td className="py-3.5 px-4 flex items-center gap-3 min-w-[220px]">
+                          <td className="py-3.5 px-4 flex items-center gap-3 min-w-[200px]">
                             <img
                               src={product.image || fallbackImg}
                               alt={product.name}
@@ -316,11 +321,10 @@ export const ProductList = () => {
                                 e.target.onerror = null;
                                 e.target.src = fallbackImg;
                               }}
-                              className="w-11 h-11 rounded-lg object-cover border border-slate-200 shadow-xs shrink-0 bg-slate-100 group-hover:border-amber-300 transition-colors"
+                              className="w-10 h-10 rounded-lg object-cover border border-slate-200 shadow-xs shrink-0 bg-slate-100 group-hover:border-amber-300 transition-colors"
                             />
                             <div className="min-w-0">
                               <span className="font-bold text-slate-900 block truncate group-hover:text-amber-900 transition-colors">{product.name}</span>
-                              <span className="text-[11px] text-slate-500 block truncate">{product.description || t('catalog.handcraftedPiece', 'Certified handcrafted piece')}</span>
                             </div>
                           </td>
                           <td className="py-3.5 px-3 font-mono whitespace-nowrap">
@@ -329,13 +333,18 @@ export const ProductList = () => {
                           </td>
                           <td className="py-3.5 px-3 text-slate-700 font-medium whitespace-nowrap">{category?.name || 'Fine Jewelry'}</td>
                           <td className="py-3.5 px-3 whitespace-nowrap">
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                              {metal?.name || 'Fine Metal'}
+                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-200 inline-flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0"></span>
+                              {matchedMaterial ? matchedMaterial.name : (metal?.name || 'Fine Material')}
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-center font-mono whitespace-nowrap">
                             <span className="font-bold text-amber-900 block">{((product.net_weight || 0) / 3.75).toFixed(2)} {t('cambodiaGold.chi', 'Chi')}</span>
-                            <span className="text-[10px] text-slate-400 block">({product.net_weight}g)</span>
+                            <span className="text-[10px] text-slate-400 block">
+                              {product.gross_weight && Number(product.gross_weight) > 0
+                                ? `Gross: ${((product.gross_weight || 0) / 3.75).toFixed(2)} Chi`
+                                : `(${product.net_weight}g)`}
+                            </span>
                           </td>
                           <td className="py-3.5 px-3 text-center font-mono text-slate-600 whitespace-nowrap">${product.labor_cost}</td>
                           <td className="py-3.5 px-3 text-center font-mono text-slate-500 whitespace-nowrap">{product.markup_rate}%</td>
@@ -391,6 +400,10 @@ export const ProductList = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
                 {paginatedProducts.map(product => {
                   const currentPrice = calculateProductPrice(product);
+                  const matchedMaterial = materials?.find(m =>
+                    (product.material_id && Number(m.id) === Number(product.material_id)) ||
+                    (product.metal_type_id && Number(m.metal_type_id) === Number(product.metal_type_id))
+                  );
                   const metal = metalTypes.find(m => m.id === product.metal_type_id) || product.metal_type || product.metalType;
                   const category = categories.find(c => c.id === product.category_id) || product.category;
 
@@ -413,7 +426,7 @@ export const ProductList = () => {
                           />
                           <div className="absolute top-2 left-2 flex flex-col gap-1">
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white/90 text-amber-800 border border-amber-200 shadow-xs backdrop-blur-sm">
-                              {(metal?.name || 'Gold').split(' ')[0]}
+                              {matchedMaterial ? matchedMaterial.name : (metal?.name || 'Gold')}
                             </span>
                           </div>
                           <div className="absolute top-2 right-2">

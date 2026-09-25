@@ -15,6 +15,8 @@ return new class extends Migration
             $table->decimal('total_amount', 14, 2)->default(0);
             $table->date('purchase_date');
             $table->enum('status', ['pending', 'completed', 'cancelled'])->default('pending');
+            $table->text('notes')->nullable();
+            $table->json('items')->nullable();
             $table->timestamps();
         });
     }

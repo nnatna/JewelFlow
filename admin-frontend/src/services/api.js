@@ -22,12 +22,16 @@ client.interceptors.request.use((config) => {
 
 // Jewelry display photos pool for items without uploaded pictures
 const jewelryImages = [
-  'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1611591475880-994bb0fd6300?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=600&q=80',
-  'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=600&q=80'
+  'https://images.unsplash.com/photo-1617038260897-41a1f14a8ca0?auto=format&fit=crop&w=800&q=80', // Traditional Luxury Gold Necklace / Bridal
+  'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=800&q=80', // Pailin Ruby & Gold Pendant
+  'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=800&q=80', // 24K Khmer Style Gold Ring
+  'https://images.unsplash.com/photo-1611591475880-994bb0fd6300?auto=format&fit=crop&w=800&q=80', // 24K Solid Gold Chain
+  'https://images.unsplash.com/photo-1630019852942-f89202989a59?auto=format&fit=crop&w=800&q=80', // Handcrafted Gold Bangles & Bracelets
+  'https://images.unsplash.com/photo-1535632066927-ab7c9ab60908?auto=format&fit=crop&w=800&q=80', // Royal Gold Drop Earrings
+  'https://images.unsplash.com/photo-1603561591411-07134e71a2a9?auto=format&fit=crop&w=800&q=80', // Khmer Wedding Gold Set
+  'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?auto=format&fit=crop&w=800&q=80', // Fine Yellow Gold Bullion & Atelier Jewelry
+  'https://images.unsplash.com/photo-1629224316810-9d8805b95e76?auto=format&fit=crop&w=800&q=80', // Pure Gold Necklace and Earrings
+  'https://images.unsplash.com/photo-1598560917505-59a3ad559071?auto=format&fit=crop&w=800&q=80'  // Pailin Sapphire & Gold Ring
 ];
 
 export const apiService = {
@@ -77,18 +81,22 @@ export const apiService = {
         barcode: p.barcode || `893000${p.id}`,
         name: p.name,
         category_id: p.category_id,
-        metal_type_id: p.metal_type_id,
+        material_id: p.material_id,
+        material: p.material,
+        metal_type_id: p.material?.metal_type_id || p.metal_type_id,
         category: p.category,
-        metal_type: p.metal_type || p.metalType,
+        metal_type: p.material?.metal_type || p.metal_type || p.metalType,
         net_weight: parseFloat(p.net_weight) || 5.0,
         gross_weight: parseFloat(p.gross_weight) || 5.5,
         labor_cost: parseFloat(p.labor_cost) || 120.0,
         markup_rate: parseFloat(p.markup_rate) || 15.0,
         stock_qty: parseInt(p.stock_qty, 10) || 0,
         status: p.status || 'active',
-        image: (p.image?.path && p.image.path.startsWith('http')) ? p.image.path : jewelryImages[idx % jewelryImages.length],
+        image: (p.image?.path && p.image.path.startsWith('http'))
+          ? p.image.path
+          : (p.image?.path ? `http://127.0.0.1:8000${p.image.path}` : jewelryImages[idx % jewelryImages.length]),
         gemstones: p.product_gemstones || [],
-        description: p.category?.description || 'Exquisite fine jewelry crafted with authentic hallmarked bullion.'
+        description: p.description || p.category?.description || 'Exquisite fine jewelry crafted with authentic hallmarked bullion.'
       }));
     } catch (e) {
       console.error('API getProducts error:', e);
@@ -255,6 +263,33 @@ export const apiService = {
   createUnit: async (data) => (await client.post('/units', data)).data,
   updateUnit: async (id, data) => (await client.put(`/units/${id}`, data)).data,
   deleteUnit: async (id) => { await client.delete(`/units/${id}`); },
+
+  // 7c. Made Products / Custom Jewelry Crafting Orders
+  getMadeProducts: async (params = {}) => {
+    try {
+      const res = await client.get('/made-products', { params });
+      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
+    } catch (e) {
+      console.error('API getMadeProducts error:', e);
+      return [];
+    }
+  },
+  createMadeProduct: async (data) => {
+    const res = await client.post('/made-products', data);
+    return res.data;
+  },
+  updateMadeProduct: async (id, data) => {
+    const res = await client.put(`/made-products/${id}`, data);
+    return res.data;
+  },
+  updateMadeProductStatus: async (id, status) => {
+    const res = await client.put(`/made-products/${id}/status`, { status });
+    return res.data;
+  },
+  deleteMadeProduct: async (id) => {
+    const res = await client.delete(`/made-products/${id}`);
+    return res.data;
+  },
 
   // 7c. Made Products / Custom Jewelry Orders
   getMadeProducts: async () => {
@@ -1002,6 +1037,47 @@ export const apiService = {
       return res.data;
     } catch (e) {
       console.error('API updateProfile error:', e);
+      throw e;
+    }
+  },
+
+  // 22. Activity & Audit Logs API
+  getActivityLogs: async (params = {}) => {
+    try {
+      const res = await client.get('/activity-logs', { params });
+      return res.data;
+    } catch (e) {
+      console.error('API getActivityLogs error:', e);
+      return { data: [], total: 0 };
+    }
+  },
+
+  getActivityLogStats: async () => {
+    try {
+      const res = await client.get('/activity-logs/stats');
+      return res.data;
+    } catch (e) {
+      console.error('API getActivityLogStats error:', e);
+      return { total_logs: 0, today_logs: 0, auth_events: 0, error_logs: 0, warning_logs: 0, module_stats: [] };
+    }
+  },
+
+  createActivityLog: async (data) => {
+    try {
+      const res = await client.post('/activity-logs', data);
+      return res.data;
+    } catch (e) {
+      console.error('API createActivityLog error:', e);
+      throw e;
+    }
+  },
+
+  clearActivityLogs: async (days = 'all') => {
+    try {
+      const res = await client.delete('/activity-logs/clear', { data: { days } });
+      return res.data;
+    } catch (e) {
+      console.error('API clearActivityLogs error:', e);
       throw e;
     }
   },

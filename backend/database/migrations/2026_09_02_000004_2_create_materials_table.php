@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('supplier_id')->nullable()->constrained('suppliers')->nullOnDelete();
             $table->string('name');
             $table->string('code')->nullable();
-            $table->string('unit')->default('g'); // g, chi, ct, pcs, oz
+            $table->string('unit')->default('chi'); // chi, damlung, hun, g, ct, pcs, oz
             $table->decimal('stock_qty', 12, 3)->default(0);
             $table->decimal('min_stock_level', 12, 3)->default(0);
             $table->decimal('cost_price', 12, 2)->default(0); // Can be overridden or derived from metal_types / gold_rates

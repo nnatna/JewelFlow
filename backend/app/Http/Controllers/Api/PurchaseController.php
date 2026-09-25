@@ -45,9 +45,16 @@ class PurchaseController extends Controller
             'total_amount' => 'required|numeric|min:0',
             'purchase_date' => 'required|date',
             'status' => 'required|in:pending,completed,cancelled',
+            'notes' => 'nullable|string',
+            'items' => 'nullable|array',
         ]);
 
         $purchase = Purchase::create($validated);
+
+        // If directly created as completed, replenish materials stock
+        if ($purchase->status === 'completed' && !empty($purchase->items)) {
+            $this->replenishMaterialsStock($purchase->items);
+        }
 
         return response()->json($purchase->load('supplier'), 201);
     }
@@ -68,6 +75,7 @@ class PurchaseController extends Controller
     public function update(Request $request, $id): JsonResponse
     {
         $purchase = Purchase::findOrFail($id);
+        $oldStatus = $purchase->status;
 
         $validated = $request->validate([
             'supplier_id' => 'sometimes|required|exists:suppliers,id',
@@ -75,9 +83,16 @@ class PurchaseController extends Controller
             'total_amount' => 'sometimes|required|numeric|min:0',
             'purchase_date' => 'sometimes|required|date',
             'status' => 'sometimes|required|in:pending,completed,cancelled',
+            'notes' => 'nullable|string',
+            'items' => 'nullable|array',
         ]);
 
         $purchase->update($validated);
+
+        // If transitioned to completed, replenish materials stock
+        if ($oldStatus !== 'completed' && $purchase->status === 'completed' && !empty($purchase->items)) {
+            $this->replenishMaterialsStock($purchase->items);
+        }
 
         return response()->json($purchase->load('supplier'));
     }
@@ -88,13 +103,36 @@ class PurchaseController extends Controller
     public function confirmArrival($id): JsonResponse
     {
         $purchase = Purchase::findOrFail($id);
+        $oldStatus = $purchase->status;
         $purchase->update(['status' => 'completed']);
+
+        if ($oldStatus !== 'completed' && !empty($purchase->items)) {
+            $this->replenishMaterialsStock($purchase->items);
+        }
 
         return response()->json([
             'success' => true,
             'message' => 'Purchase shipment arrival confirmed successfully.',
             'data' => $purchase->load('supplier'),
         ]);
+    }
+
+    /**
+     * Helper to replenish materials stock when purchase order arrives.
+     */
+    protected function replenishMaterialsStock(array $items): void
+    {
+        foreach ($items as $item) {
+            $materialId = $item['material_id'] ?? $item['id'] ?? null;
+            $qty = isset($item['quantity']) ? (float)$item['quantity'] : (isset($item['qty']) ? (float)$item['qty'] : 0);
+
+            if ($materialId && $qty > 0) {
+                $material = \App\Models\Material::find($materialId);
+                if ($material) {
+                    $material->increment('stock_qty', $qty);
+                }
+            }
+        }
     }
 
     /**

@@ -15,11 +15,14 @@ class Purchase extends Model
         'total_amount',
         'purchase_date',
         'status',
+        'notes',
+        'items',
     ];
 
     protected $casts = [
         'total_amount' => 'decimal:2',
         'purchase_date' => 'date',
+        'items' => 'array',
     ];
 
     public function supplier()

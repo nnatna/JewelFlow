@@ -13,30 +13,6 @@ class UnitSeeder extends Seeder
     {
         $units = [
             [
-                'name' => 'Gram',
-                'name_kh' => 'ក្រាម',
-                'code' => 'g',
-                'symbol' => 'g',
-                'conversion_factor' => 1.000000,
-                'base_unit' => 'g',
-                'type' => 'weight',
-                'sort_order' => 1,
-                'is_active' => true,
-                'description' => 'Metric base gram unit (1.0g)',
-            ],
-            [
-                'name' => 'Hun',
-                'name_kh' => 'ហ៊ុន',
-                'code' => 'hun',
-                'symbol' => 'ហ៊ុន',
-                'conversion_factor' => 0.375000,
-                'base_unit' => 'g',
-                'type' => 'weight',
-                'sort_order' => 2,
-                'is_active' => true,
-                'description' => 'Cambodian Hun unit (1/10 Chi = 0.375g)',
-            ],
-            [
                 'name' => 'Chi',
                 'name_kh' => 'ជី',
                 'code' => 'chi',
@@ -44,7 +20,7 @@ class UnitSeeder extends Seeder
                 'conversion_factor' => 3.750000,
                 'base_unit' => 'g',
                 'type' => 'weight',
-                'sort_order' => 3,
+                'sort_order' => 1,
                 'is_active' => true,
                 'description' => 'Cambodian Chi gold unit (3.75g)',
             ],
@@ -56,9 +32,33 @@ class UnitSeeder extends Seeder
                 'conversion_factor' => 37.500000,
                 'base_unit' => 'g',
                 'type' => 'weight',
-                'sort_order' => 4,
+                'sort_order' => 2,
                 'is_active' => true,
                 'description' => 'Cambodian Damlung / Tael unit (10 Chi = 37.5g)',
+            ],
+            [
+                'name' => 'Hun',
+                'name_kh' => 'ហ៊ុន',
+                'code' => 'hun',
+                'symbol' => 'ហ៊ុន',
+                'conversion_factor' => 0.375000,
+                'base_unit' => 'g',
+                'type' => 'weight',
+                'sort_order' => 3,
+                'is_active' => true,
+                'description' => 'Cambodian Hun unit (1/10 Chi = 0.375g)',
+            ],
+            [
+                'name' => 'Gram',
+                'name_kh' => 'ក្រាម',
+                'code' => 'g',
+                'symbol' => 'g',
+                'conversion_factor' => 1.000000,
+                'base_unit' => 'g',
+                'type' => 'weight',
+                'sort_order' => 4,
+                'is_active' => true,
+                'description' => 'Metric base gram unit (1.0g)',
             ],
             [
                 'name' => 'Troy Ounce',
@@ -105,18 +105,18 @@ class UnitSeeder extends Seeder
         // Backfill existing materials with unit_id
         $unitMap = Unit::pluck('id', 'code')->toArray();
         foreach (Material::all() as $mat) {
-            $unitCode = strtolower($mat->unit ?: 'g');
+            $unitCode = strtolower($mat->unit ?: 'chi');
             if (isset($unitMap[$unitCode])) {
                 $mat->update(['unit_id' => $unitMap[$unitCode]]);
-            } elseif (isset($unitMap['g'])) {
-                $mat->update(['unit_id' => $unitMap['g']]);
+            } elseif (isset($unitMap['chi'])) {
+                $mat->update(['unit_id' => $unitMap['chi']]);
             }
         }
 
-        // Backfill existing products with unit_id (default to Chi / Gram)
-        $gramUnitId = $unitMap['g'] ?? null;
-        if ($gramUnitId) {
-            Product::whereNull('unit_id')->update(['unit_id' => $gramUnitId]);
+        // Backfill existing products with unit_id (default to Chi)
+        $chiUnitId = $unitMap['chi'] ?? null;
+        if ($chiUnitId) {
+            Product::whereNull('unit_id')->update(['unit_id' => $chiUnitId]);
         }
     }
 }

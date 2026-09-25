@@ -31,6 +31,8 @@ export const SuppliersView = () => {
     updateSupplier,
     deleteSupplier,
     addPurchase,
+    materials,
+    getMaterialEffectivePrice,
     setActiveTab,
     searchQuery,
     setSearchQuery,
@@ -93,7 +95,7 @@ export const SuppliersView = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [localSearch]);
+  }, [activeSearch]);
 
   const paginatedSuppliers = filteredSuppliers.slice(
     (currentPage - 1) * pageSize,
@@ -201,12 +203,20 @@ export const SuppliersView = () => {
   const openIssuePoModal = (supplier) => {
     setPoTargetSupplier(supplier);
     const randNum = Math.floor(10000 + Math.random() * 90000);
+    const supMaterials = materials.filter(m => Number(m.supplier_id) === Number(supplier.id));
+    const firstMat = supMaterials[0] || null;
+    const unitCost = firstMat ? Number(firstMat.cost_price || getMaterialEffectivePrice(firstMat) || 0) : 0;
+    const defaultQty = firstMat ? (firstMat.unit === 'ct' ? 5 : (firstMat.unit === 'pcs' ? 10 : 50)) : 10;
+    
     setPoForm({
       invoice_no: `PUR-${randNum}`,
-      total_amount: '',
+      material_id: firstMat ? String(firstMat.id) : '',
+      quantity: defaultQty,
+      unit_cost: unitCost,
+      total_amount: firstMat && unitCost > 0 ? (defaultQty * unitCost).toFixed(2) : '',
       purchase_date: new Date().toISOString().split('T')[0],
       status: 'pending',
-      notes: ''
+      notes: firstMat ? `Purchase of ${firstMat.name} (${defaultQty}${firstMat.unit || 'g'})` : ''
     });
     setPoErrors({});
     setShowPoModal(true);
@@ -230,13 +240,24 @@ export const SuppliersView = () => {
 
     setSavingPo(true);
     try {
+      const selectedMat = materials.find(m => String(m.id) === String(poForm.material_id));
+      const items = selectedMat ? [{
+        material_id: selectedMat.id,
+        name: selectedMat.name,
+        unit: selectedMat.unit || 'g',
+        quantity: Number(poForm.quantity) || 1,
+        unit_cost: Number(poForm.unit_cost) || 0,
+        total_cost: Number(poForm.total_amount) || 0
+      }] : [];
+
       await addPurchase({
         supplier_id: poTargetSupplier.id,
         invoice_no: poForm.invoice_no.trim(),
         total_amount: Number(poForm.total_amount),
         purchase_date: poForm.purchase_date,
         status: poForm.status,
-        notes: poForm.notes
+        notes: poForm.notes,
+        items
       });
       setShowPoModal(false);
       showToast(
@@ -694,6 +715,45 @@ export const SuppliersView = () => {
                   </div>
                 )}
               </div>
+
+              {/* Optional Material selection from this supplier */}
+              {materials.filter(m => Number(m.supplier_id) === Number(poTargetSupplier.id)).length > 0 && (
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1.5">
+                    {isKhmer ? 'ជ្រើសរើសមុខសម្ភារៈ (Material Item)' : 'Material Item'}
+                  </label>
+                  <select
+                    value={poForm.material_id || ''}
+                    onChange={e => {
+                      const matId = e.target.value;
+                      const mat = materials.find(m => String(m.id) === String(matId));
+                      if (mat) {
+                        const cost = Number(mat.cost_price || getMaterialEffectivePrice(mat) || 0);
+                        const qty = Number(poForm.quantity) || 10;
+                        setPoForm(f => ({
+                          ...f,
+                          material_id: matId,
+                          unit_cost: cost,
+                          total_amount: (qty * cost).toFixed(2),
+                          notes: `Purchase of ${mat.name} (${qty}${mat.unit || 'g'})`
+                        }));
+                      } else {
+                        setPoForm(f => ({ ...f, material_id: '' }));
+                      }
+                    }}
+                    className="w-full rounded-xl px-3.5 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 font-semibold focus:outline-none focus:border-amber-500 text-xs"
+                  >
+                    <option value="">{isKhmer ? '-- ជ្រើសរើសសម្ភារៈពីអ្នកផ្គត់ផ្គង់នេះ (ជាជម្រើស) --' : '-- Optional: Select material from this supplier --'}</option>
+                    {materials
+                      .filter(m => Number(m.supplier_id) === Number(poTargetSupplier.id))
+                      .map(m => (
+                        <option key={m.id} value={m.id}>
+                          {m.name} ({m.code || `MAT-${m.id}`}) • ${Number(m.cost_price || 0)}/{m.unit || 'g'}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3.5">
                 <div>

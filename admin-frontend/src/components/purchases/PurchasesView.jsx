@@ -26,7 +26,13 @@ import {
   faEye,
   faArrowsRotate,
   faBoxesPacking,
-  faFileLines
+  faFileLines,
+  faGem,
+  faCoins,
+  faScaleBalanced,
+  faCube,
+  faListCheck,
+  faCartPlus
 } from '@fortawesome/free-solid-svg-icons';
 
 export const PurchasesView = () => {
@@ -34,6 +40,8 @@ export const PurchasesView = () => {
   const {
     purchases,
     suppliers,
+    materials,
+    getMaterialEffectivePrice,
     addPurchase,
     updatePurchase,
     deletePurchase,
@@ -64,7 +72,8 @@ export const PurchasesView = () => {
     total_amount: '',
     purchase_date: new Date().toISOString().split('T')[0],
     status: 'pending',
-    notes: ''
+    notes: '',
+    items: []
   });
   const [formErrors, setFormErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -84,7 +93,8 @@ export const PurchasesView = () => {
       const supName = (p.supplier?.company_name || p.supplier?.name || p.supplier_name || '').toLowerCase();
       const invNo = (p.invoice_no || '').toLowerCase();
       const notes = (p.notes || '').toLowerCase();
-      if (!supName.includes(activeSearch) && !invNo.includes(activeSearch) && !notes.includes(activeSearch)) {
+      const itemNames = Array.isArray(p.items) ? p.items.map(it => it.name || '').join(' ').toLowerCase() : '';
+      if (!supName.includes(activeSearch) && !invNo.includes(activeSearch) && !notes.includes(activeSearch) && !itemNames.includes(activeSearch)) {
         return false;
       }
     }
@@ -93,7 +103,7 @@ export const PurchasesView = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [localSearch, statusFilter]);
+  }, [activeSearch, statusFilter]);
 
   const paginatedPurchases = filteredPurchases.slice(
     (currentPage - 1) * pageSize,
@@ -108,17 +118,51 @@ export const PurchasesView = () => {
     .filter(p => p.status !== 'cancelled')
     .reduce((acc, p) => acc + (Number(p.total_amount) || 0), 0);
 
+  // Helper to calculate total from items
+  const recalculateTotal = (itemsList) => {
+    const total = itemsList.reduce((sum, it) => sum + (Number(it.total_cost) || 0), 0);
+    return total > 0 ? total.toFixed(2) : '';
+  };
+
   // Open Add Modal
-  const openAddModal = () => {
+  const openAddModal = (initialMaterialId = null) => {
     setEditingPurchase(null);
     const randNum = Math.floor(10000 + Math.random() * 90000);
+    
+    let defaultItems = [];
+    const targetMat = initialMaterialId && materials.length > 0
+      ? materials.find(m => m.id === Number(initialMaterialId))
+      : (materials.length > 0 ? materials[0] : null);
+
+    if (targetMat) {
+      let unitCost = Number(targetMat.cost_price || (getMaterialEffectivePrice ? getMaterialEffectivePrice(targetMat) : 0) || 0);
+      if (unitCost <= 0) {
+        if (targetMat.unit === 'chi' || targetMat.unit === 'ជី') unitCost = 320;
+        else if (targetMat.unit === 'g' || targetMat.unit === 'gram') unitCost = 85.5;
+        else if (targetMat.unit === 'ct') unitCost = 150;
+        else unitCost = 25;
+      }
+      const defaultQty = Number(targetMat.min_stock_level) > 0 ? Number(targetMat.min_stock_level) : (targetMat.unit === 'ct' ? 5 : (targetMat.unit === 'pcs' ? 10 : 5));
+      const totalCost = Number((defaultQty * unitCost).toFixed(2));
+      defaultItems = [{
+        id: Date.now(),
+        material_id: String(targetMat.id),
+        name: targetMat.name,
+        unit: targetMat.unit || 'chi',
+        quantity: defaultQty,
+        unit_cost: unitCost,
+        total_cost: totalCost
+      }];
+    }
+
     setFormData({
       supplier_id: suppliers.length > 0 ? String(suppliers[0].id) : '',
       invoice_no: `PUR-${randNum}`,
-      total_amount: '',
+      total_amount: defaultItems.length > 0 ? recalculateTotal(defaultItems) : '',
       purchase_date: new Date().toISOString().split('T')[0],
       status: 'pending',
-      notes: ''
+      notes: '',
+      items: defaultItems
     });
     setFormErrors({});
     setShowModal(true);
@@ -127,16 +171,102 @@ export const PurchasesView = () => {
   // Open Edit Modal
   const openEditModal = (purchase) => {
     setEditingPurchase(purchase);
+    const rawItems = Array.isArray(purchase.items) ? purchase.items : [];
     setFormData({
       supplier_id: String(purchase.supplier_id || ''),
       invoice_no: purchase.invoice_no || '',
       total_amount: String(purchase.total_amount || ''),
       purchase_date: purchase.purchase_date || new Date().toISOString().split('T')[0],
       status: purchase.status || 'pending',
-      notes: purchase.notes || ''
+      notes: purchase.notes || '',
+      items: rawItems.map(it => ({
+        id: it.id || (Date.now() + Math.random()),
+        material_id: it.material_id ? String(it.material_id) : '',
+        name: it.name || '',
+        unit: it.unit || 'chi',
+        quantity: Number(it.quantity || it.qty || 1),
+        unit_cost: Number(it.unit_cost || it.cost_price || 0),
+        total_cost: Number(it.total_cost || (Number(it.quantity || it.qty || 1) * Number(it.unit_cost || it.cost_price || 0)))
+      }))
     });
     setFormErrors({});
     setShowModal(true);
+  };
+
+  // Item management in modal
+  const handleAddItemRow = () => {
+    const firstMat = materials.length > 0 ? materials[0] : null;
+    let uCost = firstMat ? Number(firstMat.cost_price || (getMaterialEffectivePrice ? getMaterialEffectivePrice(firstMat) : 0) || 0) : 0;
+    if (firstMat && uCost <= 0) {
+      if (firstMat.unit === 'chi' || firstMat.unit === 'ជី') uCost = 320;
+      else if (firstMat.unit === 'g' || firstMat.unit === 'gram') uCost = 85.5;
+      else if (firstMat.unit === 'ct') uCost = 150;
+      else uCost = 25;
+    }
+    const defaultQty = firstMat ? (firstMat.unit === 'ct' ? 5 : (firstMat.unit === 'pcs' ? 10 : 5)) : 1;
+    const newItem = {
+      id: Date.now() + Math.random(),
+      material_id: firstMat ? String(firstMat.id) : '',
+      name: firstMat ? firstMat.name : '',
+      unit: firstMat ? (firstMat.unit || 'chi') : 'chi',
+      quantity: defaultQty,
+      unit_cost: uCost,
+      total_cost: Number((defaultQty * uCost).toFixed(2))
+    };
+    const updatedItems = [...formData.items, newItem];
+    setFormData(prev => ({
+      ...prev,
+      items: updatedItems,
+      total_amount: recalculateTotal(updatedItems) || prev.total_amount
+    }));
+  };
+
+  const handleRemoveItemRow = (id) => {
+    const updatedItems = formData.items.filter(it => it.id !== id);
+    setFormData(prev => ({
+      ...prev,
+      items: updatedItems,
+      total_amount: recalculateTotal(updatedItems) || (updatedItems.length === 0 ? '' : prev.total_amount)
+    }));
+  };
+
+  const handleItemChange = (id, field, value) => {
+    const updatedItems = formData.items.map(it => {
+      if (it.id !== id) return it;
+      const updated = { ...it, [field]: value };
+      
+      // If user changed material selection
+      if (field === 'material_id') {
+        const mat = materials.find(m => String(m.id) === String(value));
+        if (mat) {
+          let uCost = Number(mat.cost_price || (getMaterialEffectivePrice ? getMaterialEffectivePrice(mat) : 0) || 0);
+          if (uCost <= 0) {
+            if (mat.unit === 'chi' || mat.unit === 'ជី') uCost = 320;
+            else if (mat.unit === 'g' || mat.unit === 'gram') uCost = 85.5;
+            else if (mat.unit === 'ct') uCost = 150;
+            else uCost = 25;
+          }
+          updated.name = mat.name;
+          updated.unit = mat.unit || 'g';
+          updated.unit_cost = uCost;
+          updated.total_cost = Number((Number(updated.quantity || 1) * uCost).toFixed(2));
+        }
+      }
+      // If user changed quantity or unit_cost
+      if (field === 'quantity' || field === 'unit_cost') {
+        const q = field === 'quantity' ? Number(value) : Number(it.quantity || 0);
+        const c = field === 'unit_cost' ? Number(value) : Number(it.unit_cost || 0);
+        updated.total_cost = Math.round(q * c * 100) / 100;
+      }
+      return updated;
+    });
+
+    const newTotal = recalculateTotal(updatedItems);
+    setFormData(prev => ({
+      ...prev,
+      items: updatedItems,
+      total_amount: newTotal || prev.total_amount
+    }));
   };
 
   // Handle Form Submit
@@ -161,13 +291,23 @@ export const PurchasesView = () => {
 
     setSaving(true);
     try {
+      const cleanItems = formData.items.map(it => ({
+        material_id: it.material_id ? Number(it.material_id) : null,
+        name: it.name || 'Raw Material Item',
+        unit: it.unit || 'g',
+        quantity: Number(it.quantity) || 1,
+        unit_cost: Number(it.unit_cost) || 0,
+        total_cost: Number(it.total_cost) || 0
+      }));
+
       const payload = {
         supplier_id: Number(formData.supplier_id),
         invoice_no: formData.invoice_no.trim(),
         total_amount: Number(formData.total_amount),
         purchase_date: formData.purchase_date,
         status: formData.status,
-        notes: formData.notes
+        notes: formData.notes,
+        items: cleanItems
       };
 
       if (editingPurchase) {
@@ -415,6 +555,7 @@ export const PurchasesView = () => {
               <tr className="border-b border-slate-200 bg-slate-50/70 text-slate-500 uppercase tracking-wider font-bold">
                 <th className="py-3.5 px-4">{isKhmer ? 'លេខវិក្កយបត្រ PO' : 'PO / Invoice No'}</th>
                 <th className="py-3.5 px-4">{isKhmer ? 'អ្នកផ្គត់ផ្គង់' : 'Supplier / Refinery'}</th>
+                <th className="py-3.5 px-4">{isKhmer ? 'សម្ភារៈ & មុខទំនិញ' : 'Materials & Items'}</th>
                 <th className="py-3.5 px-4">{isKhmer ? 'កាលបរិច្ឆេទ' : 'Purchase Date'}</th>
                 <th className="py-3.5 px-4">{isKhmer ? 'ទឹកប្រាក់សរុប ($)' : 'Total Amount ($)'}</th>
                 <th className="py-3.5 px-4 text-center">{isKhmer ? 'ស្ថានភាពទំនិញ' : 'Shipment Status'}</th>
@@ -424,7 +565,7 @@ export const PurchasesView = () => {
             <tbody className="divide-y divide-slate-100 font-medium">
               {paginatedPurchases.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center text-slate-400">
+                  <td colSpan="7" className="py-12 text-center text-slate-400">
                     <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
                       <FontAwesomeIcon icon={faBoxesPacking} className="w-6 h-6" />
                     </div>
@@ -442,6 +583,7 @@ export const PurchasesView = () => {
                   const isPending = p.status === 'pending';
                   const isCompleted = p.status === 'completed';
                   const isCancelled = p.status === 'cancelled';
+                  const pItems = Array.isArray(p.items) ? p.items : [];
 
                   return (
                     <tr key={p.id} className="hover:bg-amber-50/30 transition-colors">
@@ -473,6 +615,29 @@ export const PurchasesView = () => {
                             )}
                           </div>
                         </div>
+                      </td>
+
+                      {/* Materials & Items summary */}
+                      <td className="py-3.5 px-4 max-w-[220px]">
+                        {pItems.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {pItems.slice(0, 2).map((it, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-950 text-[10px] font-semibold">
+                                <FontAwesomeIcon icon={faCoins} className="w-2 h-2 text-amber-600" />
+                                <span>{it.name || 'Material'} ({it.quantity || it.qty}{it.unit || 'g'})</span>
+                              </span>
+                            ))}
+                            {pItems.length > 2 && (
+                              <span className="text-[10px] text-slate-400 font-semibold px-1 py-0.5">
+                                +{pItems.length - 2} {isKhmer ? 'មុខទៀត' : 'more'}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-[11px] italic">
+                            {p.notes ? p.notes.substring(0, 30) : (isKhmer ? 'ទំនិញទូទៅ' : 'General consignment')}
+                          </span>
+                        )}
                       </td>
 
                       {/* Purchase Date */}
@@ -596,7 +761,7 @@ export const PurchasesView = () => {
       {/* ── Add / Edit Purchase Modal ────────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto">
+          <div className="relative w-full max-w-2xl bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col">
             
             {/* Modal Header */}
             <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
@@ -611,7 +776,7 @@ export const PurchasesView = () => {
                       : (isKhmer ? 'បង្កើតការបញ្ជាទិញទំនិញថ្មី' : 'Create New Purchase Order')}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {isKhmer ? 'បញ្ចូលព័ត៌មានទិញមាស & ត្បូងពីអ្នកផ្គត់ផ្គង់' : 'Enter bullion & gemstone procurement details'}
+                    {isKhmer ? 'ជ្រើសរើសសម្ភារៈ & វត្ថុធាតុដើមមាស/ត្បូងពីអ្នកផ្គត់ផ្គង់' : 'Select materials & raw bullion procurement items'}
                   </p>
                 </div>
               </div>
@@ -625,8 +790,8 @@ export const PurchasesView = () => {
               </button>
             </div>
 
-            {/* Modal Form */}
-            <form noValidate onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs">
+            {/* Modal Form with scrollable body */}
+            <form noValidate onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
               
               {/* Supplier Select */}
               <div>
@@ -701,12 +866,137 @@ export const PurchasesView = () => {
                 </div>
               </div>
 
+              {/* ── Materials Line Items Section ──────────────────────────── */}
+              <div className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FontAwesomeIcon icon={faCoins} className="w-4 h-4 text-amber-600" />
+                    <span className="font-bold text-slate-900 text-xs">
+                      {isKhmer ? 'មុខសម្ភារៈ & វត្ថុធាតុដើមបញ្ជាទិញ' : 'Purchase Materials & Line Items'}
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">
+                      {formData.items.length} {isKhmer ? 'មុខ' : 'items'}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddItemRow}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-[11px] shadow-xs cursor-pointer active:scale-95 transition-all"
+                  >
+                    <FontAwesomeIcon icon={faPlus} className="w-3 h-3" />
+                    <span>{isKhmer ? 'បន្ថែមសម្ភារៈ' : 'Add Material'}</span>
+                  </button>
+                </div>
+
+                {formData.items.length === 0 ? (
+                  <div className="py-4 text-center text-slate-400 bg-white/70 rounded-xl border border-dashed border-amber-200">
+                    <p className="text-xs font-medium text-slate-600">
+                      {isKhmer ? 'មិនទាន់មានមុខសម្ភារៈនៅឡើយទេ' : 'No material items added yet'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {isKhmer ? 'ចុច "បន្ថែមសម្ភារៈ" ដើម្បីជ្រើសរើសមាសដុំ ត្បូង ឬគ្រឿងផ្សំ' : 'Click "Add Material" to choose bullion, gems, or raw findings'}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {formData.items.map((item, index) => (
+                      <div key={item.id} className="p-3 bg-white rounded-xl border border-amber-200/90 shadow-2xs grid grid-cols-12 gap-2.5 items-center">
+                        {/* Material selector or name */}
+                        <div className="col-span-12 sm:col-span-5">
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                            {isKhmer ? `សម្ភារៈ #${index + 1}` : `Material #${index + 1}`}
+                          </label>
+                          <select
+                            value={item.material_id}
+                            onChange={e => handleItemChange(item.id, 'material_id', e.target.value)}
+                            className="w-full rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-200 focus:outline-none focus:border-amber-500"
+                          >
+                            <option value="">{isKhmer ? '-- ជ្រើសរើសសម្ភារៈពីស្តុក --' : '-- Select from catalog --'}</option>
+                            {materials.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.name} ({m.code || `MAT-${m.id}`}) • ស្តុក: {m.stock_qty}{m.unit}
+                              </option>
+                            ))}
+                          </select>
+                          {!item.material_id && (
+                            <input
+                              type="text"
+                              value={item.name}
+                              onChange={e => handleItemChange(item.id, 'name', e.target.value)}
+                              placeholder={isKhmer ? 'ឬបញ្ចូលឈ្មោះសម្ភារៈ...' : 'Or type custom item name...'}
+                              className="w-full mt-1 rounded-lg px-2 py-1 text-xs border border-slate-200 focus:outline-none focus:border-amber-500 bg-slate-50"
+                            />
+                          )}
+                        </div>
+
+                        {/* Quantity & Unit */}
+                        <div className="col-span-4 sm:col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                            {isKhmer ? 'ចំនួន' : 'Qty'} ({item.unit || 'g'})
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            value={item.quantity}
+                            onChange={e => handleItemChange(item.id, 'quantity', e.target.value)}
+                            className="w-full rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-slate-900 border border-slate-200 focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        {/* Unit Cost ($) */}
+                        <div className="col-span-4 sm:col-span-2">
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                            {isKhmer ? 'តម្លៃដើម ($)' : 'Unit Cost ($)'}
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            min="0"
+                            value={item.unit_cost}
+                            onChange={e => handleItemChange(item.id, 'unit_cost', e.target.value)}
+                            className="w-full rounded-lg px-2 py-1.5 text-xs font-mono font-bold text-slate-900 border border-slate-200 focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        {/* Subtotal & Delete */}
+                        <div className="col-span-4 sm:col-span-3 flex items-center justify-between gap-1.5">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                              {isKhmer ? 'សរុប ($)' : 'Total ($)'}
+                            </label>
+                            <span className="font-mono font-black text-amber-900 text-xs block py-1.5">
+                              ${Number(item.total_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItemRow(item.id)}
+                            className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 transition-colors cursor-pointer mt-4"
+                            title={isKhmer ? 'លុបជួរនេះ' : 'Remove row'}
+                          >
+                            <FontAwesomeIcon icon={faTrashCan} className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Total Amount ($) & Status */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1.5">
-                    {isKhmer ? 'ចំនួនទឹកប្រាក់សរុប ($ USD)' : 'Total Amount ($ USD)'} <span className="text-rose-500">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-slate-700 font-bold">
+                      {isKhmer ? 'ចំនួនទឹកប្រាក់សរុប ($ USD)' : 'Total Amount ($ USD)'} <span className="text-rose-500">*</span>
+                    </label>
+                    <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.2 rounded font-mono">
+                      {isKhmer ? 'គណនាស្វ័យប្រវត្តិ (Auto)' : 'Auto'}
+                    </span>
+                  </div>
                   <input
                     type="number"
                     step="0.01"
@@ -762,7 +1052,7 @@ export const PurchasesView = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-5 mt-5 border-t border-slate-100">
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100 shrink-0">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
@@ -789,7 +1079,7 @@ export const PurchasesView = () => {
       {/* ── View Purchase Details Modal ──────────────────────────────────── */}
       {viewingPurchase && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs overflow-y-auto animate-fadeIn">
-          <div className="relative w-full max-w-md bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto max-h-[90vh] flex flex-col">
             <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-amber-500/20 shrink-0">
@@ -811,7 +1101,7 @@ export const PurchasesView = () => {
               </button>
             </div>
 
-            <div className="p-5 sm:p-6 space-y-4 text-xs">
+            <div className="p-5 sm:p-6 space-y-4 text-xs overflow-y-auto flex-1">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500 font-medium">{isKhmer ? 'អ្នកផ្គត់ផ្គង់:' : 'Supplier:'}</span>
@@ -834,6 +1124,38 @@ export const PurchasesView = () => {
                   </span>
                 </div>
               </div>
+
+              {/* Items Breakdown */}
+              {Array.isArray(viewingPurchase.items) && viewingPurchase.items.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-slate-700 font-bold block flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faCoins} className="text-amber-600 w-3.5 h-3.5" />
+                    <span>{isKhmer ? 'បញ្ជីមុខសម្ភារៈដែលបានទិញ' : 'Purchased Materials Breakdown'}</span>
+                  </span>
+                  <div className="rounded-xl border border-slate-200 overflow-hidden">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                        <tr>
+                          <th className="py-2 px-3">{isKhmer ? 'សម្ភារៈ' : 'Material'}</th>
+                          <th className="py-2 px-3 text-center">{isKhmer ? 'បរិមាណ' : 'Qty'}</th>
+                          <th className="py-2 px-3 text-right">{isKhmer ? 'តម្លៃដើម' : 'Cost'}</th>
+                          <th className="py-2 px-3 text-right">{isKhmer ? 'សរុប' : 'Subtotal'}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {viewingPurchase.items.map((it, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="py-2 px-3 font-semibold text-slate-900">{it.name || `Item #${idx+1}`}</td>
+                            <td className="py-2 px-3 text-center font-mono">{it.quantity || it.qty} {it.unit || 'g'}</td>
+                            <td className="py-2 px-3 text-right font-mono text-slate-600">${Number(it.unit_cost || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                            <td className="py-2 px-3 text-right font-mono font-bold text-amber-900">${Number(it.total_cost || (Number(it.quantity || it.qty || 1) * Number(it.unit_cost || 0))).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               {viewingPurchase.notes && (
                 <div>

@@ -88,33 +88,33 @@ export const Navbar = () => {
   const cleanQ = (searchQuery || '').toLowerCase().trim();
   const matchedProducts = cleanQ
     ? products.filter(p =>
-        p.name?.toLowerCase().includes(cleanQ) ||
-        p.code_sku?.toLowerCase().includes(cleanQ) ||
-        p.barcode?.includes(cleanQ)
-      ).slice(0, 4)
+      p.name?.toLowerCase().includes(cleanQ) ||
+      p.code_sku?.toLowerCase().includes(cleanQ) ||
+      p.barcode?.includes(cleanQ)
+    ).slice(0, 4)
     : [];
 
   const matchedSales = cleanQ
     ? sales.filter(s =>
-        s.invoice_no?.toLowerCase().includes(cleanQ) ||
-        s.customer_name?.toLowerCase().includes(cleanQ) ||
-        s.customer_phone?.toLowerCase().includes(cleanQ) ||
-        s.payment_ref?.toLowerCase().includes(cleanQ)
-      ).slice(0, 4)
+      s.invoice_no?.toLowerCase().includes(cleanQ) ||
+      s.customer_name?.toLowerCase().includes(cleanQ) ||
+      s.customer_phone?.toLowerCase().includes(cleanQ) ||
+      s.payment_ref?.toLowerCase().includes(cleanQ)
+    ).slice(0, 4)
     : [];
 
   const matchedCustomers = cleanQ
     ? customers.filter(c =>
-        c.name?.toLowerCase().includes(cleanQ) ||
-        c.phone?.includes(cleanQ) ||
-        c.email?.toLowerCase().includes(cleanQ)
-      ).slice(0, 4)
+      c.name?.toLowerCase().includes(cleanQ) ||
+      c.phone?.includes(cleanQ) ||
+      c.email?.toLowerCase().includes(cleanQ)
+    ).slice(0, 4)
     : [];
 
   const totalResultsCount = cleanQ
     ? (products.filter(p => p.name?.toLowerCase().includes(cleanQ) || p.code_sku?.toLowerCase().includes(cleanQ) || p.barcode?.includes(cleanQ)).length +
-       sales.filter(s => s.invoice_no?.toLowerCase().includes(cleanQ) || s.customer_name?.toLowerCase().includes(cleanQ) || s.customer_phone?.toLowerCase().includes(cleanQ)).length +
-       customers.filter(c => c.name?.toLowerCase().includes(cleanQ) || c.phone?.includes(cleanQ)).length)
+      sales.filter(s => s.invoice_no?.toLowerCase().includes(cleanQ) || s.customer_name?.toLowerCase().includes(cleanQ) || s.customer_phone?.toLowerCase().includes(cleanQ)).length +
+      customers.filter(c => c.name?.toLowerCase().includes(cleanQ) || c.phone?.includes(cleanQ)).length)
     : 0;
 
   return (
@@ -408,11 +408,10 @@ export const Navbar = () => {
           {/* Interactive Language Switcher (EN / KM) */}
           <button
             onClick={handleLanguageToggle}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-95 ${
-              isKhmer
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer active:scale-95 ${isKhmer
                 ? 'bg-amber-50 text-amber-900 border-amber-300 shadow-xs'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
-            }`}
+              }`}
             title={isKhmer ? 'Switch to English' : 'Switch to Khmer'}
           >
             <FontAwesomeIcon icon={faGlobe} className="w-3.5 h-3.5 text-amber-600" />
@@ -501,7 +500,7 @@ export const Navbar = () => {
             {/* Dropdown Menu Modal / Popover */}
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-2 z-50 animate-fadeIn">
-                
+
                 {/* User Info Header in Dropdown */}
                 <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 mb-1.5">
                   <div className="flex items-center gap-2.5">
@@ -603,7 +602,7 @@ export const Navbar = () => {
                     className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-rose-600 hover:text-rose-800 hover:bg-rose-50 transition-colors cursor-pointer text-left font-bold"
                   >
                     <FontAwesomeIcon icon={faRightFromBracket} className="w-3.5 h-3.5 text-rose-500" />
-                    <span>{isKhmer ? 'ចាកចេញ (Sign Out)' : 'Sign Out / Logout'}</span>
+                    <span>{isKhmer ? 'ចាកចេញ (Sign Out)' : 'Sign Out'}</span>
                   </button>
                 </div>
 

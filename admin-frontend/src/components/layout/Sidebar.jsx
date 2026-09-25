@@ -52,7 +52,7 @@ export const Sidebar = () => {
   const isKhmer = (i18n.language || 'km').startsWith('km');
 
   // Permission & Role Checks for Navigation
-  const isSuperOrAdmin = hasRole(['super_admin', 'admin']) || currentUser?.email === 'superadmin@jewelflow.com';
+  const isSuperOrAdmin = hasRole(['super_admin', 'admin']) || currentUser?.email === 'superadmin@gmail.com' || currentUser?.email === 'superadmin@jewelflow.com';
   const canViewPos = isSuperOrAdmin || hasPermission(['view_sales', 'create_sales']) || hasRole(['cashier', 'manager']);
   const canViewSalesHistory = isSuperOrAdmin || hasPermission('view_sales') || hasRole(['cashier', 'manager', 'accountant']);
   const canViewProducts = isSuperOrAdmin || hasPermission('view_products');
@@ -562,7 +562,7 @@ export const Sidebar = () => {
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
             {t('nav.backendReady', 'Backend Sync Ready')}
           </span>
-          <span className="text-[10px] text-slate-400 font-semibold">v2.4 Pro</span>
+          <span className="text-[10px] text-slate-400 font-semibold">v1.0.0</span>
         </div>
 
         {/* User Account & Logout */}

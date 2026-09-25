@@ -16,7 +16,7 @@ class MadeProductController extends Controller
      * Relations always eager-loaded so responses show the crafted
      * product's name/details instead of bare foreign key ids.
      */
-    private const WITH = ['product', 'metalType', 'supplier', 'user'];
+    private const WITH = ['product', 'metalType', 'material', 'supplier', 'user'];
 
     /**
      * Display a listing of made products (crafting orders) with the
@@ -27,6 +27,7 @@ class MadeProductController extends Controller
         $search = $request->query('search');
         $status = $request->query('status');
         $metalTypeId = $request->query('metal_type_id');
+        $materialId = $request->query('material_id');
         $supplierId = $request->query('supplier_id');
         $sort = $request->query('sort', 'created_at');
         $direction = strtolower($request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
@@ -50,6 +51,10 @@ class MadeProductController extends Controller
 
         if (!empty($metalTypeId) && $metalTypeId !== 'all') {
             $query->where('metal_type_id', $metalTypeId);
+        }
+
+        if (!empty($materialId) && $materialId !== 'all') {
+            $query->where('material_id', $materialId);
         }
 
         if (!empty($supplierId) && $supplierId !== 'all') {
@@ -85,27 +90,107 @@ class MadeProductController extends Controller
     }
 
     /**
+     * Check if material stock is available for the given metal type or product.
+     */
+    private function validateMaterialStock(?int $metalTypeId, ?int $productId, float $metalWeightUsed, int $quantity, string $status, ?int $materialId = null): ?JsonResponse
+    {
+        if (!in_array($status, ['in_progress', 'completed'], true)) {
+            return null;
+        }
+
+        $material = null;
+        if ($materialId) {
+            $material = Material::find($materialId);
+        }
+        if (!$material && $productId) {
+            $prod = Product::find($productId);
+            if ($prod && $prod->material_id) {
+                $material = Material::find($prod->material_id);
+            }
+        }
+        if (!$material && $metalTypeId) {
+            $material = Material::where('metal_type_id', $metalTypeId)->first();
+        }
+
+        $required = ($metalWeightUsed > 0 ? $metalWeightUsed : 1) * max(1, $quantity);
+
+        if (!$material || (float) $material->stock_qty <= 0 || (float) $material->stock_qty < $required) {
+            $matName = $material ? $material->name : 'Precious Metal Material';
+            $currentStock = $material ? (float) $material->stock_qty : 0;
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot set status to '" . ($status === 'in_progress' ? 'In Progress' : 'Completed') . "' because material stock is 0 or insufficient for {$matName} (Available: {$currentStock}g, Required: {$required}g). Please purchase materials from supplier first.",
+                'error_type' => 'material_stock_empty',
+                'material_id' => $material?->id,
+                'material_name' => $matName,
+                'current_stock' => $currentStock,
+                'required_stock' => $required,
+            ], 422);
+        }
+
+        return null;
+    }
+
+    /**
      * Store a newly created made product (crafting order).
      */
     public function store(Request $request): JsonResponse
     {
         // Sanitize empty strings to null or defaults
         $data = $request->all();
-        foreach (['supplier_id', 'user_id', 'unit_id', 'started_at', 'completed_at', 'notes'] as $field) {
+        foreach (['material_id', 'supplier_id', 'user_id', 'unit_id', 'started_at', 'completed_at', 'notes'] as $field) {
             if (array_key_exists($field, $data) && ($data[$field] === '' || $data[$field] === 'null')) {
                 $data[$field] = null;
             }
         }
         foreach (['metal_weight_used', 'waste_weight', 'crafting_cost'] as $numField) {
-            if (array_key_exists($numField, $data) && $data[$numField] === '') {
+            if (array_key_exists($numField, $data) && ($data[$numField] === '' || !is_numeric($data[$numField]))) {
                 $data[$numField] = 0;
             }
         }
+
+        // Auto-resolve material_id if not explicitly provided or invalid
+        if (empty($data['material_id']) || !\App\Models\Material::where('id', $data['material_id'])->exists()) {
+            $resolvedMatId = null;
+            if (!empty($data['product_id'])) {
+                $prod = \App\Models\Product::find($data['product_id']);
+                if ($prod && !empty($prod->material_id) && \App\Models\Material::where('id', $prod->material_id)->exists()) {
+                    $resolvedMatId = $prod->material_id;
+                } elseif ($prod && !empty($prod->metal_type_id)) {
+                    $matchedMat = \App\Models\Material::where('metal_type_id', $prod->metal_type_id)->first();
+                    if ($matchedMat) {
+                        $resolvedMatId = $matchedMat->id;
+                    }
+                }
+            }
+            if (!$resolvedMatId && !empty($data['metal_type_id'])) {
+                $matchedMat = \App\Models\Material::where('metal_type_id', $data['metal_type_id'])->first();
+                if ($matchedMat) {
+                    $resolvedMatId = $matchedMat->id;
+                }
+            }
+            if (!$resolvedMatId) {
+                $firstMat = \App\Models\Material::first();
+                if ($firstMat) {
+                    $resolvedMatId = $firstMat->id;
+                }
+            }
+            $data['material_id'] = $resolvedMatId;
+        }
+
+        // Validate supplier_id & user_id existence
+        if (!empty($data['supplier_id']) && !\App\Models\Supplier::where('id', $data['supplier_id'])->exists()) {
+            $data['supplier_id'] = null;
+        }
+        if (!empty($data['user_id']) && !\App\Models\User::where('id', $data['user_id'])->exists()) {
+            $data['user_id'] = null;
+        }
+
         $request->merge($data);
 
         $validated = $request->validate([
             'product_id' => 'required|exists:products,id',
-            'metal_type_id' => 'required|exists:metal_types,id',
+            'material_id' => 'required|exists:materials,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'user_id' => 'nullable|exists:users,id',
             'order_no' => 'nullable|string|max:255|unique:made_products,order_no',
@@ -130,6 +215,21 @@ class MadeProductController extends Controller
         $validated['completed_at'] = !empty($validated['completed_at']) ? $validated['completed_at'] : null;
         $validated['notes'] = !empty($validated['notes']) ? $validated['notes'] : null;
 
+        // Enforce material stock validation if attempting to start or complete immediately
+        if (in_array($validated['status'], ['in_progress', 'completed'], true)) {
+            $stockCheck = $this->validateMaterialStock(
+                null,
+                $validated['product_id'] ?? null,
+                (float) ($validated['metal_weight_used'] ?? 0) + (float) ($validated['waste_weight'] ?? 0),
+                (int) ($validated['quantity'] ?? 1),
+                $validated['status'],
+                $validated['material_id'] ?? null
+            );
+            if ($stockCheck) {
+                return $stockCheck;
+            }
+        }
+
         $madeProduct = MadeProduct::create($validated);
         $madeProduct->load(self::WITH);
 
@@ -137,11 +237,32 @@ class MadeProductController extends Controller
     }
 
     /**
+     * Helper to find a made product by numeric ID or string order_no.
+     */
+    private function findMadeProduct($id): MadeProduct
+    {
+        if (is_numeric($id)) {
+            $item = MadeProduct::find($id);
+            if ($item) {
+                return $item;
+            }
+        }
+
+        $item = MadeProduct::where('order_no', $id)->first();
+        if ($item) {
+            return $item;
+        }
+
+        return MadeProduct::findOrFail($id);
+    }
+
+    /**
      * Display the specified made product.
      */
     public function show($id): JsonResponse
     {
-        $madeProduct = MadeProduct::with(self::WITH)->findOrFail($id);
+        $madeProduct = $this->findMadeProduct($id);
+        $madeProduct->load(self::WITH);
 
         return response()->json($madeProduct);
     }
@@ -151,7 +272,7 @@ class MadeProductController extends Controller
      */
     public function update(Request $request, $id): JsonResponse
     {
-        $madeProduct = MadeProduct::findOrFail($id);
+        $madeProduct = $this->findMadeProduct($id);
 
         // Sanitize empty strings to null or defaults
         $data = $request->all();
@@ -169,7 +290,7 @@ class MadeProductController extends Controller
 
         $validated = $request->validate([
             'product_id' => 'sometimes|required|exists:products,id',
-            'metal_type_id' => 'sometimes|required|exists:metal_types,id',
+            'material_id' => 'sometimes|required|exists:materials,id',
             'supplier_id' => 'nullable|exists:suppliers,id',
             'user_id' => 'nullable|exists:users,id',
             'order_no' => [
@@ -202,6 +323,19 @@ class MadeProductController extends Controller
             $validated['completed_at'] = !empty($validated['completed_at']) ? $validated['completed_at'] : null;
         }
 
+        $targetStatus = $validated['status'] ?? $madeProduct->status;
+        if (in_array($targetStatus, ['in_progress', 'completed'], true)) {
+            $materialId = $validated['material_id'] ?? $madeProduct->material_id;
+            $productId = $validated['product_id'] ?? $madeProduct->product_id;
+            $weightUsed = (float) ($validated['metal_weight_used'] ?? $madeProduct->metal_weight_used ?? 0) + (float) ($validated['waste_weight'] ?? $madeProduct->waste_weight ?? 0);
+            $qty = (int) ($validated['quantity'] ?? $madeProduct->quantity ?? 1);
+
+            $stockCheck = $this->validateMaterialStock(null, $productId, $weightUsed, $qty, $targetStatus, $materialId);
+            if ($stockCheck) {
+                return $stockCheck;
+            }
+        }
+
         $madeProduct->update($validated);
         $madeProduct->load(self::WITH);
 
@@ -213,7 +347,7 @@ class MadeProductController extends Controller
      */
     public function updateStatus(Request $request, $id): JsonResponse
     {
-        $madeProduct = MadeProduct::findOrFail($id);
+        $madeProduct = $this->findMadeProduct($id);
 
         $validated = $request->validate([
             'status' => 'required|in:pending,in_progress,completed,cancelled',
@@ -221,6 +355,16 @@ class MadeProductController extends Controller
 
         $oldStatus = $madeProduct->status;
         $newStatus = $validated['status'];
+
+        if (in_array($newStatus, ['in_progress', 'completed'], true)) {
+            $weightUsed = (float) ($madeProduct->metal_weight_used ?? 0) + (float) ($madeProduct->waste_weight ?? 0);
+            $qty = (int) ($madeProduct->quantity ?? 1);
+
+            $stockCheck = $this->validateMaterialStock(null, $madeProduct->product_id, $weightUsed, $qty, $newStatus, $madeProduct->material_id);
+            if ($stockCheck) {
+                return $stockCheck;
+            }
+        }
 
         $updates = ['status' => $newStatus];
         if ($newStatus === 'in_progress' && !$madeProduct->started_at) {
@@ -246,8 +390,8 @@ class MadeProductController extends Controller
 
             // 2. Deduct raw gold / metal material stock used for crafting
             $metalUsed = ((float) ($madeProduct->metal_weight_used ?? 0) + (float) ($madeProduct->waste_weight ?? 0)) * ($madeProduct->quantity ?? 1);
-            if ($metalUsed > 0 && $madeProduct->metal_type_id) {
-                $material = Material::where('metal_type_id', $madeProduct->metal_type_id)->first();
+            if ($metalUsed > 0 && $madeProduct->material_id) {
+                $material = Material::find($madeProduct->material_id);
                 if ($material) {
                     $newMatStock = max(0, (float) $material->stock_qty - $metalUsed);
                     $material->update([
@@ -270,8 +414,8 @@ class MadeProductController extends Controller
 
             // Restore raw material stock
             $metalUsed = ((float) ($madeProduct->metal_weight_used ?? 0) + (float) ($madeProduct->waste_weight ?? 0)) * ($madeProduct->quantity ?? 1);
-            if ($metalUsed > 0 && $madeProduct->metal_type_id) {
-                $material = Material::where('metal_type_id', $madeProduct->metal_type_id)->first();
+            if ($metalUsed > 0 && $madeProduct->material_id) {
+                $material = Material::find($madeProduct->material_id);
                 if ($material) {
                     $newMatStock = (float) $material->stock_qty + $metalUsed;
                     $material->update([

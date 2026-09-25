@@ -15,13 +15,17 @@ import {
   faClock,
   faCheckCircle,
   faCircleExclamation,
+  faTriangleExclamation,
   faXmark,
   faCoins,
   faScaleBalanced,
   faUserTie,
   faTruck,
   faCalendarDays,
-  faLock
+  faLock,
+  faCartPlus,
+  faBoxesStacked,
+  faArrowRight
 } from '@fortawesome/free-solid-svg-icons';
 
 const fallbackImg = 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80';
@@ -44,6 +48,7 @@ export const MadeProductsView = () => {
     currentUser,
     materials,
     getMaterialEffectivePrice,
+    addPurchase,
     setActiveTab,
     searchQuery
   } = useApp();
@@ -75,9 +80,92 @@ export const MadeProductsView = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Quick Purchase Material Modal State (for ordering raw stock from suppliers)
+  const [isPurchaseModalOpen, setIsPurchaseModalOpen] = useState(false);
+  const [purchasingMaterial, setPurchasingMaterial] = useState(null);
+  const [shortageModalData, setShortageModalData] = useState(null);
+  const [purchaseForm, setPurchaseForm] = useState({
+    supplier_id: '',
+    invoice_no: '',
+    quantity: 10,
+    unit_cost: 0,
+    total_amount: 0,
+    purchase_date: new Date().toISOString().split('T')[0],
+    status: 'completed',
+    notes: ''
+  });
+
+  // Open Quick Purchase Modal from Crafting Screen
+  const openPurchaseMaterialModal = (material, suggestedQty = 0) => {
+    if (!material) return;
+    setPurchasingMaterial(material);
+    const unitCost = Number(material.cost_price || getMaterialEffectivePrice(material) || 0);
+    const qty = suggestedQty > 0 ? suggestedQty : (material.unit === 'ct' ? 5 : (material.unit === 'pcs' ? 10 : 50));
+    const randNum = Math.floor(10000 + Math.random() * 90000);
+
+    setPurchaseForm({
+      supplier_id: material.supplier_id || (suppliers[0]?.id ? String(suppliers[0].id) : ''),
+      invoice_no: `PUR-${randNum}`,
+      quantity: qty,
+      unit_cost: unitCost,
+      total_amount: (qty * unitCost).toFixed(2),
+      purchase_date: new Date().toISOString().split('T')[0],
+      status: 'completed', // Immediately stock into vault catalog
+      notes: `Restock of ${material.name} for Crafting Order ${formData.order_no || ''}`
+    });
+    setIsPurchaseModalOpen(true);
+  };
+
+  // Submit Quick Purchase
+  const handleQuickPurchaseSubmit = async (e) => {
+    e.preventDefault();
+    if (!purchaseForm.supplier_id) {
+      showToast(isKhmer ? 'សូមជ្រើសរើសអ្នកផ្គត់ផ្គង់' : 'Please select a supplier', 'error');
+      return;
+    }
+    if (!purchaseForm.quantity || Number(purchaseForm.quantity) <= 0) {
+      showToast(isKhmer ? 'សូមបញ្ចូលបរិមាណត្រឹមត្រូវ' : 'Please enter valid quantity', 'error');
+      return;
+    }
+
+    try {
+      const itemRow = {
+        material_id: purchasingMaterial.id,
+        name: purchasingMaterial.name,
+        unit: purchasingMaterial.unit || 'g',
+        quantity: Number(purchaseForm.quantity),
+        unit_cost: Number(purchaseForm.unit_cost),
+        total_cost: Number(purchaseForm.total_amount)
+      };
+
+      await addPurchase({
+        supplier_id: Number(purchaseForm.supplier_id),
+        invoice_no: purchaseForm.invoice_no,
+        total_amount: Number(purchaseForm.total_amount),
+        purchase_date: purchaseForm.purchase_date,
+        status: purchaseForm.status,
+        notes: purchaseForm.notes,
+        items: [itemRow]
+      });
+
+      showToast(
+        isKhmer
+          ? `បានបញ្ជាទិញ ${purchasingMaterial.name} ចំនួន ${purchaseForm.quantity}${purchasingMaterial.unit || 'g'} ពីអ្នកផ្គត់ផ្គង់ជោគជ័យ! ស្តុកត្រូវបានបញ្ចូល។`
+          : `Restocked ${purchaseForm.quantity}${purchasingMaterial.unit || 'g'} of ${purchasingMaterial.name} from supplier!`,
+        'success'
+      );
+      setIsPurchaseModalOpen(false);
+      refreshAllData(true);
+    } catch (err) {
+      console.error('Quick purchase error in MadeProductsView:', err);
+      showToast(isKhmer ? 'បរាជ័យក្នុងការបញ្ជាទិញសម្ភារៈ' : 'Failed to create material purchase order', 'error');
+    }
+  };
+
   // Form State
   const initialForm = {
     product_id: '',
+    material_id: '',
     metal_type_id: '',
     supplier_id: '',
     user_id: '',
@@ -96,28 +184,50 @@ export const MadeProductsView = () => {
   const openAddModal = () => {
     setEditingItem(null);
     const autoCraftsman = getDefaultCraftsman();
+    const defaultProd = products[0];
+    const defaultMat = materials[0];
+    const defaultWeightG = defaultProd ? (defaultProd.net_weight || defaultProd.gross_weight || 0) : 0;
+    const defaultWeightChi = defaultWeightG > 0 ? (defaultWeightG / 3.75).toFixed(2) : '';
+
     setFormData({
       ...initialForm,
       order_no: `MJ-${Math.floor(1000 + Math.random() * 9000)}`,
-      product_id: products[0]?.id || '',
-      metal_type_id: metalTypes[0]?.id || '',
-      supplier_id: suppliers[0]?.id || '',
-      user_id: autoCraftsman?.id || currentUser?.id || ''
+      product_id: defaultProd?.id ? String(defaultProd.id) : '',
+      material_id: defaultMat?.id ? String(defaultMat.id) : '',
+      metal_type_id: defaultMat?.metal_type_id ? String(defaultMat.metal_type_id) : (metalTypes[0]?.id ? String(metalTypes[0].id) : ''),
+      supplier_id: '',
+      user_id: autoCraftsman?.id || currentUser?.id || '',
+      metal_weight_used: defaultWeightChi,
+      waste_weight: '0',
+      crafting_cost: '',
+      status: 'pending',
+      started_at: '',
+      completed_at: '',
+      notes: ''
     });
     setIsModalOpen(true);
   };
 
   const openEditModal = (item) => {
     setEditingItem(item);
+    const weightG = parseFloat(item.metal_weight_used) || 0;
+    const wasteG = parseFloat(item.waste_weight) || 0;
+    let matId = item.material_id || item.material?.id || '';
+    if (!matId && (item.metal_type_id || item.metal_type?.id)) {
+      const matched = materials.find(m => String(m.metal_type_id) === String(item.metal_type_id || item.metal_type?.id));
+      if (matched) matId = String(matched.id);
+    }
+
     setFormData({
       product_id: item.product_id || item.product?.id || '',
+      material_id: matId,
       metal_type_id: item.metal_type_id || item.metal_type?.id || item.metalType?.id || '',
       supplier_id: item.supplier_id || item.supplier?.id || '',
       user_id: item.user_id || item.user?.id || '',
       order_no: item.order_no || '',
       quantity: item.quantity || 1,
-      metal_weight_used: item.metal_weight_used || '',
-      waste_weight: item.waste_weight || '0',
+      metal_weight_used: weightG > 0 ? (weightG / 3.75).toFixed(2) : '',
+      waste_weight: wasteG > 0 ? (wasteG / 3.75).toFixed(3) : '0',
       crafting_cost: item.crafting_cost || '',
       status: item.status || 'pending',
       started_at: item.started_at ? item.started_at.substring(0, 10) : '',
@@ -127,6 +237,53 @@ export const MadeProductsView = () => {
     setIsModalOpen(true);
   };
 
+  // Helper: Find matching raw material
+  const findMatchingMaterial = (metalTypeId, productId) => {
+    let mat = materials.find(m => 
+      (m.metal_type_id && String(m.metal_type_id) === String(metalTypeId)) ||
+      (m.metal_type?.id && String(m.metal_type.id) === String(metalTypeId))
+    );
+    if (!mat && productId) {
+      const prod = products.find(p => p.id === Number(productId));
+      if (prod && prod.material_id) {
+        mat = materials.find(m => Number(m.id) === Number(prod.material_id));
+      }
+    }
+    return mat || materials[0] || null;
+  };
+
+  const checkMaterialStockGuard = (metalTypeId, productId, metalWeightUsedChi, wasteWeightChi, quantity, targetStatus) => {
+    if (targetStatus !== 'in_progress' && targetStatus !== 'completed') {
+      return true;
+    }
+
+    const mat = findMatchingMaterial(metalTypeId, productId);
+    const stock = mat ? Number(mat.stock_qty || 0) : 0;
+    const metalGrams = (parseFloat(metalWeightUsedChi) || 0) * 3.75;
+    const wasteGrams = (parseFloat(wasteWeightChi) || 0) * 3.75;
+    const weightNeeded = (metalGrams + wasteGrams) * (parseInt(quantity, 10) || 1);
+    const required = weightNeeded > 0 ? weightNeeded : 1;
+
+    if (!mat || stock <= 0 || stock < required) {
+      const deficit = Math.max(0, required - stock);
+      const prod = products.find(p => p.id === Number(productId));
+      const metal = metalTypes.find(m => m.id === Number(metalTypeId));
+
+      setShortageModalData({
+        material: mat,
+        product: prod,
+        metal: metal,
+        targetStatus,
+        currentStock: stock,
+        requiredStock: required,
+        deficit: deficit > 0 ? deficit : required,
+      });
+      return false;
+    }
+
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.product_id || !formData.metal_type_id) {
@@ -134,17 +291,34 @@ export const MadeProductsView = () => {
       return;
     }
 
+    const canProceed = await checkMaterialStockGuard(
+      formData.metal_type_id,
+      formData.product_id,
+      formData.metal_weight_used,
+      formData.waste_weight,
+      formData.quantity,
+      formData.status
+    );
+
+    if (!canProceed) {
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      const metalGrams = formData.metal_weight_used !== '' ? ((parseFloat(formData.metal_weight_used) || 0) * 3.75) : 0;
+      const wasteGrams = formData.waste_weight !== '' ? ((parseFloat(formData.waste_weight) || 0) * 3.75) : 0;
+
       const payload = {
         product_id: Number(formData.product_id),
-        metal_type_id: Number(formData.metal_type_id),
+        material_id: formData.material_id ? Number(formData.material_id) : null,
+        metal_type_id: Number(formData.metal_type_id || (materials.find(m => String(m.id) === String(formData.material_id))?.metal_type_id) || metalTypes[0]?.id),
         supplier_id: formData.supplier_id ? Number(formData.supplier_id) : null,
         user_id: formData.user_id ? Number(formData.user_id) : null,
         order_no: formData.order_no ? formData.order_no.trim() : null,
         quantity: Math.max(1, parseInt(formData.quantity, 10) || 1),
-        metal_weight_used: formData.metal_weight_used !== '' ? parseFloat(formData.metal_weight_used) : 0,
-        waste_weight: formData.waste_weight !== '' ? parseFloat(formData.waste_weight) : 0,
+        metal_weight_used: metalGrams,
+        waste_weight: wasteGrams,
         crafting_cost: formData.crafting_cost !== '' ? parseFloat(formData.crafting_cost) : 0,
         status: formData.status || 'pending',
         started_at: formData.started_at ? formData.started_at : null,
@@ -163,7 +337,8 @@ export const MadeProductsView = () => {
       refreshAllData(true);
     } catch (err) {
       console.error('Error saving made jewelry order:', err);
-      showToast(isKhmer ? 'មានបញ្ហាក្នុងការរក្សាទុក' : 'Error saving record', 'error');
+      const errMsg = err?.response?.data?.message || (isKhmer ? 'មានបញ្ហាក្នុងការរក្សាទុក' : 'Error saving record');
+      showToast(errMsg, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -187,12 +362,26 @@ export const MadeProductsView = () => {
   };
 
   const handleStatusChange = async (item, newStatus) => {
+    const canProceed = await checkMaterialStockGuard(
+      item.metal_type_id || item.metal_type?.id,
+      item.product_id || item.product?.id,
+      item.metal_weight_used,
+      item.waste_weight,
+      item.quantity,
+      newStatus
+    );
+
+    if (!canProceed) {
+      return;
+    }
+
     try {
       await updateMadeProductStatus(item.id, newStatus);
       showToast(isKhmer ? 'បានផ្លាស់ប្ដូរស្ថានភាពរួចរាល់' : `Status changed to ${newStatus}`, 'success');
       refreshAllData(true);
     } catch (err) {
-      showToast(isKhmer ? 'មិនអាចប្តូរស្ថានភាពបានទេ' : 'Failed to update status', 'error');
+      const errMsg = err?.response?.data?.message || (isKhmer ? 'មិនអាចប្តូរស្ថានភាពបានទេ' : 'Failed to update status');
+      showToast(errMsg, 'error');
     }
   };
 
@@ -310,10 +499,10 @@ export const MadeProductsView = () => {
             </div>
           </div>
           <p className="text-2xl font-bold font-serif text-amber-950">
-            {stats.totalMetal.toFixed(1)} <span className="text-xs font-mono font-normal text-slate-500">g</span>
+            {(stats.totalMetal / 3.75).toFixed(2)} <span className="text-xs font-mono font-bold text-amber-800">{isKhmer ? 'ជី' : 'Chi'}</span>
           </p>
-          <p className="text-[11px] text-amber-800 font-bold font-mono mt-1">
-            ≈ {(stats.totalMetal / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}
+          <p className="text-[11px] text-slate-500 font-mono mt-1">
+            {stats.totalMetal.toFixed(2)}g (1 ជី = 3.75g)
           </p>
         </div>
       </div>
@@ -362,7 +551,7 @@ export const MadeProductsView = () => {
               <tr className="bg-slate-50/90 border-b border-slate-200/80 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
                 <th className="py-3.5 px-4 whitespace-nowrap min-w-[220px]">{isKhmer ? 'គ្រឿងអលង្ការកែច្នៃ' : 'Crafted Jewelry Piece'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'លេខប័ណ្ណ & កាលបរិច្ឆេទ' : 'Order No & Date'}</th>
-                <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'ប្រភេទមាស & ទឹក' : 'Metal & Purity'}</th>
+                <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'វត្ថុធាតុដើមមាស' : 'Raw Material'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap text-center">{isKhmer ? 'ទម្ងន់មាស (ជី)' : 'Gold Weight (Chi)'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap">{isKhmer ? 'ជាងទងទទួលខុសត្រូវ' : 'Craftsman / Jeweler'}</th>
                 <th className="py-3.5 px-3 whitespace-nowrap text-center">{isKhmer ? 'ថ្លៃឈ្នួលជាង' : 'Labor Fee'}</th>
@@ -425,10 +614,10 @@ export const MadeProductsView = () => {
                         </span>
                       </td>
 
-                      {/* Metal & Purity */}
+                      {/* Raw Material (Materials) */}
                       <td className="py-3.5 px-3 whitespace-nowrap">
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                          {metal?.name || 'Fine Metal'}
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-900 border border-amber-200/90 shadow-2xs">
+                          {item.material?.name || metal?.name || 'Raw Material'}
                         </span>
                       </td>
 
@@ -519,8 +708,8 @@ export const MadeProductsView = () => {
       {isModalOpen && (() => {
         const selectedProd = products.find(p => p.id === Number(formData.product_id)) || products[0];
         const selectedMtl = metalTypes.find(m => m.id === Number(formData.metal_type_id)) || metalTypes[0];
-        const metalUsedGrams = parseFloat(formData.metal_weight_used) || 0;
-        const metalUsedChi = (metalUsedGrams / 3.75).toFixed(2);
+        const metalUsedChi = parseFloat(formData.metal_weight_used) || 0;
+        const metalUsedGrams = metalUsedChi * 3.75;
         const laborCostNum = parseFloat(formData.crafting_cost) || 0;
 
         return (
@@ -600,7 +789,18 @@ export const MadeProductsView = () => {
                       <select
                         required
                         value={formData.product_id}
-                        onChange={(e) => setFormData({ ...formData, product_id: e.target.value })}
+                        onChange={(e) => {
+                          const pId = e.target.value;
+                          const selected = products.find(p => p.id === Number(pId));
+                          const newWeightG = selected ? (selected.net_weight || selected.gross_weight || 0) : 0;
+                          const newWeightChi = newWeightG > 0 ? (newWeightG / 3.75).toFixed(2) : '';
+
+                          setFormData(prev => ({
+                            ...prev,
+                            product_id: pId,
+                            metal_weight_used: newWeightChi
+                          }));
+                        }}
                         className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all cursor-pointer"
                       >
                         <option value="">{isKhmer ? '-- ជ្រើសរើសគ្រឿងអលង្ការ --' : '-- Select Jewelry Piece --'}</option>
@@ -610,82 +810,91 @@ export const MadeProductsView = () => {
                       </select>
                     </div>
 
-                    {/* Metal Type & Supplier */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1.5">
-                          {isKhmer ? 'ប្រភេទមាស & ទឹក' : 'Metal & Purity'} <span className="text-rose-500">*</span>
-                        </label>
-                        <select
-                          required
-                          value={formData.metal_type_id}
-                          onChange={(e) => setFormData({ ...formData, metal_type_id: e.target.value })}
-                          className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all cursor-pointer"
-                        >
-                          <option value="">{isKhmer ? '-- ជ្រើសរើសប្រភេទមាស --' : '-- Select Metal Type --'}</option>
-                          {metalTypes.map(m => (
-                            <option key={m.id} value={m.id}>{m.name} ({m.purity_percentage || 0}%)</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-slate-700 font-bold mb-1.5">
-                          {isKhmer ? 'អ្នកផ្គត់ផ្គង់' : 'Supplier / Sourcing'}
-                        </label>
-                        <select
-                          value={formData.supplier_id}
-                          onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value })}
-                          className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all cursor-pointer"
-                        >
-                          <option value="">{isKhmer ? '-- គ្មាន (មាសក្នុងហាង) --' : '-- In-House Bullion --'}</option>
-                          {suppliers.map(s => (
-                            <option key={s.id} value={s.id}>{s.company_name || s.name}</option>
-                          ))}
-                        </select>
-                      </div>
+                    {/* Raw Material (Materials) */}
+                    <div>
+                      <label className="block text-slate-700 font-bold mb-1.5">
+                        {isKhmer ? 'វត្ថុធាតុដើមមាស (Materials)' : 'Raw Material'} <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        required
+                        value={formData.material_id}
+                        onChange={(e) => {
+                          const selectedMatId = e.target.value;
+                          const selectedMat = materials.find(m => String(m.id) === String(selectedMatId));
+                          setFormData(prev => ({
+                            ...prev,
+                            material_id: selectedMatId,
+                            metal_type_id: selectedMat?.metal_type_id ? String(selectedMat.metal_type_id) : prev.metal_type_id
+                          }));
+                        }}
+                        className="w-full px-3.5 py-2.5 text-xs font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all cursor-pointer"
+                      >
+                        <option value="">{isKhmer ? '-- ជ្រើសរើសវត្ថុធាតុដើម (Materials) --' : '-- Select Raw Material --'}</option>
+                        {materials.map(mat => {
+                          const stockChi = ((mat.stock_qty || 0) / 3.75).toFixed(2);
+                          return (
+                            <option key={mat.id} value={mat.id}>
+                              {mat.name} — [{isKhmer ? 'ស្តុក' : 'Stock'}: {stockChi} {isKhmer ? 'ជី' : 'Chi'}]
+                            </option>
+                          );
+                        })}
+                      </select>
                     </div>
 
-                    {/* Gold Weight (Chi & Grams), Waste & Crafting Cost */}
+                    {/* Gold Weight (Chi), Waste (Chi) & Labor Cost */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                       <div>
                         <div className="flex justify-between items-center mb-1.5">
                           <label className="block text-slate-700 font-bold">
-                            {isKhmer ? 'ទម្ងន់មាស (ក្រាម)' : 'Metal Used (g)'}
+                            {isKhmer ? 'ទម្ងន់មាស (ជី)' : 'Metal Used (Chi)'} <span className="text-rose-500">*</span>
                           </label>
                           <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 px-1 rounded border border-amber-200">
                             1 ជី = 3.75g
                           </span>
                         </div>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.metal_weight_used}
-                          onChange={(e) => setFormData({ ...formData, metal_weight_used: e.target.value })}
-                          className="w-full px-3.5 py-2.5 font-mono text-xs font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
-                          placeholder="5.50"
-                        />
-                        {formData.metal_weight_used && (
-                          <span className="text-[10px] text-amber-800 font-mono font-bold mt-1 block">
-                            ≈ {((parseFloat(formData.metal_weight_used) || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            required
+                            value={formData.metal_weight_used}
+                            onChange={(e) => setFormData({ ...formData, metal_weight_used: e.target.value })}
+                            className="w-full px-3.5 py-2.5 font-mono text-xs font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all pr-10"
+                            placeholder="1.00"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-800 pointer-events-none">
+                            {isKhmer ? 'ជី' : 'Chi'}
                           </span>
-                        )}
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono font-medium mt-1 block">
+                          ≈ {((parseFloat(formData.metal_weight_used) || 0) * 3.75).toFixed(2)} g
+                        </span>
                       </div>
 
                       <div>
-                        <label className="block text-slate-700 font-bold mb-1.5">
-                          {isKhmer ? 'កាកសំណល់ (g)' : 'Waste (g)'}
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.waste_weight}
-                          onChange={(e) => setFormData({ ...formData, waste_weight: e.target.value })}
-                          className="w-full px-3.5 py-2.5 font-mono text-xs font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
-                          placeholder="0.20"
-                        />
+                        <div className="flex justify-between items-center mb-1.5">
+                          <label className="block text-slate-700 font-bold">
+                            {isKhmer ? 'កាកសំណល់ (ជី)' : 'Waste (Chi)'}
+                          </label>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            value={formData.waste_weight}
+                            onChange={(e) => setFormData({ ...formData, waste_weight: e.target.value })}
+                            className="w-full px-3.5 py-2.5 font-mono text-xs font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all pr-10"
+                            placeholder="0.00"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-amber-800 pointer-events-none">
+                            {isKhmer ? 'ជី' : 'Chi'}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono font-medium mt-1 block">
+                          ≈ {((parseFloat(formData.waste_weight) || 0) * 3.75).toFixed(2)} g
+                        </span>
                       </div>
 
                       <div>
@@ -699,7 +908,7 @@ export const MadeProductsView = () => {
                           value={formData.crafting_cost}
                           onChange={(e) => setFormData({ ...formData, crafting_cost: e.target.value })}
                           className="w-full px-3.5 py-2.5 font-mono text-xs font-bold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
-                          placeholder="45.00"
+                          placeholder="0.00"
                         />
                       </div>
                     </div>
@@ -811,55 +1020,114 @@ export const MadeProductsView = () => {
                     </div>
 
                     {/* Materials & Sourcing Availability Checker */}
-                    <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                          <FontAwesomeIcon icon={faWandMagicSparkles} className="text-amber-600" />
-                          <span>{isKhmer ? 'ពិនិត្យស្តុកសម្ភារៈចាំបាច់' : 'Material Vault Sourcing'}</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsModalOpen(false);
-                            setActiveTab('materials');
-                          }}
-                          className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline cursor-pointer"
-                        >
-                          {isKhmer ? 'មើលឃ្លាំង ➔' : 'Open Vault ➔'}
-                        </button>
-                      </div>
+                    {(() => {
+                      const matchingMaterial = materials.find(m => 
+                        (m.metal_type_id && String(m.metal_type_id) === String(formData.metal_type_id)) ||
+                        (m.metal_type?.id && String(m.metal_type.id) === String(formData.metal_type_id)) ||
+                        (selectedMtl?.name && m.name?.toLowerCase().includes(selectedMtl.name.toLowerCase()))
+                      );
+                      const requiredGrams = (parseFloat(formData.metal_weight_used) || 0) * 3.75;
+                      const currentStock = matchingMaterial ? Number(matchingMaterial.stock_qty || 0) : 0;
+                      const isShortage = matchingMaterial && (currentStock < requiredGrams || currentStock <= 0);
+                      const deficit = isShortage ? Math.max(0, requiredGrams - currentStock) : 0;
 
-                      <div className="space-y-1.5 max-h-44 overflow-y-auto">
-                        {materials.slice(0, 4).map((mat) => {
-                          const price = getMaterialEffectivePrice(mat);
-                          const isOut = Number(mat.stock_qty) <= 0;
-                          const isLow = Number(mat.stock_qty) <= Number(mat.min_stock_level || 0);
+                      return (
+                        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                              <FontAwesomeIcon icon={faBoxesStacked} className="text-amber-600" />
+                              <span>{isKhmer ? 'ពិនិត្យស្តុកសម្ភារៈចាំបាច់' : 'Material Vault Sourcing'}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsModalOpen(false);
+                                setActiveTab('materials');
+                              }}
+                              className="text-[11px] font-semibold text-amber-700 hover:text-amber-900 underline cursor-pointer"
+                            >
+                              {isKhmer ? 'មើលឃ្លាំង ➔' : 'Open Vault ➔'}
+                            </button>
+                          </div>
 
-                          return (
-                            <div key={mat.id} className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200/80 text-xs">
-                              <div>
-                                <div className="font-bold text-slate-800 text-[11px]">{mat.name}</div>
-                                <div className="font-mono text-[10px] text-amber-900 font-medium">
-                                  ${price.toFixed(2)}/{mat.unit} {mat.use_metal_rate && '• Live Spot'}
+                          {/* Material Deficit Alert with Direct Supplier Purchase Action */}
+                          {matchingMaterial && isShortage && (
+                            <div className="p-3 bg-rose-50/90 border border-rose-200 rounded-xl space-y-2 animate-fadeIn">
+                              <div className="flex items-start gap-2 text-rose-800">
+                                <FontAwesomeIcon icon={faTriangleExclamation} className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                                <div className="text-[11px] leading-tight">
+                                  <p className="font-bold">
+                                    {isKhmer ? 'ខ្វះខាតសម្ភារៈសម្រាប់កែច្នៃ!' : 'Insufficient Material in Stock!'}
+                                  </p>
+                                  <p className="text-slate-600 mt-0.5">
+                                    {matchingMaterial.name}: {isKhmer ? 'ត្រូវការ' : 'Needed'} <b>{requiredGrams}g</b>, {isKhmer ? 'មានក្នុងស្តុក' : 'In stock'} <b>{currentStock}g</b> ({isKhmer ? 'ខ្វះ' : 'Deficit'} <b className="text-rose-600">-{deficit.toFixed(2)}g</b>)
+                                  </p>
                                 </div>
                               </div>
 
-                              <div className="flex items-center gap-2">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
-                                  isOut
-                                    ? 'bg-rose-100 text-rose-700'
-                                    : isLow
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-emerald-100 text-emerald-800'
-                                }`}>
-                                  {isOut ? (isKhmer ? 'អស់ស្តុក' : 'Out') : `${mat.stock_qty} ${mat.unit}`}
-                                </span>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => openPurchaseMaterialModal(matchingMaterial, Math.max(Math.ceil(deficit > 0 ? deficit : 20), 10))}
+                                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
+                              >
+                                <FontAwesomeIcon icon={faCartPlus} className="w-3 h-3" />
+                                <span>{isKhmer ? 'បញ្ជាទិញសម្ភារៈពីអ្នកផ្គត់ផ្គង់ (PO)' : 'Purchase Materials from Supplier'}</span>
+                              </button>
                             </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                          )}
+
+                          {/* Quick Material Items List with Direct Purchase Buttons */}
+                          <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                            {materials.slice(0, 5).map((mat) => {
+                              const price = getMaterialEffectivePrice(mat);
+                              const isOut = Number(mat.stock_qty) <= 0;
+                              const isLow = Number(mat.stock_qty) <= Number(mat.min_stock_level || 0);
+
+                              return (
+                                <div key={mat.id} className="flex items-center justify-between p-2 bg-white rounded-xl border border-slate-200/80 text-xs hover:border-amber-200 transition-colors">
+                                  <div>
+                                    <div className="font-bold text-slate-800 text-[11px] flex items-center gap-1">
+                                      <span>{mat.name}</span>
+                                      {mat.id === matchingMaterial?.id && (
+                                        <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 text-[9px] font-bold">
+                                          {isKhmer ? 'មាសគោលដៅ' : 'Target'}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="font-mono text-[10px] text-amber-900 font-medium">
+                                      ${price.toFixed(2)}/{mat.unit} {mat.use_metal_rate && '• Live Spot'}
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-mono ${
+                                      isOut
+                                        ? 'bg-rose-100 text-rose-700'
+                                        : isLow
+                                          ? 'bg-amber-100 text-amber-800'
+                                          : 'bg-emerald-100 text-emerald-800'
+                                    }`}>
+                                      {isOut ? (isKhmer ? 'អស់' : '0') : `${mat.stock_qty}${mat.unit}`}
+                                    </span>
+
+                                    {/* Direct Purchase Button */}
+                                    <button
+                                      type="button"
+                                      onClick={() => openPurchaseMaterialModal(mat, 20)}
+                                      className="p-1 px-1.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-bold transition-colors cursor-pointer"
+                                      title={isKhmer ? 'ទិញសម្ភារៈនេះពីអ្នកផ្គត់ផ្គង់' : 'Purchase this material from supplier'}
+                                    >
+                                      <FontAwesomeIcon icon={faTruck} className="w-2.5 h-2.5 text-amber-600 mr-1" />
+                                      <span>{isKhmer ? 'ទិញ' : 'Buy'}</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                   </div>
 
@@ -891,6 +1159,306 @@ export const MadeProductsView = () => {
           </div>
         );
       })()}
+
+      {/* ── MATERIAL SHORTAGE ALERT MODAL ── */}
+      {shortageModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/60 backdrop-blur-xs animate-fadeIn overflow-y-auto">
+          <div className="relative w-full max-w-lg bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden my-auto animate-scaleUp">
+            
+            {/* Standard Modal Header */}
+            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                  <FontAwesomeIcon icon={faTriangleExclamation} className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                    {isKhmer ? 'ស្តុកសម្ភារៈមិនគ្រប់គ្រាន់' : 'Raw Material Stock Unavailable'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {isKhmer ? 'ការជូនដំណឹងស្តុកសម្ភារៈកែច្នៃ' : 'Atelier Material Stock Alert'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShortageModalData(null)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer"
+                title={isKhmer ? 'បិទ' : 'Close'}
+              >
+                <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 space-y-4 text-xs">
+              
+              {/* Status Lock Warning Banner */}
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
+                  <FontAwesomeIcon icon={faLock} className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-xs leading-relaxed">
+                  <p className="font-bold text-rose-900 mb-0.5">
+                    {isKhmer
+                      ? `មិនអាចកំណត់ស្ថានភាពទៅ "${shortageModalData.targetStatus === 'in_progress' ? 'កំពុងកែច្នៃ (In Progress)' : 'រួចរាល់ (Completed)'}" បានទេ!`
+                      : `Cannot set crafting status to "${shortageModalData.targetStatus === 'in_progress' ? 'In Progress' : 'Completed'}"!`}
+                  </p>
+                  <p className="text-rose-700">
+                    {isKhmer
+                      ? 'សម្ភារៈចាំបាច់ក្នុងឃ្លាំងមិនមានស្តុកគ្រប់គ្រាន់សម្រាប់ការកែច្នៃឡើយ។ សូមបញ្ជាទិញពីអ្នកផ្គត់ផ្គង់ (PO) ជាមុនសិន។'
+                      : 'The required material has 0 or insufficient stock in the vault. Please purchase materials to proceed.'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Material & Deficit Spec Card */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faCoins} className="text-slate-500 w-3 h-3" />
+                    <span>{isKhmer ? 'សម្ភារៈចាំបាច់សម្រាប់ការកែច្នៃ' : 'Required Raw Material'}</span>
+                  </span>
+                  <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 font-bold border border-rose-200">
+                    {shortageModalData.currentStock <= 0
+                      ? (isKhmer ? 'អស់ស្តុក (Stock: 0)' : 'Stock: 0')
+                      : `${(shortageModalData.currentStock / 3.75).toFixed(2)} ជី (${shortageModalData.currentStock}g)`}
+                  </span>
+                </div>
+
+                <div className="bg-white p-3.5 rounded-lg border border-slate-200 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-slate-900 text-xs">{shortageModalData.material?.name || 'Material'}</span>
+                    <span className="text-xs font-mono text-slate-400">{shortageModalData.material?.code || 'MAT-RAW'}</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100 text-center font-mono">
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] text-slate-400 block">{isKhmer ? 'ស្តុកបច្ចុប្បន្ន' : 'In Vault'}</span>
+                      <span className="font-bold text-rose-600 text-xs block mt-0.5">
+                        {(shortageModalData.currentStock / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block font-mono">({shortageModalData.currentStock}g)</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="text-[10px] text-slate-400 block">{isKhmer ? 'តម្រូវការកែច្នៃ' : 'Required'}</span>
+                      <span className="font-bold text-slate-800 text-xs block mt-0.5">
+                        {(shortageModalData.requiredStock / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}
+                      </span>
+                      <span className="text-[10px] text-slate-400 block font-mono">({shortageModalData.requiredStock.toFixed(2)}g)</span>
+                    </div>
+                    <div className="p-2 rounded-lg bg-rose-50 border border-rose-100">
+                      <span className="text-[10px] text-rose-500 block">{isKhmer ? 'ខ្វះខាត' : 'Deficit'}</span>
+                      <span className="font-bold text-rose-700 text-xs block mt-0.5">
+                        -{(shortageModalData.deficit / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'}
+                      </span>
+                      <span className="text-[10px] text-rose-500 block font-mono">(-{shortageModalData.deficit.toFixed(2)}g)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShortageModalData(null)}
+                  className="px-4 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs transition-colors cursor-pointer"
+                >
+                  {isKhmer ? 'បោះបង់' : 'Cancel'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const mat = shortageModalData.material;
+                    const def = shortageModalData.deficit;
+                    setShortageModalData(null);
+                    if (mat) {
+                      openPurchaseMaterialModal(mat, Math.max(Math.ceil(def > 0 ? def : 20), 10));
+                    }
+                  }}
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faCartPlus} className="w-3.5 h-3.5" />
+                  <span>{isKhmer ? 'បញ្ជាទិញសម្ភារៈពីអ្នកផ្គត់ផ្គង់ (PO)' : 'Buy Materials from Supplier (PO)'}</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* ── QUICK INBOUND PURCHASE MODAL FOR CRAFTING ─────────────────── */}
+      {isPurchaseModalOpen && purchasingMaterial && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 overflow-y-auto animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto flex flex-col max-h-[92vh]">
+            
+            {/* Modal Header */}
+            <div className="p-5 sm:px-6 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold shrink-0">
+                  <FontAwesomeIcon icon={faTruck} className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">
+                    {isKhmer ? 'បញ្ជាទិញសម្ភារៈពីអ្នកផ្គត់ផ្គង់ (Inbound PO)' : 'Purchase Materials from Supplier'}
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {purchasingMaterial.name} • <span className="font-mono">{purchasingMaterial.code || `MAT-${purchasingMaterial.id}`}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsPurchaseModalOpen(false)}
+                className="w-8 h-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-200/80 transition-colors cursor-pointer"
+              >
+                <FontAwesomeIcon icon={faXmark} className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Form Body */}
+            <form onSubmit={handleQuickPurchaseSubmit} className="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs flex-1">
+              
+              {/* Supplier Selection */}
+              <div>
+                <label className="block text-slate-700 font-bold mb-1.5">
+                  {isKhmer ? 'ជ្រើសរើសអ្នកផ្គត់ផ្គង់ (Supplier / Refinery)' : 'Supplier / Refinery'} <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={purchaseForm.supplier_id}
+                  onChange={e => setPurchaseForm({ ...purchaseForm, supplier_id: e.target.value })}
+                  className="w-full rounded-xl px-3.5 py-2.5 bg-slate-50 border border-slate-200 text-slate-900 font-semibold focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all cursor-pointer"
+                >
+                  <option value="">{isKhmer ? '-- ជ្រើសរើសអ្នកផ្គត់ផ្គង់ --' : '-- Choose supplier --'}</option>
+                  {suppliers.map(s => (
+                    <option key={s.id} value={s.id}>{s.company_name || s.name} {s.phone && `• ${s.phone}`}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Invoice & Date */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1.5">
+                    {isKhmer ? 'លេខ PO / វិក្កយបត្រ' : 'PO / Invoice #'} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={purchaseForm.invoice_no}
+                    onChange={e => setPurchaseForm({ ...purchaseForm, invoice_no: e.target.value })}
+                    className="w-full rounded-xl px-3.5 py-2.5 bg-slate-50 border border-slate-200 font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1.5">
+                    {isKhmer ? 'កាលបរិច្ឆេទបញ្ជាទិញ' : 'Purchase Date'} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={purchaseForm.purchase_date}
+                    onChange={e => setPurchaseForm({ ...purchaseForm, purchase_date: e.target.value })}
+                    className="w-full rounded-xl px-3.5 py-2.5 bg-slate-50 border border-slate-200 font-mono text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Quantity & Unit Cost */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1.5">
+                    {isKhmer ? 'បរិមាណទិញចូល' : 'Quantity to Buy'} ({purchasingMaterial.unit || 'g'}) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.001"
+                    required
+                    value={purchaseForm.quantity}
+                    onChange={e => {
+                      const q = Number(e.target.value);
+                      const cost = Number(purchaseForm.unit_cost);
+                      setPurchaseForm({
+                        ...purchaseForm,
+                        quantity: e.target.value,
+                        total_amount: (q * cost).toFixed(2)
+                      });
+                    }}
+                    className="w-full rounded-xl px-3.5 py-2.5 bg-slate-50 border border-slate-200 font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-bold mb-1.5">
+                    {isKhmer ? 'តម្លៃឯកតា ($ / Unit)' : 'Unit Cost ($)'} <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    required
+                    value={purchaseForm.unit_cost}
+                    onChange={e => {
+                      const cost = Number(e.target.value);
+                      const q = Number(purchaseForm.quantity);
+                      setPurchaseForm({
+                        ...purchaseForm,
+                        unit_cost: e.target.value,
+                        total_amount: (q * cost).toFixed(2)
+                      });
+                    }}
+                    className="w-full rounded-xl px-3.5 py-2.5 bg-slate-50 border border-slate-200 font-mono font-bold text-slate-900 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200/50 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic Live Valuation Card */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faScaleBalanced} className="text-slate-500 w-3 h-3" />
+                    <span>{isKhmer ? 'ទឹកប្រាក់បញ្ជាទិញសរុប' : 'Total Purchase Amount'}</span>
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-bold">
+                    USD
+                  </span>
+                </div>
+
+                <div className="text-2xl font-extrabold font-mono text-slate-900">
+                  ${Number(purchaseForm.total_amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+
+                <div className="text-xs text-slate-500 font-medium pt-2 border-t border-slate-200 flex items-center justify-between">
+                  <span>{purchaseForm.quantity || 0} {purchasingMaterial.unit || 'g'} @ ${Number(purchaseForm.unit_cost || 0).toFixed(2)}/{purchasingMaterial.unit || 'g'}</span>
+                  <span className="text-emerald-600 font-semibold">{isKhmer ? 'បញ្ចូលស្តុកស្វ័យប្រវត្តិ' : 'Auto Restock Vault'}</span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsPurchaseModalOpen(false)}
+                  className="px-4 py-2.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl cursor-pointer font-bold text-xs transition-all"
+                >
+                  {isKhmer ? 'បោះបង់' : 'Cancel'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all"
+                >
+                  {isKhmer ? 'បញ្ជាក់ការបញ្ជាទិញ & បញ្ចូលស្តុក' : 'Confirm Purchase & Restock'}
+                </button>
+              </div>
+
+            </form>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 };

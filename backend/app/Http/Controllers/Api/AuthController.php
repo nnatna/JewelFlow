@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -60,6 +61,14 @@ class AuthController extends Controller
             ->first();
 
         if (!$user || !Hash::check($validated['password'], $user->password)) {
+            ActivityLog::record(
+                action: 'login_failed',
+                module: 'auth',
+                description: "Failed login attempt for email: {$validated['email']}",
+                newValues: ['email' => $validated['email']],
+                status: 'warning'
+            );
+
             return response()->json([
                 'success' => false,
                 'message' => 'Invalid email credentials or incorrect password.',
@@ -70,6 +79,14 @@ class AuthController extends Controller
         }
 
         if ($user->status !== 'active') {
+            ActivityLog::record(
+                action: 'login_blocked',
+                module: 'auth',
+                description: "Deactivated user attempted login: {$user->name} ({$user->email})",
+                status: 'warning',
+                user: $user
+            );
+
             return response()->json([
                 'success' => false,
                 'message' => 'Your staff account has been deactivated. Please contact your administrator.',
@@ -78,6 +95,16 @@ class AuthController extends Controller
 
         // Generate Sanctum plain text token
         $token = $user->createToken('jewelflow_auth_token')->plainTextToken;
+
+        // Record successful login
+        $roleName = $user->role?->name ?? 'staff';
+        ActivityLog::record(
+            action: 'login',
+            module: 'auth',
+            description: "User logged in: {$user->name} ({$roleName})",
+            status: 'success',
+            user: $user
+        );
 
         return response()->json([
             'success' => true,
@@ -113,8 +140,16 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        if ($request->user()) {
-            $request->user()->currentAccessToken()?->delete();
+        $user = $request->user();
+        if ($user) {
+            ActivityLog::record(
+                action: 'logout',
+                module: 'auth',
+                description: "User signed out: {$user->name}",
+                status: 'info',
+                user: $user
+            );
+            $user->currentAccessToken()?->delete();
         }
 
         return response()->json([

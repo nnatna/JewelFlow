@@ -20,10 +20,10 @@ class ProductControllerTest extends TestCase
     public function test_can_list_products(): void
     {
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = \App\Models\Material::factory()->create();
         Product::factory()->count(3)->create([
-            'category_id'   => $category->id,
-            'metal_type_id' => $metal->id,
+            'category_id' => $category->id,
+            'material_id' => $material->id,
         ]);
 
         $response = $this->getJson('/api/products');
@@ -32,26 +32,25 @@ class ProductControllerTest extends TestCase
         $data = $response->json();
         $this->assertCount(3, $data);
         $this->assertArrayHasKey('category', $data[0]);
-        $this->assertArrayHasKey('metal_type', $data[0]);
     }
 
     public function test_can_search_products_by_name_or_sku(): void
     {
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = \App\Models\Material::factory()->create();
 
         Product::factory()->create([
-            'name'          => 'Royal Diamond Ring',
-            'code_sku'      => 'SKU-RDR-001',
-            'category_id'   => $category->id,
-            'metal_type_id' => $metal->id,
+            'name'        => 'Royal Diamond Ring',
+            'code_sku'    => 'SKU-RDR-001',
+            'category_id' => $category->id,
+            'material_id' => $material->id,
         ]);
 
         Product::factory()->create([
-            'name'          => 'Emerald Necklace',
-            'code_sku'      => 'SKU-EMN-002',
-            'category_id'   => $category->id,
-            'metal_type_id' => $metal->id,
+            'name'        => 'Emerald Necklace',
+            'code_sku'    => 'SKU-EMN-002',
+            'category_id' => $category->id,
+            'material_id' => $material->id,
         ]);
 
         $response = $this->getJson('/api/products?search=Diamond');
@@ -68,20 +67,20 @@ class ProductControllerTest extends TestCase
     public function test_can_create_product_with_valid_attributes(): void
     {
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = \App\Models\Material::factory()->create();
 
         $payload = [
-            'name'          => '24K Solid Gold Dragon Bangle',
-            'code_sku'      => 'JWL-DRG-999',
-            'barcode'       => '8939991234567',
-            'category_id'   => $category->id,
-            'metal_type_id' => $metal->id,
-            'net_weight'    => 37.50,
-            'gross_weight'  => 38.00,
-            'labor_cost'    => 250.00,
-            'markup_rate'   => 12.50,
-            'stock_qty'     => 3,
-            'status'        => 'active',
+            'name'        => '24K Solid Gold Dragon Bangle',
+            'code_sku'    => 'JWL-DRG-999',
+            'barcode'     => '8939991234567',
+            'category_id' => $category->id,
+            'material_id' => $material->id,
+            'net_weight'  => 37.50,
+            'gross_weight'=> 38.00,
+            'labor_cost'  => 250.00,
+            'markup_rate' => 12.50,
+            'stock_qty'   => 3,
+            'status'      => 'active',
         ];
 
         $response = $this->postJson('/api/products', $payload);
@@ -101,10 +100,10 @@ class ProductControllerTest extends TestCase
     public function test_can_show_product(): void
     {
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = \App\Models\Material::factory()->create();
         $product = Product::factory()->create([
-            'category_id'   => $category->id,
-            'metal_type_id' => $metal->id,
+            'category_id' => $category->id,
+            'material_id' => $material->id,
         ]);
 
         $response = $this->getJson("/api/products/{$product->id}");
@@ -119,12 +118,12 @@ class ProductControllerTest extends TestCase
     public function test_can_update_product(): void
     {
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = \App\Models\Material::factory()->create();
         $product = Product::factory()->create([
-            'category_id'   => $category->id,
-            'metal_type_id' => $metal->id,
-            'name'          => 'Initial Name',
-            'stock_qty'     => 5,
+            'category_id' => $category->id,
+            'material_id' => $material->id,
+            'name'        => 'Initial Name',
+            'stock_qty'   => 5,
         ]);
 
         $response = $this->putJson("/api/products/{$product->id}", [
@@ -148,10 +147,10 @@ class ProductControllerTest extends TestCase
     public function test_can_delete_product(): void
     {
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = \App\Models\Material::factory()->create();
         $product = Product::factory()->create([
-            'category_id'   => $category->id,
-            'metal_type_id' => $metal->id,
+            'category_id' => $category->id,
+            'material_id' => $material->id,
         ]);
 
         $response = $this->deleteJson("/api/products/{$product->id}");

@@ -538,23 +538,66 @@ export const ReportsView = () => {
       {/* ── Tab 1: Sales & Revenue Ledger (Clean Table-First Layout) ──────── */}
       {!loading && reportTab === 'sales' && (
         <div className="space-y-5">
-          {/* Quick Stats Pills */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ការលក់ដុល' : 'Gross Sales'}</span>
-              <p className="text-xl font-extrabold font-mono text-slate-900 mt-1">${(salesData?.summary?.gross_total || 0).toFixed(2)}</p>
+          {/* Quick Stats Cards (Dashboard Style) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ការលក់ដុល' : 'Gross Sales'}</span>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faDollarSign} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                ${(salesData?.summary?.gross_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{(salesData?.sales_list?.data || []).length} {isKhmer ? 'ប្រតិបត្តិការ' : 'transactions'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'បញ្ចុះតម្លៃសរុប' : 'Total Discounts'}</span>
-              <p className="text-xl font-extrabold font-mono text-rose-600 mt-1">-${(salesData?.summary?.total_discount || 0).toFixed(2)}</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'បញ្ចុះតម្លៃសរុប' : 'Total Discounts'}</span>
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faDollarSign} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-rose-600">
+                -${(salesData?.summary?.total_discount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'ប្រូម៉ូសិន & VIP' : 'Promotions & VIP'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ចំណូលលក់សុទ្ធ' : 'Net Sales'}</span>
-              <p className="text-xl font-extrabold font-mono text-emerald-600 mt-1">${(salesData?.summary?.grand_total || 0).toFixed(2)}</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ចំណូលលក់សុទ្ធ' : 'Net Sales'}</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faReceipt} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-emerald-600">
+                ${(salesData?.summary?.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{salesData?.summary?.total_invoices || (salesData?.sales_list?.data || []).length} {isKhmer ? 'វិក្កយបត្រ' : 'invoices'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'មាសលក់ចេញ' : 'Gold Sold'}</span>
-              <p className="text-xl font-extrabold font-mono text-amber-800 mt-1">{salesData?.summary?.weight_sold?.chi || 0} Chi</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'មាសលក់ចេញ' : 'Gold Sold'}</span>
+                <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                {salesData?.summary?.weight_sold?.chi || 0} <span className="text-sm font-sans font-bold text-amber-700">{isKhmer ? 'ជី' : 'Chi'}</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>({salesData?.summary?.weight_sold?.grams || 0} g)</span>
+              </div>
             </div>
           </div>
 
@@ -717,27 +760,66 @@ export const ReportsView = () => {
       {/* ── Tab 2: Executive Summary (Master Balance Table) ───────────────── */}
       {!loading && reportTab === 'summary' && (
         <div className="space-y-5">
-          {/* Quick Summary Pill Highlights */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ចំណូលលក់សុទ្ធ' : 'Net Sales'}</span>
-              <p className="text-xl font-extrabold font-mono text-slate-900 mt-1">${(summaryData?.sales?.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-              <span className="text-[11px] text-slate-500">{summaryData?.sales?.count || 0} {isKhmer ? 'វិក្កយបត្រ' : 'invoices'}</span>
+          {/* Quick Summary Cards (Dashboard Style) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ចំណូលលក់សុទ្ធ' : 'Net Sales'}</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faDollarSign} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                ${(summaryData?.sales?.grand_total || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{summaryData?.sales?.count || 0} {isKhmer ? 'វិក្កយបត្រ' : 'invoices'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 border-l-4 border-l-amber-500 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'មាសលក់ចេញ' : 'Gold Sold'}</span>
-              <p className="text-xl font-extrabold font-mono text-amber-900 mt-1">{summaryData?.sales?.weight_sold?.chi || 0} <span className="text-xs font-sans text-amber-700">{isKhmer ? 'ជី' : 'Chi'}</span></p>
-              <span className="text-[11px] text-slate-500 font-mono">({summaryData?.sales?.weight_sold?.grams || 0} g)</span>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'មាសលក់ចេញ' : 'Gold Sold'}</span>
+                <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                {summaryData?.sales?.weight_sold?.chi || 0} <span className="text-sm font-sans font-bold text-amber-700">{isKhmer ? 'ជី' : 'Chi'}</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>({summaryData?.sales?.weight_sold?.grams || 0} g)</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 border-l-4 border-l-rose-500 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ទិញមាសចាស់ចូល' : 'Scrap Payout'}</span>
-              <p className="text-xl font-extrabold font-mono text-slate-900 mt-1">${(summaryData?.buybacks?.total_payout || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-              <span className="text-[11px] text-slate-500">{summaryData?.buybacks?.count || 0} {isKhmer ? 'ដង' : 'tickets'}</span>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ទិញមាសចាស់ចូល' : 'Scrap Payout'}</span>
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faArrowsRotate} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                ${(summaryData?.buybacks?.total_payout || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{summaryData?.buybacks?.count || 0} {isKhmer ? 'ដង' : 'tickets'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 border-l-4 border-l-violet-500 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'តម្លៃស្តុកក្នុងឃ្លាំង' : 'Vault Valuation'}</span>
-              <p className="text-xl font-extrabold font-mono text-slate-900 mt-1">${(summaryData?.vault_inventory?.estimated_retail_valuation || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
-              <span className="text-[11px] text-slate-500">{summaryData?.vault_inventory?.total_units_in_stock || 0} {isKhmer ? 'គ្រឿង' : 'items'}</span>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'តម្លៃស្តុកក្នុងឃ្លាំង' : 'Vault Valuation'}</span>
+                <div className="w-8 h-8 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faGem} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                ${(summaryData?.vault_inventory?.estimated_retail_valuation || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{summaryData?.vault_inventory?.total_units_in_stock || 0} {isKhmer ? 'គ្រឿង' : 'items'}</span>
+              </div>
             </div>
           </div>
 
@@ -897,23 +979,66 @@ export const ReportsView = () => {
       {/* ── Tab 3: Scrap Buybacks Report (Clean Table View) ───────────────── */}
       {!loading && reportTab === 'buybacks' && (
         <div className="space-y-5">
-          {/* Quick Stats Pills */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'សរុបប័ណ្ណទិញចូល' : 'Total Tickets'}</span>
-              <p className="text-xl font-extrabold font-mono text-slate-900 mt-1">{buybackData?.summary?.total_tickets || 0}</p>
+          {/* Quick Stats Cards (Dashboard Style) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'សរុបប័ណ្ណទិញចូល' : 'Total Tickets'}</span>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faReceipt} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                {buybackData?.summary?.total_tickets || 0}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'ប័ណ្ណទិញចូលសរុប' : 'total tickets'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ទឹកប្រាក់ទិញចូលសរុប' : 'Total Payout'}</span>
-              <p className="text-xl font-extrabold font-mono text-rose-700 mt-1">${(buybackData?.summary?.total_payout || 0).toFixed(2)}</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ទឹកប្រាក់ទិញចូលសរុប' : 'Total Payout'}</span>
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faDollarSign} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-rose-600">
+                ${(buybackData?.summary?.total_payout || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'ចំណាយទិញមាសចាស់' : 'scrap expenditure'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ទម្ងន់មាសចាស់សរុប' : 'Scrap Gold Weight'}</span>
-              <p className="text-xl font-extrabold font-mono text-amber-800 mt-1">{buybackData?.summary?.scrap_weight?.chi || 0} Chi</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ទម្ងន់មាសចាស់សរុប' : 'Scrap Gold Weight'}</span>
+                <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                {buybackData?.summary?.scrap_weight?.chi || 0} <span className="text-sm font-sans font-bold text-amber-700">{isKhmer ? 'ជី' : 'Chi'}</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>({buybackData?.summary?.scrap_weight?.grams || 0} g)</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'កម្រៃកាត់កាកសំណល់' : 'Deductions Profit'}</span>
-              <p className="text-xl font-extrabold font-mono text-emerald-700 mt-1">+${(buybackData?.summary?.total_deductions_profit || 0).toFixed(2)}</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'កម្រៃកាត់កាកសំណល់' : 'Deductions Profit'}</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faArrowTrendUp} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-emerald-600">
+                +${(buybackData?.summary?.total_deductions_profit || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'ចំណេញពីកាកសំណល់' : 'retention profit'}</span>
+              </div>
             </div>
           </div>
 
@@ -988,23 +1113,66 @@ export const ReportsView = () => {
       {/* ── Tab 4: Vault & Inventory Valuation (Clean Table View) ─────────── */}
       {!loading && reportTab === 'inventory' && (
         <div className="space-y-5">
-          {/* Quick Stats Pills */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ស្តុកគ្រឿងសរុប' : 'Total Stock Units'}</span>
-              <p className="text-xl font-extrabold font-mono text-slate-900 mt-1">{inventoryData?.summary?.total_stock_units || 0} pcs</p>
+          {/* Quick Stats Cards (Dashboard Style) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ស្តុកគ្រឿងសរុប' : 'Total Stock Units'}</span>
+                <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faBoxOpen} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                {inventoryData?.summary?.total_stock_units || 0} <span className="text-sm font-sans font-normal text-slate-500">pcs</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{inventoryData?.summary?.total_products_registered || (inventoryData?.products_list?.data || []).length} {isKhmer ? 'មុខទំនិញ' : 'registered SKUs'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ទម្ងន់មាសក្នុងឃ្លាំង' : 'Vault Gold (Chi)'}</span>
-              <p className="text-xl font-extrabold font-mono text-amber-800 mt-1">{inventoryData?.summary?.net_gold_weight?.chi || 0} Chi</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ទម្ងន់មាសក្នុងឃ្លាំង' : 'Vault Gold (Chi)'}</span>
+                <div className="w-8 h-8 rounded-lg bg-yellow-50 text-yellow-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faScaleBalanced} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                {inventoryData?.summary?.net_gold_weight?.chi || 0} <span className="text-sm font-sans font-bold text-amber-700">{isKhmer ? 'ជី' : 'Chi'}</span>
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>({inventoryData?.summary?.net_gold_weight?.grams || 0} g)</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'តម្លៃលក់រាយប៉ាន់ស្មាន' : 'Retail Valuation'}</span>
-              <p className="text-xl font-extrabold font-mono text-emerald-700 mt-1">${(inventoryData?.summary?.estimated_retail_valuation || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'តម្លៃលក់រាយប៉ាន់ស្មាន' : 'Retail Valuation'}</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faGem} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-emerald-600">
+                ${(inventoryData?.summary?.estimated_retail_valuation || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'តាមហាងឆេងបច្ចុប្បន្ន' : 'live market value'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'ថ្លៃដើមប៉ាន់ស្មាន' : 'Cost Valuation'}</span>
-              <p className="text-xl font-extrabold font-mono text-slate-800 mt-1">${(inventoryData?.summary?.estimated_cost_valuation || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'ថ្លៃដើមប៉ាន់ស្មាន' : 'Cost Valuation'}</span>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faDollarSign} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-slate-900">
+                ${(inventoryData?.summary?.estimated_cost_valuation || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'ថ្លៃដើមលោហៈ & ជាង' : 'metal & labor cost'}</span>
+              </div>
             </div>
           </div>
 
@@ -1058,7 +1226,7 @@ export const ReportsView = () => {
                           <td className="py-3.5 px-3 text-slate-600">{p.category?.name || 'Jewelry'}</td>
                           <td className="py-3.5 px-3">
                             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                              {p.metal_type?.name || 'Gold'}
+                              {p.material?.metal_type?.name || p.material?.metalType?.name || p.metal_type?.name || p.metalType?.name || 'Gold'}
                             </span>
                           </td>
                           <td className="py-3.5 px-3 text-center font-mono font-semibold text-amber-900">
@@ -1108,21 +1276,51 @@ export const ReportsView = () => {
       {/* ── Tab 5: Cash Flow (Clean Table View) ───────────────────────────── */}
       {!loading && reportTab === 'cashflow' && (
         <div className="space-y-5">
-          {/* Quick Stats Pills */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 border-l-4 border-l-emerald-500 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'សាច់ប្រាក់ចូល (Inflow)' : 'Total Inflow (Sales)'}</span>
-              <p className="text-xl font-extrabold font-mono text-emerald-700 mt-1">+${(cashFlowData?.summary?.total_inflow || 0).toFixed(2)}</p>
+          {/* Quick Stats Cards (Dashboard Style) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'សាច់ប្រាក់ចូល (Inflow)' : 'Total Inflow (Sales)'}</span>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faArrowTrendUp} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-emerald-600">
+                +${(cashFlowData?.summary?.total_inflow || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'ចំណូលលក់គ្រឿងអលង្ការ' : 'boutique jewelry sales'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 border-l-4 border-l-rose-500 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'សាច់ប្រាក់ចេញ (Outflow)' : 'Total Outflow (Payouts)'}</span>
-              <p className="text-xl font-extrabold font-mono text-rose-700 mt-1">-${(cashFlowData?.summary?.total_outflow || 0).toFixed(2)}</p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'សាច់ប្រាក់ចេញ (Outflow)' : 'Total Outflow (Payouts)'}</span>
+                <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faArrowsRotate} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-3 text-2xl font-bold font-mono text-rose-600">
+                -${(cashFlowData?.summary?.total_outflow || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{isKhmer ? 'ទិញមាសចាស់ & ផ្គត់ផ្គង់' : 'buybacks & vendor purchases'}</span>
+              </div>
             </div>
-            <div className="bg-white rounded-xl p-3.5 border border-slate-200 border-l-4 border-l-amber-500 shadow-xs">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{isKhmer ? 'លំហូរសាច់ប្រាក់សុទ្ធ' : 'Net Cash Position'}</span>
-              <p className={`text-xl font-extrabold font-mono mt-1 ${(cashFlowData?.summary?.net_cash_flow || 0) >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-                ${(cashFlowData?.summary?.net_cash_flow || 0).toFixed(2)}
-              </p>
+
+            <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-amber-300 transition-all">
+              <div className="flex items-center justify-between text-slate-500 text-xs font-semibold">
+                <span>{isKhmer ? 'លំហូរសាច់ប្រាក់សុទ្ធ' : 'Net Cash Position'}</span>
+                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+                  <FontAwesomeIcon icon={faMoneyBillTransfer} className="w-4 h-4" />
+                </div>
+              </div>
+              <div className={`mt-3 text-2xl font-bold font-mono ${(cashFlowData?.summary?.net_cash_flow || 0) >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                ${(cashFlowData?.summary?.net_cash_flow || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="mt-2 text-xs text-slate-500 flex items-center gap-1 font-medium">
+                <span>{(cashFlowData?.summary?.net_cash_flow || 0) >= 0 ? (isKhmer ? 'សមតុល្យវិជ្ជមាន (Surplus)' : 'Surplus liquidity') : (isKhmer ? 'សមតុល្យអវិជ្ជមាន (Deficit)' : 'Deficit liquidity')}</span>
+              </div>
             </div>
           </div>
 
@@ -1325,7 +1523,7 @@ export const ReportsView = () => {
                           </td>
                           <td className="py-2.5 px-2 text-center">
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                              {item.product?.metal_type?.name || item.product?.metalType?.name || 'Gold'}
+                              {item.product?.material?.metal_type?.name || item.product?.material?.metalType?.name || item.product?.metal_type?.name || item.product?.metalType?.name || 'Gold'}
                             </span>
                           </td>
                           <td className="py-2.5 px-2 text-center font-mono text-amber-900 font-semibold">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BuybackController;
 use App\Http\Controllers\Api\CategoryController;
@@ -136,6 +137,11 @@ Route::apiResource('users', UserController::class);
 
 // Roles API
 Route::apiResource('roles', RoleController::class);
+
+// Activity & Audit Logs API
+Route::get('/activity-logs/stats', [ActivityLogController::class, 'stats']);
+Route::delete('/activity-logs/clear', [ActivityLogController::class, 'clear']);
+Route::apiResource('activity-logs', ActivityLogController::class);
 
 // Live Gold Spot Price & Conversion APIs (GoldPriceController)
 Route::prefix('gold-price')->group(function () {

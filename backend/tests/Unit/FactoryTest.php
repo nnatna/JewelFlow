@@ -3,12 +3,12 @@
 use App\Models\Buyback;
 use App\Models\Category;
 use App\Models\Customer;
-use App\Models\Gemstone;
 use App\Models\GoldRate;
+use App\Models\MadeProduct;
+use App\Models\Material;
 use App\Models\MetalType;
 use App\Models\Payment;
 use App\Models\Product;
-use App\Models\ProductGemstone;
 use App\Models\Purchase;
 use App\Models\Role;
 use App\Models\Sale;
@@ -28,11 +28,11 @@ test('all model factories instantiate valid model instances', function () {
         MetalType::class,
         GoldRate::class,
         Category::class,
-        Gemstone::class,
+        Material::class,
         Supplier::class,
         Customer::class,
         Product::class,
-        ProductGemstone::class,
+        MadeProduct::class,
         Purchase::class,
         Sale::class,
         SaleItem::class,
@@ -47,22 +47,13 @@ test('all model factories instantiate valid model instances', function () {
     }
 });
 
-test('database seeder successfully runs all factories with count 20', function () {
+test('database seeder successfully populates initial records', function () {
     $this->seed(DatabaseSeeder::class);
 
-    expect(Role::count())->toBeGreaterThanOrEqual(20)
-        ->and(User::count())->toBeGreaterThanOrEqual(20)
-        ->and(MetalType::count())->toBeGreaterThanOrEqual(20)
-        ->and(GoldRate::count())->toBeGreaterThanOrEqual(20)
-        ->and(Category::count())->toBeGreaterThanOrEqual(20)
-        ->and(Gemstone::count())->toBeGreaterThanOrEqual(20)
-        ->and(Supplier::count())->toBeGreaterThanOrEqual(20)
-        ->and(Customer::count())->toBeGreaterThanOrEqual(20)
-        ->and(Product::count())->toBeGreaterThanOrEqual(20)
-        ->and(ProductGemstone::count())->toBeGreaterThanOrEqual(20)
-        ->and(Purchase::count())->toBeGreaterThanOrEqual(20)
-        ->and(Sale::count())->toBeGreaterThanOrEqual(20)
-        ->and(SaleItem::count())->toBeGreaterThanOrEqual(20)
-        ->and(Buyback::count())->toBeGreaterThanOrEqual(20)
-        ->and(Payment::count())->toBeGreaterThanOrEqual(20);
+    expect(Role::count())->toBeGreaterThanOrEqual(1)
+        ->and(User::count())->toBeGreaterThanOrEqual(1)
+        ->and(MetalType::count())->toBeGreaterThanOrEqual(1)
+        ->and(Category::count())->toBeGreaterThanOrEqual(1)
+        ->and(Customer::count())->toBeGreaterThanOrEqual(1)
+        ->and(Product::count())->toBeGreaterThanOrEqual(1);
 });

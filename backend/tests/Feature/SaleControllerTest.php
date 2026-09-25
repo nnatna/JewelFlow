@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Category;
 use App\Models\Customer;
+use App\Models\Material;
 use App\Models\MetalType;
 use App\Models\Product;
 use App\Models\Sale;
@@ -30,10 +31,10 @@ class SaleControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = Material::factory()->create();
         $product = Product::factory()->create([
             'category_id' => $category->id,
-            'metal_type_id' => $metal->id,
+            'material_id' => $material->id,
             'stock_qty' => 10,
         ]);
         $customer = Customer::factory()->create(['total_spent' => 0]);
@@ -110,10 +111,10 @@ class SaleControllerTest extends TestCase
     {
         $user = User::factory()->create();
         $category = Category::factory()->create();
-        $metal = MetalType::factory()->create();
+        $material = Material::factory()->create();
         $product = Product::factory()->create([
             'category_id' => $category->id,
-            'metal_type_id' => $metal->id,
+            'material_id' => $material->id,
             'stock_qty' => 5,
         ]);
 

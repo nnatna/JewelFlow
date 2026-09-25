@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -12,14 +12,24 @@ import {
   faCoins,
   faScaleBalanced,
   faCircleExclamation,
-  faLock
+  faLock,
+  faSpinner
 } from '@fortawesome/free-solid-svg-icons';
 
 export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
   const { t, i18n } = useTranslation();
-  const { categories, metalTypes, goldRates, addProduct, updateProduct, showToast } = useApp();
+  const { categories, metalTypes, goldRates, materials, units, getMaterialEffectivePrice, addProduct, updateProduct, showToast } = useApp();
 
   const isKhmer = (i18n.language || 'km').startsWith('km');
+  const [selectedUnitCode, setSelectedUnitCode] = useState('chi');
+
+  // Filter precious metals / casting materials from materials catalog
+  const metalMaterials = useMemo(() => {
+    if (!materials || materials.length === 0) return [];
+    // Prioritize precious metals, bullion, casting grain, or general materials
+    const metalsOnly = materials.filter(m => m.metal_type_id || m.metal_type || (m.unit === 'g' || m.unit === 'chi' || m.unit === 'damlung'));
+    return metalsOnly.length > 0 ? metalsOnly : materials;
+  }, [materials]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -27,6 +37,8 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
     barcode: '',
     category_id: 1,
     metal_type_id: 1,
+    material_id: '',
+    unit_id: '',
     net_weight: 5.0,
     gross_weight: 5.2,
     labor_cost: 150,
@@ -36,34 +48,68 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
     description: '',
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     setErrors({});
     if (initialData) {
-      setFormData(initialData);
+      // Find matching material if exists
+      const matchedMat = materials.find(m => 
+        (initialData.material_id && m.id === initialData.material_id) ||
+        (m.metal_type_id && m.metal_type_id === initialData.metal_type_id)
+      );
+      const currentUnitCode = initialData.unitRelation?.code || initialData.unit || 'chi';
+      setSelectedUnitCode(currentUnitCode);
+      setFormData({
+        ...initialData,
+        material_id: matchedMat?.id || initialData.material_id || '',
+        unit_id: initialData.unit_id || (units || []).find(u => u.code === currentUnitCode)?.id || '',
+        description: initialData.description || '',
+      });
     } else {
+      const defaultMat = metalMaterials[0] || materials[0] || null;
+      const chiUnit = (units || []).find(u => u.code === 'chi');
+      setSelectedUnitCode('chi');
       setFormData({
         name: '',
         code_sku: '',
         barcode: '',
         category_id: categories[0]?.id || 1,
-        metal_type_id: metalTypes[0]?.id || 1,
+        metal_type_id: defaultMat?.metal_type_id || metalTypes[0]?.id || 1,
+        material_id: defaultMat?.id || '',
+        unit_id: chiUnit?.id || '',
         net_weight: 5.0,
         gross_weight: 5.2,
         labor_cost: 150,
         markup_rate: 15,
-        stock_qty: 5,
+        stock_qty: 0,
         image: null,
         description: '',
       });
     }
-  }, [initialData, isOpen, categories, metalTypes]);
+  }, [initialData, isOpen, categories, metalTypes, materials, metalMaterials, units]);
 
   if (!isOpen) return null;
 
-  // Live estimated retail calculation
+  // Selected Material & Live estimated retail calculation
+  const selectedMaterial = materials.find(m => 
+    (formData.material_id && Number(m.id) === Number(formData.material_id)) ||
+    (m.metal_type_id && Number(m.metal_type_id) === Number(formData.metal_type_id))
+  ) || null;
+
+  const activeUnit = (units || []).find(u => u.code === selectedUnitCode) || {
+    code: 'chi',
+    name: 'Chi',
+    name_kh: 'ជី',
+    symbol: 'ជី',
+    conversion_factor: 3.75
+  };
+  const factor = Number(activeUnit.conversion_factor) || 3.75;
+  const unitLabel = isKhmer ? (activeUnit.name_kh || activeUnit.name) : activeUnit.name;
+
   const metalRateObj = goldRates.find(r => r.metal_type_id === Number(formData.metal_type_id)) || goldRates[0];
-  const metalRate = metalRateObj?.rate_per_gram || 85.5;
+  const livePriceFromMat = selectedMaterial ? (getMaterialEffectivePrice ? getMaterialEffectivePrice(selectedMaterial) : selectedMaterial.cost_price) : 0;
+  const metalRate = livePriceFromMat > 0 ? livePriceFromMat : (metalRateObj?.rate_per_gram || 85.5);
   const metalVal = (Number(formData.net_weight) || 0) * metalRate;
   const baseCost = metalVal + (Number(formData.labor_cost) || 0);
   const calculatedTag = baseCost * (1 + ((Number(formData.markup_rate) || 0) / 100));
@@ -79,7 +125,7 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
     if (!formData.name || !formData.name.trim()) {
@@ -96,16 +142,45 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
     }
 
     setErrors({});
-    const payload = {
-      ...formData,
-      stock_qty: formData.stock_qty === '' || formData.stock_qty == null ? 0 : Number(formData.stock_qty),
-    };
-    if (initialData) {
-      updateProduct({ ...initialData, ...payload });
-    } else {
-      addProduct(payload);
+    setIsSubmitting(true);
+    try {
+      const selectedMat = materials.find(m => 
+        (formData.material_id && Number(m.id) === Number(formData.material_id)) ||
+        (m.metal_type_id && Number(m.metal_type_id) === Number(formData.metal_type_id))
+      ) || materials[0] || null;
+
+      const selectedUnitObj = (units || []).find(u => u.code === selectedUnitCode);
+
+      const payload = {
+        name: formData.name.trim(),
+        description: formData.description || '',
+        category_id: Number(formData.category_id || categories[0]?.id || 1),
+        material_id: selectedMat?.id ? Number(selectedMat.id) : (formData.material_id ? Number(formData.material_id) : 1),
+        metal_type_id: selectedMat?.metal_type_id ? Number(selectedMat.metal_type_id) : Number(formData.metal_type_id || 1),
+        unit_id: selectedUnitObj?.id || formData.unit_id || null,
+        net_weight: parseFloat(formData.net_weight) || 0,
+        gross_weight: parseFloat(formData.gross_weight || formData.net_weight) || 0,
+        labor_cost: parseFloat(formData.labor_cost) || 0,
+        markup_rate: parseFloat(formData.markup_rate) || 0,
+        stock_qty: formData.stock_qty === '' || formData.stock_qty == null ? 0 : parseInt(formData.stock_qty, 10),
+        status: formData.status || 'active',
+        image: formData.image || null,
+        code_sku: formData.code_sku || undefined,
+        barcode: formData.barcode || undefined
+      };
+
+      if (initialData) {
+        await updateProduct({ ...initialData, ...payload });
+      } else {
+        await addProduct(payload);
+      }
+      onClose();
+    } catch (err) {
+      console.error('Failed to save jewelry:', err);
+      showToast(isKhmer ? 'មានបញ្ហាក្នុងការរក្សាទុកគ្រឿងអលង្ការ' : 'Failed to save jewelry piece', 'error');
+    } finally {
+      setIsSubmitting(false);
     }
-    onClose();
   };
 
   return (
@@ -193,95 +268,182 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
                 </div>
 
                 <div>
-                  <label className="block text-slate-700 font-bold mb-1">
-                    {t('productModal.metalPurity', 'Metal Karat & Purity')}
-                  </label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-slate-700 font-bold">
+                      {t('productModal.metalPurity', 'Metal Karat & Purity')}
+                    </label>
+                    {selectedMaterial && (
+                      <span className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border ${
+                        Number(selectedMaterial.stock_qty || 0) <= 0
+                          ? 'text-rose-700 bg-rose-50 border-rose-200'
+                          : Number(selectedMaterial.stock_qty || 0) <= (selectedMaterial.min_stock_level || 5)
+                            ? 'text-amber-700 bg-amber-50 border-amber-200'
+                            : 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      }`}>
+                        {isKhmer ? 'ស្តុកក្នុងឃ្លាំង:' : 'Vault:'} {Number(selectedMaterial.stock_qty || 0).toLocaleString()} {selectedMaterial.unit || 'g'}
+                      </span>
+                    )}
+                  </div>
                   <select
-                    value={formData.metal_type_id}
-                    onChange={(e) => setFormData({ ...formData, metal_type_id: Number(e.target.value) })}
+                    value={formData.material_id ? `mat-${formData.material_id}` : `metal-${formData.metal_type_id}`}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val.startsWith('mat-')) {
+                        const matId = Number(val.replace('mat-', ''));
+                        const selectedMat = materials.find(m => Number(m.id) === matId);
+                        if (selectedMat) {
+                          setFormData(prev => ({
+                            ...prev,
+                            material_id: selectedMat.id,
+                            metal_type_id: selectedMat.metal_type_id || prev.metal_type_id || 1
+                          }));
+                        }
+                      } else if (val.startsWith('metal-')) {
+                        const typeId = Number(val.replace('metal-', ''));
+                        const matchedMat = materials.find(m => Number(m.metal_type_id) === typeId);
+                        setFormData(prev => ({
+                          ...prev,
+                          material_id: matchedMat ? matchedMat.id : '',
+                          metal_type_id: typeId
+                        }));
+                      }
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:border-amber-500 focus:bg-white focus:outline-none transition-colors cursor-pointer"
                   >
-                    {metalTypes.map(m => (
-                      <option key={m.id} value={m.id}>{m.name}</option>
-                    ))}
+                    {metalMaterials.length > 0 ? (
+                      metalMaterials.map(m => (
+                        <option key={`mat-${m.id}`} value={`mat-${m.id}`}>
+                          {m.name} {m.purity ? `(${m.purity}%)` : ''} - {isKhmer ? 'ស្តុក:' : 'Stock:'} {Number(m.stock_qty || 0)} {m.unit || 'g'}
+                        </option>
+                      ))
+                    ) : (
+                      metalTypes.map(m => (
+                        <option key={`metal-${m.id}`} value={`metal-${m.id}`}>{m.name}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
 
-              {/* Gold Weight (Chi & Grams) & Gross Weight */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block text-slate-700 font-bold text-xs">
-                      {t('productModal.goldWeightChi', 'Gold Weight (Chi)')}
-                    </label>
-                    <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                      1 ជី = 3.75g
+              {/* Unit Selection Header & Weight Inputs */}
+              <div className="p-3.5 bg-slate-50/80 border border-slate-200 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/80">
+                  <div className="flex items-center gap-2">
+                    <span className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center text-xs">
+                      <FontAwesomeIcon icon={faScaleBalanced} className="w-3.5 h-3.5" />
+                    </span>
+                    <span className="font-bold text-slate-800 text-xs">
+                      {isKhmer ? 'ទម្ងន់ និងខ្នាតគិត (Weight & Measurement Unit)' : 'Weight & Measurement Unit'}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="relative">
-                      <input
-                        type="number"
-                        step="0.001"
-                        placeholder="0.00"
-                        value={formData.net_weight ? Number(((formData.net_weight || 0) / 3.75).toFixed(3)) : ''}
-                        onChange={(e) => {
-                          const chiVal = parseFloat(e.target.value);
-                          const gVal = isNaN(chiVal) ? 0 : Math.round(chiVal * 3.75 * 1000) / 1000;
-                          setFormData({ ...formData, net_weight: gVal, gross_weight: Math.round((gVal + 0.25) * 100) / 100 });
-                        }}
-                        className="w-full bg-amber-50/60 border border-amber-300 rounded-xl pl-3 pr-8 py-2 text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:outline-none font-mono text-xs"
-                      />
-                      <span className="absolute right-2.5 top-2 text-[11px] font-bold text-amber-800 pointer-events-none">
-                        {isKhmer ? 'ជី' : 'Chi'}
+                  
+                  {/* Choose Unit Dropdown */}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-slate-500 hidden sm:inline">
+                      {isKhmer ? 'ខ្នាតគិត:' : 'Unit:'}
+                    </span>
+                    <select
+                      value={selectedUnitCode}
+                      onChange={(e) => {
+                        const newCode = e.target.value;
+                        const newUnitObj = (units || []).find(u => u.code === newCode);
+                        setSelectedUnitCode(newCode);
+                        setFormData(prev => ({
+                          ...prev,
+                          unit_id: newUnitObj?.id || prev.unit_id
+                        }));
+                      }}
+                      className="px-2.5 py-1 text-xs font-bold text-amber-950 bg-amber-100/70 border border-amber-300/80 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 cursor-pointer shadow-xs"
+                    >
+                      {(units && units.length > 0) ? (
+                        units.map(u => (
+                          <option key={u.id || u.code} value={u.code}>
+                            {isKhmer ? `${u.name_kh || u.name} (${u.code})` : `${u.name} (${u.code})`}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="chi">{isKhmer ? 'ជី (chi)' : 'Chi (chi)'}</option>
+                          <option value="damlung">{isKhmer ? 'តម្លឹង (damlung)' : 'Damlung (damlung)'}</option>
+                          <option value="hun">{isKhmer ? 'ហ៊ុន (hun)' : 'Hun (hun)'}</option>
+                          <option value="g">{isKhmer ? 'ក្រាម (g)' : 'Gram (g)'}</option>
+                          <option value="ct">{isKhmer ? 'ការ៉ាត់ (ct)' : 'Carat (ct)'}</option>
+                          <option value="oz">{isKhmer ? 'អោនស៍ (oz)' : 'Ounce (oz)'}</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Net Weight & Gross Weight */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-slate-700 font-bold text-xs">
+                        {isKhmer ? `ទម្ងន់មាសសុទ្ធ (Net Weight)` : `Net Gold Weight`}
+                      </label>
+                      <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                        1 {unitLabel} = {factor}g
                       </span>
                     </div>
                     <div className="relative">
                       <input
                         type="number"
-                        step="0.01"
+                        step="0.001"
                         placeholder="0.00"
-                        value={formData.net_weight || ''}
+                        value={formData.net_weight ? Number(((formData.net_weight || 0) / factor).toFixed(3)) : ''}
                         onChange={(e) => {
-                          setFormData({ ...formData, net_weight: parseFloat(e.target.value) || 0 });
+                          const unitVal = parseFloat(e.target.value);
+                          const gVal = isNaN(unitVal) ? 0 : Math.round(unitVal * factor * 1000) / 1000;
+                          const currentGrossG = formData.gross_weight || 0;
+                          const newGrossG = currentGrossG > gVal ? currentGrossG : gVal;
+                          setFormData({ ...formData, net_weight: gVal, gross_weight: newGrossG });
                           if (errors.net_weight) setErrors(prev => ({ ...prev, net_weight: null }));
                         }}
-                        className={`w-full rounded-xl pl-3 pr-7 py-2 text-xs font-semibold focus:outline-none font-mono ${
+                        className={`w-full bg-white border rounded-xl pl-3.5 pr-16 py-2.5 text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:outline-none font-mono text-xs ${
                           errors.net_weight
-                            ? 'border border-rose-500 bg-rose-50/20 ring-2 ring-rose-200/50 text-slate-900'
-                            : 'bg-slate-50 border border-slate-200 text-slate-700 focus:border-amber-500 focus:bg-white'
+                            ? 'border-rose-500 ring-2 ring-rose-200/50 bg-rose-50/20'
+                            : 'border-slate-200'
                         }`}
                       />
-                      <span className="absolute right-2.5 top-2 text-[11px] font-medium text-slate-400 pointer-events-none">g</span>
+                      <span className="absolute right-2.5 top-2 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 pointer-events-none">
+                        {unitLabel}
+                      </span>
                     </div>
+                    {errors.net_weight && (
+                      <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1 font-medium animate-fadeIn">
+                        <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                        <span>{errors.net_weight}</span>
+                      </div>
+                    )}
                   </div>
-                  {errors.net_weight && (
-                    <div className="flex items-center gap-1.5 text-xs text-rose-600 mt-1 font-medium animate-fadeIn">
-                      <FontAwesomeIcon icon={faCircleExclamation} className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                      <span>{errors.net_weight}</span>
-                    </div>
-                  )}
-                </div>
 
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block text-slate-700 font-bold text-xs">
-                      {t('productModal.grossWeight', 'Gross Weight')}
-                    </label>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {formData.gross_weight ? `${((formData.gross_weight || 0) / 3.75).toFixed(2)} ${isKhmer ? 'ជី' : 'Chi'}` : `0.00 ${isKhmer ? 'ជី' : 'Chi'}`}
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.gross_weight || ''}
-                      onChange={(e) => setFormData({ ...formData, gross_weight: parseFloat(e.target.value) || 0 })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-3 pr-7 py-2 text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:outline-none font-mono text-xs"
-                    />
-                    <span className="absolute right-2.5 top-2 text-[11px] font-medium text-slate-400 pointer-events-none">g</span>
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="block text-slate-700 font-bold text-xs">
+                        {isKhmer ? `ទម្ងន់សរុប (Gross Weight)` : `Gross Weight`}
+                      </label>
+                      <span className="text-[10px] font-mono font-bold text-amber-800 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                        1 {unitLabel} = {factor}g
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.001"
+                        placeholder="0.00"
+                        value={formData.gross_weight ? Number(((formData.gross_weight || 0) / factor).toFixed(3)) : ''}
+                        onChange={(e) => {
+                          const unitVal = parseFloat(e.target.value);
+                          const gVal = isNaN(unitVal) ? 0 : Math.round(unitVal * factor * 1000) / 1000;
+                          setFormData({ ...formData, gross_weight: gVal });
+                        }}
+                        className="w-full bg-white border border-slate-200 rounded-xl pl-3.5 pr-16 py-2.5 text-slate-900 font-bold focus:border-amber-500 focus:bg-white focus:outline-none font-mono text-xs"
+                      />
+                      <span className="absolute right-2.5 top-2 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-50 text-amber-900 border border-amber-200 pointer-events-none">
+                        {unitLabel}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -311,50 +473,6 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:border-amber-500 focus:bg-white focus:outline-none transition-colors"
                   />
                 </div>
-              </div>
-
-              {/* Inventory Quantity */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-slate-700 font-bold">
-                    {t('productModal.stockQty', 'Inventory Quantity')}
-                  </label>
-                  {Boolean(initialData) && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                      <FontAwesomeIcon icon={faLock} className="w-2.5 h-2.5 text-slate-400" />
-                      <span>{isKhmer ? 'មិនអាចកែប្រែបានទេ (គ្រប់គ្រងដោយប្រតិបត្តិការ)' : 'Locked / Read-only'}</span>
-                    </span>
-                  )}
-                </div>
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  disabled={Boolean(initialData)}
-                  readOnly={Boolean(initialData)}
-                  value={formData.stock_qty === 0 || formData.stock_qty ? formData.stock_qty : ''}
-                  onChange={(e) => {
-                    if (initialData) return;
-                    const raw = e.target.value;
-                    if (raw === '') {
-                      setFormData({ ...formData, stock_qty: '' });
-                      return;
-                    }
-                    const parsed = parseInt(raw, 10);
-                    setFormData({ ...formData, stock_qty: isNaN(parsed) ? '' : parsed });
-                  }}
-                  onBlur={(e) => {
-                    if (e.target.value === '') {
-                      setFormData({ ...formData, stock_qty: 0 });
-                    }
-                  }}
-                  className={`w-full border rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold transition-colors ${
-                    initialData
-                      ? 'bg-slate-100 border-slate-200 text-slate-500 cursor-not-allowed select-none opacity-80'
-                      : 'bg-slate-50 border-slate-200 text-slate-900 focus:border-amber-500 focus:bg-white focus:outline-none'
-                  }`}
-                  title={initialData ? (isKhmer ? 'ចំនួនស្តុកមិនអាចកែប្រែដោយផ្ទាល់បានទេ' : 'Stock quantity is locked and managed through transactions') : ''}
-                />
               </div>
 
               {/* Description & Atelier Notes */}
@@ -471,7 +589,7 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
 
                 <div className="text-[11px] text-slate-600 font-medium leading-relaxed pt-2 border-t border-amber-200/60 flex flex-col gap-0.5">
                   <span>
-                    {formData.net_weight}g @ ${metalRate.toFixed(2)}/g ({metalRateObj?.name || 'Gold'})
+                    {formData.net_weight}g @ ${metalRate.toFixed(2)}/g ({selectedMaterial ? selectedMaterial.name : (metalRateObj?.name || 'Gold')})
                   </span>
                   <span className="text-slate-500">
                     + ${Number(formData.labor_cost).toFixed(2)} labor + {formData.markup_rate}% markup
@@ -494,11 +612,19 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+              disabled={isSubmitting}
+              className={`px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs rounded-xl shadow-md shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-2 ${
+                isSubmitting ? 'opacity-70 cursor-not-allowed' : 'cursor-pointer'
+              }`}
             >
-              {initialData
-                ? t('productModal.saveChanges', 'Save Changes')
-                : t('productModal.createPiece', 'Create Jewelry Piece')}
+              {isSubmitting && <FontAwesomeIcon icon={faSpinner} className="animate-spin text-xs" />}
+              <span>
+                {isSubmitting
+                  ? (isKhmer ? 'កំពុងរក្សាទុក...' : 'Saving...')
+                  : (initialData
+                      ? t('productModal.saveChanges', 'Save Changes')
+                      : t('productModal.createPiece', 'Create Jewelry Piece'))}
+              </span>
             </button>
           </div>
         </form>

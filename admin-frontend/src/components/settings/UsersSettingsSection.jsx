@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useApp } from '../../context/AppContext';
 import { Pagination } from '../common/Pagination';
@@ -28,7 +28,8 @@ import {
   faShield,
   faGem,
   faSliders,
-  faArrowsRotate
+  faArrowsRotate,
+  faRotate
 } from '@fortawesome/free-solid-svg-icons';
 
 export const UsersSettingsSection = () => {
@@ -44,8 +45,15 @@ export const UsersSettingsSection = () => {
     showToast,
     currentUser,
     hasPermission,
-    hasRole
+    hasRole,
+    refreshAllData
   } = useApp();
+
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  useEffect(() => {
+    refreshAllData(true);
+  }, []);
 
   const currentLang = (i18n.language || 'km').startsWith('en') ? 'en' : 'km';
   const isKhmer = currentLang === 'km';
@@ -123,9 +131,24 @@ export const UsersSettingsSection = () => {
     }
   };
 
+  const isSuperAdmin = currentUser?.role_name === 'super_admin' ||
+    currentUser?.role?.name === 'super_admin' ||
+    currentUser?.email === 'admin@jewelflow.com';
+
+  // Visible users based on permission hierarchy: only Super Admin can see Super Admin accounts
+  const visibleUsers = useMemo(() => {
+    return (users || []).filter(u => {
+      const isTargetSuper = (u.role_name === 'super_admin' || u.role?.name === 'super_admin' || u.email === 'admin@jewelflow.com');
+      if (!isSuperAdmin && isTargetSuper) {
+        return false;
+      }
+      return true;
+    });
+  }, [users, isSuperAdmin]);
+
   // Filtered users
   const filteredUsers = useMemo(() => {
-    return (users || []).filter(u => {
+    return visibleUsers.filter(u => {
       if (roleFilter !== 'all') {
         const uRole = (u.role_name || u.role?.name || '').toLowerCase();
         if (uRole !== roleFilter.toLowerCase()) return false;
@@ -144,7 +167,7 @@ export const UsersSettingsSection = () => {
       }
       return true;
     });
-  }, [users, roleFilter, statusFilter, searchTerm]);
+  }, [visibleUsers, roleFilter, statusFilter, searchTerm]);
 
   // Paginated users
   const paginatedUsers = useMemo(() => {
@@ -282,7 +305,7 @@ export const UsersSettingsSection = () => {
       return;
     }
 
-    const isSuper = user.role_name === 'super_admin' || user.email === 'superadmin@jewelflow.com';
+    const isSuper = user.role_name === 'super_admin' || user.email === 'superadmin@gmail.com' || user.email === 'superadmin@jewelflow.com';
     if (isSuper) {
       showToast(isKhmer ? 'មិនអាចលុបគណនី SuperAdmin បានទេ!' : 'SuperAdmin account cannot be deleted!', 'warning');
       return;
@@ -311,11 +334,11 @@ export const UsersSettingsSection = () => {
     }
   };
 
-  // Stats calculation
-  const totalStaff = (users || []).length;
-  const activeStaff = (users || []).filter(u => u.status === 'active').length;
-  const superAdminsCount = (users || []).filter(u => u.role_name === 'super_admin' || u.role_name === 'admin').length;
-  const cashiersCount = (users || []).filter(u => u.role_name === 'cashier').length;
+  // Stats calculation based on visible users
+  const totalStaff = visibleUsers.length;
+  const activeStaff = visibleUsers.filter(u => u.status === 'active').length;
+  const superAdminsCount = visibleUsers.filter(u => u.role_name === 'super_admin' || u.role_name === 'admin').length;
+  const cashiersCount = visibleUsers.filter(u => u.role_name === 'cashier').length;
 
   return (
     <div className="space-y-5 animate-fadeIn select-none">
@@ -344,16 +367,36 @@ export const UsersSettingsSection = () => {
             </div>
           </div>
 
-          {canManageUsers && (
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={openCreateModal}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer shrink-0 active:scale-95"
+              onClick={async () => {
+                setIsRefreshing(true);
+                try {
+                  await refreshAllData(true);
+                  showToast(isKhmer ? 'បានទាញយកទិន្នន័យបុគ្គលិកថ្មីបំផុត' : 'Staff data refreshed from server', 'success');
+                } finally {
+                  setIsRefreshing(false);
+                }
+              }}
+              disabled={isRefreshing}
+              className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition-all cursor-pointer shadow-2xs active:scale-95 disabled:opacity-50"
+              title={isKhmer ? 'ទាញយកទិន្នន័យឡើងវិញ' : 'Refresh from server'}
             >
-              <FontAwesomeIcon icon={faUserPlus} className="w-3.5 h-3.5" />
-              <span>{isKhmer ? 'បន្ថែមបុគ្គលិកថ្មី' : 'Add New Staff'}</span>
+              <FontAwesomeIcon icon={faRotate} className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-amber-600' : ''}`} />
             </button>
-          )}
+
+            {canManageUsers && (
+              <button
+                type="button"
+                onClick={openCreateModal}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-xs shadow-md shadow-amber-500/20 transition-all cursor-pointer active:scale-95"
+              >
+                <FontAwesomeIcon icon={faUserPlus} className="w-3.5 h-3.5" />
+                <span>{isKhmer ? 'បន្ថែមបុគ្គលិកថ្មី' : 'Add New Staff'}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* 4 Mini KPI Cards */}
@@ -385,12 +428,12 @@ export const UsersSettingsSection = () => {
           <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 flex items-center justify-between">
             <div>
               <p className="text-[11px] font-bold text-amber-800 uppercase tracking-wider">
-                {isKhmer ? 'អ្នកគ្រប់គ្រង' : 'SuperAdmin / Admins'}
+                {isKhmer ? (isSuperAdmin ? 'អ្នកគ្រប់គ្រង' : 'រដ្ឋបាល (Admin)') : (isSuperAdmin ? 'SuperAdmin / Admins' : 'Administrators')}
               </p>
               <p className="text-xl font-bold font-mono text-amber-950 mt-0.5">{superAdminsCount}</p>
             </div>
             <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center text-sm font-bold">
-              <FontAwesomeIcon icon={faCrown} className="w-4 h-4 text-amber-600" />
+              <FontAwesomeIcon icon={isSuperAdmin ? faCrown : faUserShield} className="w-4 h-4 text-amber-600" />
             </div>
           </div>
 
@@ -443,7 +486,7 @@ export const UsersSettingsSection = () => {
             className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 text-xs font-semibold text-slate-700 focus:outline-none focus:border-amber-500 cursor-pointer"
           >
             <option value="all">{isKhmer ? 'គ្រប់តួនាទីទាំងអស់' : 'All Roles'}</option>
-            <option value="super_admin">SuperAdmin</option>
+            {isSuperAdmin && <option value="super_admin">SuperAdmin</option>}
             <option value="admin">Admin</option>
             <option value="manager">Manager</option>
             <option value="cashier">Cashier</option>
@@ -563,7 +606,7 @@ export const UsersSettingsSection = () => {
                           <div className="min-w-0">
                             <p className="font-bold text-slate-900 text-xs truncate flex items-center gap-1.5 font-serif group-hover:text-amber-950">
                               <span>{user.name}</span>
-                              {user.email === 'superadmin@jewelflow.com' && (
+                              {(user.role_name === 'super_admin' || user.email === 'superadmin@gmail.com' || user.email === 'superadmin@jewelflow.com') && (
                                 <FontAwesomeIcon icon={faCrown} className="text-amber-500 text-[11px]" title="Super Administrator" />
                               )}
                             </p>
@@ -787,7 +830,9 @@ export const UsersSettingsSection = () => {
                   {isKhmer ? 'ជ្រើសរើសតួនាទី *' : 'Assigned Atelier Role *'}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {(roles || []).map((r) => {
+                  {(roles || [])
+                    .filter(r => isSuperAdmin || r.name !== 'super_admin')
+                    .map((r) => {
                     const isSelected = formData.role_name === r.name || formData.role_id === r.id;
                     const style = roleStyles[r.name] || roleStyles.cashier;
                     return (

@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\MadeProduct;
-use App\Models\MetalType;
+use App\Models\Material;
 use App\Models\Product;
 use App\Models\Supplier;
 use App\Models\User;
@@ -27,19 +27,20 @@ class MadeProductFactory extends Factory
             ? fake()->dateTimeBetween($startedAt, 'now')
             : null;
 
-        $metalWeightUsed = fake()->randomFloat(3, 2, 40);
-        $wasteWeight = round($metalWeightUsed * fake()->randomFloat(2, 0.01, 0.08), 3);
+        $chi = fake()->randomElement([0.5, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]);
+        $metalWeightUsed = round($chi * 3.75, 3);
+        $wasteWeight = round($metalWeightUsed * fake()->randomFloat(2, 0.01, 0.04), 3);
 
         return [
             'product_id' => Product::inRandomOrder()->value('id') ?? Product::factory(),
-            'metal_type_id' => MetalType::inRandomOrder()->value('id') ?? MetalType::factory(),
+            'material_id' => Material::inRandomOrder()->value('id') ?? Material::factory(),
             'supplier_id' => Supplier::inRandomOrder()->value('id'),
             'user_id' => User::inRandomOrder()->value('id'),
             'order_no' => fake()->unique()->bothify('MP-#####'),
-            'quantity' => fake()->numberBetween(1, 10),
+            'quantity' => fake()->numberBetween(1, 5),
             'metal_weight_used' => $metalWeightUsed,
             'waste_weight' => $wasteWeight,
-            'crafting_cost' => fake()->randomFloat(2, 20, 500),
+            'crafting_cost' => fake()->randomFloat(2, 20, 250),
             'status' => $status,
             'started_at' => $startedAt,
             'completed_at' => $completedAt,

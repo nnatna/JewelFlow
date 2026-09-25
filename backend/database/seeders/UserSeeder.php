@@ -21,7 +21,7 @@ class UserSeeder extends Seeder
         $users = [
             [
                 'name' => 'Super Administrator',
-                'email' => 'superadmin@jewelflow.com',
+                'email' => 'superadmin@gmail.com',
                 'phone' => '+855 (0) 12 999 000',
                 'password' => Hash::make('SuperAdmin@123'),
                 'role_id' => $superAdminRole?->id,
@@ -30,7 +30,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Sokha Chea (Admin)',
-                'email' => 'admin@jewelflow.com',
+                'email' => 'admin@gmail.com',
                 'phone' => '+855 (0) 12 888 999',
                 'password' => Hash::make('Admin@123'),
                 'role_id' => $adminRole?->id,
@@ -39,7 +39,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Bopha Meas (Manager)',
-                'email' => 'manager@jewelflow.com',
+                'email' => 'manager@gmail.com',
                 'phone' => '+855 (0) 17 777 666',
                 'password' => Hash::make('Manager@123'),
                 'role_id' => $managerRole?->id,
@@ -48,7 +48,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Chantou Rath (Cashier)',
-                'email' => 'cashier@jewelflow.com',
+                'email' => 'cashier@gmail.com',
                 'phone' => '+855 (0) 93 555 444',
                 'password' => Hash::make('Cashier@123'),
                 'role_id' => $cashierRole?->id,
@@ -57,7 +57,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Dara Pich (Master Goldsmith)',
-                'email' => 'goldsmith@jewelflow.com',
+                'email' => 'goldsmith@gmail.com',
                 'phone' => '+855 (0) 89 222 333',
                 'password' => Hash::make('Goldsmith@123'),
                 'role_id' => $goldsmithRole?->id,
@@ -66,7 +66,7 @@ class UserSeeder extends Seeder
             ],
             [
                 'name' => 'Kosal Sam (Accountant)',
-                'email' => 'accountant@jewelflow.com',
+                'email' => 'accountant@gmail.com',
                 'phone' => '+855 (0) 70 111 222',
                 'password' => Hash::make('Accountant@123'),
                 'role_id' => $accountantRole?->id,

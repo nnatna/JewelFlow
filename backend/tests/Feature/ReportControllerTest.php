@@ -6,6 +6,7 @@ use App\Models\Buyback;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\GoldRate;
+use App\Models\Material;
 use App\Models\MetalType;
 use App\Models\Product;
 use App\Models\Purchase;
@@ -24,6 +25,7 @@ class ReportControllerTest extends TestCase
     private User $user;
     private MetalType $gold24k;
     private MetalType $gold18k;
+    private Material $material24k;
     private Category $rings;
     private Customer $customer;
 
@@ -38,6 +40,13 @@ class ReportControllerTest extends TestCase
 
         $this->gold24k = MetalType::create(['name' => '24K Gold', 'purity' => 99.9, 'unit' => 'g']);
         $this->gold18k = MetalType::create(['name' => '18K Gold', 'purity' => 75.0, 'unit' => 'g']);
+
+        $this->material24k = Material::create([
+            'metal_type_id' => $this->gold24k->id,
+            'name' => '24K Pure Gold Bullion',
+            'stock_qty' => 100,
+            'cost_price' => 80.00,
+        ]);
 
         $this->rings = Category::create(['name' => 'Rings', 'slug' => 'rings', 'description' => 'Fine jewelry rings']);
 
@@ -67,7 +76,7 @@ class ReportControllerTest extends TestCase
         // Products
         $product = Product::create([
             'category_id' => $this->rings->id,
-            'metal_type_id' => $this->gold24k->id,
+            'material_id' => $this->material24k->id,
             'code_sku' => 'RING-24K-001',
             'name' => 'Imperial Dragon Ring',
             'net_weight' => 10.0,
@@ -86,7 +95,8 @@ class ReportControllerTest extends TestCase
             'total_amount' => 1000.00,
             'discount' => 50.00,
             'tax' => 0.00,
-            'grand_total' => 950.00,
+            'grand_total_usd' => 950.00,
+            'grand_total_khr' => 3895000.00,
             'sale_date' => Carbon::now()->toDateString(),
         ]);
 

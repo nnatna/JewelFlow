@@ -116,6 +116,9 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $authUser = $request->user() ?? auth('sanctum')->user();
+        $isSuperAdmin = $authUser && ($authUser->role?->name === 'super_admin' || $authUser->email === 'admin@jewelflow.com');
+
         $search = $request->query('search');
         $roleFilter = $request->query('role');
         $statusFilter = $request->query('status');
@@ -123,6 +126,10 @@ class UserController extends Controller
         $direction = strtolower($request->query('direction', 'desc')) === 'asc' ? 'asc' : 'desc';
 
         $query = User::with(['role.permissions', 'permissions'])
+            ->when(!$isSuperAdmin, function ($q) {
+                $q->whereDoesntHave('role', fn($r) => $r->where('name', 'super_admin'))
+                  ->where('email', '!=', 'admin@jewelflow.com');
+            })
             ->when($search, function ($q, $search) {
                 $q->where(function ($sub) use ($search) {
                     $sub->where('name', 'like', "%{$search}%")
@@ -155,6 +162,8 @@ class UserController extends Controller
     public function store(Request $request): JsonResponse
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
+        $isSuperAdmin = $authUser && ($authUser->role?->name === 'super_admin' || $authUser->email === 'admin@jewelflow.com');
+
         if ($authUser) {
             $canCreate = in_array($authUser->role?->name, ['super_admin', 'admin', 'manager']) 
                 || (method_exists($authUser, 'hasPermissionTo') && $authUser->hasPermissionTo('manage_users'));
@@ -182,6 +191,14 @@ class UserController extends Controller
         if (empty($validated['role_id']) && !empty($validated['role_name'])) {
             $role = Role::where('name', $validated['role_name'])->first();
             $validated['role_id'] = $role?->id;
+        }
+
+        // Prevent non-super-admins from assigning super_admin role
+        if (!$isSuperAdmin && !empty($validated['role_id'])) {
+            $targetRole = Role::find($validated['role_id']);
+            if ($targetRole?->name === 'super_admin') {
+                $validated['role_id'] = Role::where('name', 'admin')->value('id') ?? $validated['role_id'];
+            }
         }
 
         if ($request->hasFile('photo') || $request->has('photo')) {
@@ -216,9 +233,16 @@ class UserController extends Controller
     /**
      * Display the specified user.
      */
-    public function show($id): JsonResponse
+    public function show(Request $request, $id): JsonResponse
     {
+        $authUser = $request->user() ?? auth('sanctum')->user();
+        $isSuperAdmin = $authUser && ($authUser->role?->name === 'super_admin' || $authUser->email === 'admin@jewelflow.com');
+
         $user = User::with(['role.permissions', 'permissions'])->findOrFail($id);
+
+        if (!$isSuperAdmin && ($user->role?->name === 'super_admin' || $user->email === 'admin@jewelflow.com')) {
+            return response()->json(['message' => 'User not found.'], 404);
+        }
 
         return response()->json($this->formatUserResponse($user));
     }
@@ -229,6 +253,8 @@ class UserController extends Controller
     public function update(Request $request, $id): JsonResponse
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
+        $isSuperAdmin = $authUser && ($authUser->role?->name === 'super_admin' || $authUser->email === 'admin@jewelflow.com');
+
         if ($authUser) {
             $canUpdate = in_array($authUser->role?->name, ['super_admin', 'admin', 'manager']) 
                 || (method_exists($authUser, 'hasPermissionTo') && $authUser->hasPermissionTo('manage_users'));
@@ -241,6 +267,13 @@ class UserController extends Controller
         }
 
         $user = User::findOrFail($id);
+
+        if (!$isSuperAdmin && ($user->role?->name === 'super_admin' || $user->email === 'admin@jewelflow.com')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized: You cannot edit a Super Administrator account.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
@@ -258,6 +291,14 @@ class UserController extends Controller
         if (isset($validated['role_name']) && empty($validated['role_id'])) {
             $role = Role::where('name', $validated['role_name'])->first();
             $validated['role_id'] = $role?->id;
+        }
+
+        // Prevent non-super-admins from promoting to super_admin
+        if (!$isSuperAdmin && !empty($validated['role_id'])) {
+            $targetRole = Role::find($validated['role_id']);
+            if ($targetRole?->name === 'super_admin') {
+                $validated['role_id'] = $user->role_id;
+            }
         }
 
         if ($request->hasFile('photo') || $request->has('photo')) {
@@ -294,6 +335,8 @@ class UserController extends Controller
     public function toggleStatus(Request $request, $id): JsonResponse
     {
         $authUser = $request->user() ?? auth('sanctum')->user();
+        $isSuperAdmin = $authUser && ($authUser->role?->name === 'super_admin' || $authUser->email === 'admin@jewelflow.com');
+
         if ($authUser) {
             $canToggle = in_array($authUser->role?->name, ['super_admin', 'admin', 'manager']) 
                 || (method_exists($authUser, 'hasPermissionTo') && $authUser->hasPermissionTo('manage_users'));
@@ -306,6 +349,14 @@ class UserController extends Controller
         }
 
         $user = User::findOrFail($id);
+
+        if (!$isSuperAdmin && ($user->role?->name === 'super_admin' || $user->email === 'admin@jewelflow.com')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized: You cannot modify Super Administrator status.',
+            ], 403);
+        }
+
         $newStatus = $user->status === 'active' ? 'inactive' : 'active';
         $user->update(['status' => $newStatus]);
 

@@ -11,7 +11,7 @@ class MadeProduct extends Model
 
     protected $fillable = [
         'product_id',
-        'metal_type_id',
+        'material_id',
         'supplier_id',
         'user_id',
         'unit_id',
@@ -49,11 +49,19 @@ class MadeProduct extends Model
     }
 
     /**
-     * Metal type / purity used for crafting.
+     * Raw Material used for crafting.
+     */
+    public function material()
+    {
+        return $this->belongsTo(Material::class);
+    }
+
+    /**
+     * Metal type / purity linked through the raw material.
      */
     public function metalType()
     {
-        return $this->belongsTo(MetalType::class);
+        return $this->hasOneThrough(MetalType::class, Material::class, 'id', 'id', 'material_id', 'metal_type_id');
     }
 
     /**

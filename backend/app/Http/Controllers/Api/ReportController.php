@@ -87,7 +87,7 @@ class ReportController extends Controller
             });
         }
         if ($request->filled('metal_type_id')) {
-            $salesQuery->whereHas('saleItems.product', function ($q) use ($request) {
+            $salesQuery->whereHas('saleItems.product.material', function ($q) use ($request) {
                 $q->where('metal_type_id', $request->metal_type_id);
             });
         }
@@ -126,7 +126,7 @@ class ReportController extends Controller
             $saleItemsInPeriod->whereHas('product', fn ($pq) => $pq->where('category_id', $request->category_id));
         }
         if ($request->filled('metal_type_id')) {
-            $saleItemsInPeriod->whereHas('product', fn ($pq) => $pq->where('metal_type_id', $request->metal_type_id));
+            $saleItemsInPeriod->whereHas('product.material', fn ($pq) => $pq->where('metal_type_id', $request->metal_type_id));
         }
 
         $totalWeightSoldGrams = (float) (clone $saleItemsInPeriod)->sum('weight_sold') ?? 0;
@@ -160,12 +160,12 @@ class ReportController extends Controller
         $totalPurchasesAmount = (float) (clone $purchasesQuery)->sum('total_amount') ?? 0;
 
         // --- Live Vault / Stock Snapshot ---
-        $productsQuery = Product::with('metalType');
+        $productsQuery = Product::with(['material.metalType', 'metalType']);
         if ($request->filled('category_id')) {
             $productsQuery->where('category_id', $request->category_id);
         }
         if ($request->filled('metal_type_id')) {
-            $productsQuery->where('metal_type_id', $request->metal_type_id);
+            $productsQuery->whereHas('material', fn ($mq) => $mq->where('metal_type_id', $request->metal_type_id));
         }
 
         $products = $productsQuery->get();
@@ -194,7 +194,8 @@ class ReportController extends Controller
                 $lowStockCount++;
             }
 
-            $rateObj = $latestRates->get($p->metal_type_id);
+            $metalTypeId = $p->material?->metal_type_id ?? $p->metalType?->id;
+            $rateObj = $metalTypeId ? $latestRates->get($metalTypeId) : null;
             $sellRate = $rateObj ? (float) $rateObj->sell_rate : 85.50;
             $buyRate = $rateObj ? (float) $rateObj->buy_rate : 80.00;
 
@@ -264,7 +265,7 @@ class ReportController extends Controller
         $startDateTime = "{$startDate} 00:00:00";
         $endDateTime = "{$endDate} 23:59:59";
 
-        $query = Sale::with(['customer', 'user', 'saleItems.product.metalType', 'saleItems.product.category'])
+        $query = Sale::with(['customer', 'user', 'saleItems.product.material.metalType', 'saleItems.product.metalType', 'saleItems.product.category'])
             ->whereBetween('sale_date', [$startDateTime, $endDateTime]);
 
         // Optional filters
@@ -283,7 +284,7 @@ class ReportController extends Controller
             });
         }
         if ($request->filled('metal_type_id')) {
-            $query->whereHas('saleItems.product', function ($q) use ($request) {
+            $query->whereHas('saleItems.product.material', function ($q) use ($request) {
                 $q->where('metal_type_id', $request->metal_type_id);
             });
         }
@@ -334,7 +335,7 @@ class ReportController extends Controller
 
         // 3. Sales Breakdown by Metal Type (Purity: 24K, 18K, 14K, Platinum...)
         $salesByMetalType = $allSaleItems->groupBy(function ($item) {
-            return $item->product?->metalType?->name ?? 'Other Metal';
+            return $item->product?->material?->metalType?->name ?? $item->product?->metalType?->name ?? 'Other Metal';
         })->map(function ($items, $metalName) {
             $weightG = (float) $items->sum('weight_sold');
 
@@ -371,7 +372,7 @@ class ReportController extends Controller
                 'product_id' => $firstItem->product_id,
                 'code_sku' => $product?->code_sku ?? ('SKU-'.$firstItem->product_id),
                 'name' => $product?->name ?? ('Product #'.$firstItem->product_id),
-                'metal_type' => $product?->metalType?->name ?? 'Gold',
+                'metal_type' => $product?->material?->metalType?->name ?? $product?->metalType?->name ?? 'Gold',
                 'category' => $product?->category?->name ?? 'Jewelry',
                 'quantity_sold' => (int) $qtySold,
                 'total_weight_g' => round($totalWt, 2),
@@ -505,13 +506,13 @@ class ReportController extends Controller
      */
     public function getInventoryReport(Request $request): JsonResponse
     {
-        $query = Product::with(['category', 'metalType', 'image']);
+        $query = Product::with(['category', 'material.metalType', 'metalType', 'image']);
 
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
         if ($request->filled('metal_type_id')) {
-            $query->where('metal_type_id', $request->metal_type_id);
+            $query->whereHas('material', fn ($mq) => $mq->where('metal_type_id', $request->metal_type_id));
         }
         if ($request->filled('status')) {
             $query->where('status', $request->status);
@@ -555,7 +556,8 @@ class ReportController extends Controller
                 $lowStockCount++;
             }
 
-            $rateObj = $latestRates->get($p->metal_type_id);
+            $metalTypeId = $p->material?->metal_type_id ?? $p->metalType?->id;
+            $rateObj = $metalTypeId ? $latestRates->get($metalTypeId) : null;
             $sellRate = $rateObj ? (float) $rateObj->sell_rate : 85.50;
             $buyRate = $rateObj ? (float) $rateObj->buy_rate : 80.00;
 
@@ -565,12 +567,14 @@ class ReportController extends Controller
         }
 
         // 1. Grouped by Metal Type
-        $stockByMetal = $allProducts->groupBy('metal_type_id')->map(function ($items) use ($latestRates) {
-            $metal = $items->first()->metalType;
+        $stockByMetal = $allProducts->groupBy(function ($p) {
+            return $p->material?->metal_type_id ?? $p->metalType?->id ?? 0;
+        })->map(function ($items, $metalId) use ($latestRates) {
+            $metal = $items->first()->material?->metalType ?? $items->first()->metalType;
             $qty = $items->sum('stock_qty');
             $weightG = $items->reduce(fn ($acc, $p) => $acc + ($p->net_weight * $p->stock_qty), 0);
 
-            $rateObj = $latestRates->get($metal?->id);
+            $rateObj = $metal ? $latestRates->get($metal->id) : null;
             $sellRate = $rateObj ? (float) $rateObj->sell_rate : 85.50;
             $metalVal = $weightG * $sellRate;
 
@@ -594,7 +598,8 @@ class ReportController extends Controller
 
             foreach ($items as $p) {
                 $pQty = (int) $p->stock_qty;
-                $rateObj = $latestRates->get($p->metal_type_id);
+                $metalTypeId = $p->material?->metal_type_id ?? $p->metalType?->id;
+                $rateObj = $metalTypeId ? $latestRates->get($metalTypeId) : null;
                 $sellRate = $rateObj ? (float) $rateObj->sell_rate : 85.50;
                 $price = (($p->net_weight * $sellRate) + $p->labor_cost) * (1 + ($p->markup_rate / 100));
                 $categoryValuation += ($price * $pQty);
@@ -620,7 +625,7 @@ class ReportController extends Controller
                 'barcode' => $p->barcode,
                 'stock_qty' => $p->stock_qty,
                 'category' => $p->category?->name,
-                'metal_type' => $p->metalType?->name,
+                'metal_type' => $p->material?->metalType?->name ?? $p->metalType?->name ?? 'Gold',
                 'net_weight' => (float) $p->net_weight,
             ];
         })->values();

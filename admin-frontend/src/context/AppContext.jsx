@@ -46,8 +46,15 @@ export const AppProvider = ({ children }) => {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState({ all: [], modules: {} });
-  const [settings, setSettings] = useState({ language: 'km', low_stock_threshold: 3 });
   const [cambodianGold, setCambodianGold] = useState(null);
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem('jewelflow_settings');
+      return saved ? JSON.parse(saved) : { language: 'km', low_stock_threshold: 3 };
+    } catch {
+      return { language: 'km', low_stock_threshold: 3 };
+    }
+  });
   const [liveSpot, setLiveSpot] = useState({
     spot_price_per_oz: 0.00,
     spot_price_per_gram: 0.00,
@@ -85,6 +92,9 @@ export const AppProvider = ({ children }) => {
         localStorage.setItem('jewelflow_auth_user', JSON.stringify(res.user));
         setAuthToken(res.token);
         setCurrentUser(res.user);
+        setTimeout(() => {
+          refreshAllData(true);
+        }, 50);
         return res;
       }
       throw new Error(res?.message || 'Login failed');
@@ -113,7 +123,7 @@ export const AppProvider = ({ children }) => {
     if (!currentUser) return false;
     const role = (currentUser.role_name || currentUser.role?.name || '').toLowerCase();
     // SuperAdmin and Admin have full unrestricted access
-    if (role === 'super_admin' || role === 'admin' || currentUser.email === 'superadmin@jewelflow.com') {
+    if (role === 'super_admin' || role === 'admin' || currentUser.email === 'superadmin@gmail.com' || currentUser.email === 'superadmin@jewelflow.com') {
       return true;
     }
     const perms = currentUser.all_permissions || [];
@@ -267,7 +277,10 @@ export const AppProvider = ({ children }) => {
       if (permsDataRes.status === 'fulfilled' && permsDataRes.value) setPermissions(permsDataRes.value);
       if (settingsDataRes.status === 'fulfilled' && settingsDataRes.value) {
         const fetchedSettings = settingsDataRes.value || {};
-        setSettings(prev => ({ ...prev, ...fetchedSettings }));
+        setSettings(fetchedSettings);
+        try {
+          localStorage.setItem('jewelflow_settings', JSON.stringify(fetchedSettings));
+        } catch {}
         if (fetchedSettings.tax_rate !== undefined) {
           setTaxRate(parseFloat(fetchedSettings.tax_rate) || 0);
         }
@@ -537,22 +550,23 @@ export const AppProvider = ({ children }) => {
       gemstones: newProduct.gemstones || []
     };
     const saved = await apiService.addProduct(item);
-    // Use the server response so auto-generated fields (code_sku, barcode) show immediately
-    const finalItem = saved && saved.id ? { ...item, ...saved } : item;
-    setProducts(prev => [finalItem, ...prev]);
-    addNotification(`New jewelry piece "${finalItem.name}" registered in database.`, 'success');
+    await refreshProducts();
+    const finalName = saved?.name || newProduct.name || 'Jewelry Piece';
+    addNotification(`New jewelry piece "${finalName}" registered in database.`, 'success');
+    return saved;
   };
 
   const updateProduct = async (updatedProduct) => {
     const saved = await apiService.updateProduct(updatedProduct.id, updatedProduct);
-    const finalItem = saved && saved.id ? { ...updatedProduct, ...saved } : updatedProduct;
-    setProducts(prev => prev.map(p => p.id === finalItem.id ? finalItem : p));
-    addNotification(`Jewelry piece "${finalItem.name}" updated.`, 'info');
+    await refreshProducts();
+    const finalName = saved?.name || updatedProduct.name || 'Jewelry Piece';
+    addNotification(`Jewelry piece "${finalName}" updated.`, 'info');
+    return saved;
   };
 
   const deleteProduct = async (id) => {
     await apiService.deleteProduct(id);
-    setProducts(prev => prev.filter(p => p.id !== id));
+    await refreshProducts();
     addNotification(`Item removed from catalog database.`, 'warning');
   };
 
@@ -613,8 +627,12 @@ export const AppProvider = ({ children }) => {
     const customNotes = options.notes || options.customNotes || '';
 
     const subtotal = cart.reduce((acc, item) => acc + (item.calculatedPrice * item.qty), 0);
-    const discountAmount = (subtotal * (discountPercent / 100));
-    const taxableTotal = subtotal - discountAmount;
+    const finalDiscountPercent = options.discountPercent !== undefined ? Number(options.discountPercent) : discountPercent;
+    const finalDiscountAmount = options.discountAmount !== undefined
+      ? Math.min(subtotal, Math.max(0, Number(options.discountAmount)))
+      : (subtotal * (finalDiscountPercent / 100));
+    const discountAmount = finalDiscountAmount;
+    const taxableTotal = Math.max(0, subtotal - discountAmount);
     const taxAmount = taxableTotal * (taxRate / 100);
     const grandTotal = taxableTotal + taxAmount;
     const grandTotalUsd = Math.round(grandTotal * 100) / 100;
@@ -1251,6 +1269,18 @@ const deleteSupplier = async (id) => {
   }
 };
 
+const replenishMaterialItemsLocally = (items) => {
+  if (!items || !Array.isArray(items) || items.length === 0) return;
+  setMaterials(prev => prev.map(m => {
+    const matched = items.find(it => Number(it.material_id || it.id) === Number(m.id));
+    if (matched) {
+      const addQty = parseFloat(matched.quantity || matched.qty) || 0;
+      return { ...m, stock_qty: (parseFloat(m.stock_qty) || 0) + addQty };
+    }
+    return m;
+  }));
+};
+
 const addPurchase = async (purchaseData) => {
   try {
     const created = await apiService.createPurchase(purchaseData);
@@ -1265,9 +1295,13 @@ const addPurchase = async (purchaseData) => {
       purchase_date: purchaseData.purchase_date || new Date().toISOString().split('T')[0],
       status: purchaseData.status || 'pending',
       notes: purchaseData.notes || '',
+      items: purchaseData.items || created.items || [],
       created_at: new Date().toISOString()
     };
     setPurchases(prev => [newPurchase, ...prev]);
+    if (newPurchase.status === 'completed' && newPurchase.items?.length > 0) {
+      replenishMaterialItemsLocally(newPurchase.items);
+    }
     addNotification(`Purchase order "${newPurchase.invoice_no}" recorded.`, 'success');
     return newPurchase;
   } catch (e) {
@@ -1283,9 +1317,13 @@ const addPurchase = async (purchaseData) => {
       purchase_date: purchaseData.purchase_date || new Date().toISOString().split('T')[0],
       status: purchaseData.status || 'pending',
       notes: purchaseData.notes || '',
+      items: purchaseData.items || [],
       created_at: new Date().toISOString()
     };
     setPurchases(prev => [localPurchase, ...prev]);
+    if (localPurchase.status === 'completed' && localPurchase.items?.length > 0) {
+      replenishMaterialItemsLocally(localPurchase.items);
+    }
     addNotification(`Purchase order "${localPurchase.invoice_no}" recorded.`, 'success');
     return localPurchase;
   }
@@ -1335,7 +1373,11 @@ const cancelPurchaseOrder = async (id) => {
 };
 
 const confirmPurchaseArrival = async (id) => {
+  const targetPurchase = purchases.find(p => p.id === id);
   setPurchases(prev => prev.map(p => p.id === id ? { ...p, status: 'completed' } : p));
+  if (targetPurchase?.items?.length > 0) {
+    replenishMaterialItemsLocally(targetPurchase.items);
+  }
   addNotification(`Shipment received & inventory stock updated!`, 'success');
 
   try {
@@ -1360,6 +1402,11 @@ const createMadeProductFromSale = async (sale, item, customSpecs = {}) => {
   );
   const inStockUnits = item?.in_stock_qty ?? Math.min(item?.qty || 1, Math.max(0, Number(prod?.stock_qty) || 0));
 
+  const matchedMaterial = materials.find(m => 
+    (prod?.material_id && Number(m.id) === Number(prod.material_id)) ||
+    (prod?.metal_type_id && (Number(m.metal_type_id) === Number(prod.metal_type_id) || Number(m.metal_type?.id) === Number(prod.metal_type_id)))
+  ) || materials[0] || null;
+
   const defaultCraftsman = users.find(u => 
     (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('goldsmith') ||
     (u.name + ' ' + (u.role_display || u.role_name || u.role?.name || '')).toLowerCase().includes('craft') ||
@@ -1368,8 +1415,9 @@ const createMadeProductFromSale = async (sale, item, customSpecs = {}) => {
 
   const orderData = {
     product_id: prod?.id || null,
+    material_id: matchedMaterial?.id || prod?.material_id || (materials.length > 0 ? materials[0].id : 1),
     metal_type_id: prod?.metal_type_id || metalTypes[0]?.id || null,
-    supplier_id: prod?.supplier_id || suppliers[0]?.id || null,
+    supplier_id: prod?.supplier_id || matchedMaterial?.supplier_id || suppliers[0]?.id || null,
     user_id: defaultCraftsman?.id || currentUser?.id || null,
     order_no: `MP-ORD-${String(sale?.invoice_no || Math.floor(1000 + Math.random() * 9000)).replace(/[^a-zA-Z0-9]/g, '')}`,
     quantity: craftQuantity,
@@ -1377,7 +1425,7 @@ const createMadeProductFromSale = async (sale, item, customSpecs = {}) => {
     waste_weight: 0.15,
     crafting_cost: prod?.labor_cost || customSpecs.crafting_cost || 45.0,
     status: 'pending',
-    started_at: new Date().toISOString(),
+    started_at: null,
     notes: `Pre-order for Customer: ${sale?.customer_name || 'Walk-in Guest'} (${sale?.invoice_no || 'POS Ticket'}). Craft: ${craftQuantity} pcs (From Stock: ${inStockUnits} pcs). ${customSpecs.notes || ''}`
   };
 
@@ -1537,6 +1585,9 @@ const saveSettings = async (nextSettings) => {
     const saved = await apiService.updateSettings(nextSettings);
     const merged = { ...settings, ...nextSettings, ...(saved?.settings || {}) };
     setSettings(merged);
+    try {
+      localStorage.setItem('jewelflow_settings', JSON.stringify(merged));
+    } catch {}
     if (merged.tax_rate !== undefined) {
       setTaxRate(parseFloat(merged.tax_rate) || 0);
     }
@@ -1546,6 +1597,9 @@ const saveSettings = async (nextSettings) => {
     console.error('API updateSettings error, saving locally:', e);
     const merged = { ...settings, ...nextSettings };
     setSettings(merged);
+    try {
+      localStorage.setItem('jewelflow_settings', JSON.stringify(merged));
+    } catch {}
     if (merged.tax_rate !== undefined) {
       setTaxRate(parseFloat(merged.tax_rate) || 0);
     }

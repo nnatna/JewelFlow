@@ -178,7 +178,7 @@ export const ProfileSettingsSection = () => {
     .join('')
     .toUpperCase();
 
-  const isSuperAdmin = currentUser?.role_name === 'super_admin' || currentUser?.email === 'superadmin@jewelflow.com';
+  const isSuperAdmin = currentUser?.role_name === 'super_admin' || currentUser?.email === 'superadmin@gmail.com' || currentUser?.email === 'superadmin@jewelflow.com';
 
   return (
     <div className="space-y-6 select-none animate-fadeIn">

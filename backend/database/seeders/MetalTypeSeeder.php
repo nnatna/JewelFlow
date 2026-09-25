@@ -34,9 +34,12 @@ class MetalTypeSeeder extends Seeder
         }
 
         // Remap any products/materials/madeProducts referencing ids > 8 to valid 1..8
-        Product::where('metal_type_id', '>', 8)->update(['metal_type_id' => 3]);
-        Material::where('metal_type_id', '>', 8)->update(['metal_type_id' => 1]);
-        MadeProduct::where('metal_type_id', '>', 8)->update(['metal_type_id' => 3]);
+        if (Schema::hasColumn('products', 'metal_type_id')) {
+            Product::where('metal_type_id', '>', 8)->update(['metal_type_id' => 3]);
+        }
+        if (Schema::hasColumn('made_products', 'metal_type_id')) {
+            MadeProduct::where('metal_type_id', '>', 8)->update(['metal_type_id' => 3]);
+        }
 
         // Delete all metal types with id > 8
         MetalType::where('id', '>', 8)->delete();
