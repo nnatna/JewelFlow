@@ -258,29 +258,9 @@ export const BuybackView = () => {
         }
       }
 
-      // 2. If destination is Material -> Automatically update Material Stock
-      if (destinationType === 'material' && selectedMaterialObj && updateMaterial) {
-        const addedGrams = parseFloat(netWeight.toFixed(2));
-        const currentQty = parseFloat(selectedMaterialObj.stock_qty || 0);
-        const newStockQty = Math.round((currentQty + addedGrams) * 100) / 100;
-        
-        try {
-          await updateMaterial(selectedMaterialObj.id, {
-            ...selectedMaterialObj,
-            stock_qty: newStockQty
-          });
-          if (showToast) {
-            showToast(
-              isKhmer
-                ? `បានបន្ថែមស្តុក "${selectedMaterialObj.name}" +${addedGrams}g ជោគជ័យ (ស្តុកសរុប: ${newStockQty}g)!`
-                : `Added +${addedGrams}g to "${selectedMaterialObj.name}" vault stock (Total: ${newStockQty}g)!`,
-              'success'
-            );
-          }
-        } catch (matErr) {
-          console.error('Failed to update material stock:', matErr);
-        }
-      }
+      // 2. Material Stock is updated atomically by backend / processBuyback
+      const addedGrams = parseFloat(netWeight.toFixed(2));
+
 
       // 3. If destination is Jewelry -> Optionally catalog into products
       if (destinationType === 'jewelry' && autoCatalogJewelry && addProduct && jewelryName.trim()) {
@@ -993,22 +973,35 @@ export const BuybackView = () => {
                           </select>
                         </div>
 
-                        {selectedMaterialObj && (
-                          <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs space-y-1 font-mono">
-                            <div className="flex justify-between text-slate-500 text-[11px]">
-                              <span>{isKhmer ? 'ស្តុកបច្ចុប្បន្ន:' : 'Current Vault Stock:'}</span>
-                              <span className="font-bold text-slate-800">{selectedMaterialObj.stock_qty} {selectedMaterialObj.unit}</span>
+                        {selectedMaterialObj && (() => {
+                          const matUnit = (selectedMaterialObj.unit || 'g').toLowerCase();
+                          const isChiUnit = matUnit === 'chi' || matUnit === 'ជី' || matUnit.includes('chi') || matUnit.includes('ជី');
+                          const addedInMatUnit = isChiUnit ? (netWeight / 3.75) : netWeight;
+                          const currentQty = parseFloat(selectedMaterialObj.stock_qty || 0);
+                          const newStockQty = currentQty + addedInMatUnit;
+
+                          return (
+                            <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs space-y-1 font-mono">
+                              <div className="flex justify-between text-slate-500 text-[11px]">
+                                <span>{isKhmer ? 'ស្តុកបច្ចុប្បន្ន:' : 'Current Vault Stock:'}</span>
+                                <span className="font-bold text-slate-800">{currentQty.toFixed(isChiUnit ? 3 : 2)} {selectedMaterialObj.unit}</span>
+                              </div>
+                              <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-amber-100">
+                                <span>{isKhmer ? 'បន្ថែមស្តុកថ្មី:' : 'Auto Restock:'}</span>
+                                <span>
+                                  +{addedInMatUnit.toFixed(isChiUnit ? 3 : 2)} {selectedMaterialObj.unit}
+                                  <span className="text-slate-400 font-normal ml-1">
+                                    ({isChiUnit ? `${netWeight.toFixed(2)}g` : `${(netWeight / 3.75).toFixed(2)} ${isKhmer ? 'ជី' : 'Chi'}`})
+                                  </span>
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-amber-950 font-bold text-[11px] pt-0.5 border-t border-amber-100">
+                                <span>{isKhmer ? 'ស្តុកសរុបក្រោយទិញចូល:' : 'New Total Stock:'}</span>
+                                <span className="text-amber-900 font-bold">{newStockQty.toFixed(isChiUnit ? 3 : 2)} {selectedMaterialObj.unit}</span>
+                              </div>
                             </div>
-                            <div className="flex justify-between text-emerald-700 font-bold pt-1 border-t border-amber-100">
-                              <span>{isKhmer ? 'បន្ថែមស្តុកថ្មី:' : 'Auto Restock:'}</span>
-                              <span>+{netWeight.toFixed(2)}g ({((netWeight || 0) / 3.75).toFixed(2)} {isKhmer ? 'ជី' : 'Chi'})</span>
-                            </div>
-                            <div className="flex justify-between text-amber-950 font-bold text-[11px]">
-                              <span>{isKhmer ? 'ស្តុកសរុបក្រោយទិញចូល:' : 'New Total Stock:'}</span>
-                              <span>{(parseFloat(selectedMaterialObj.stock_qty || 0) + parseFloat(netWeight.toFixed(2))).toFixed(2)} {selectedMaterialObj.unit}</span>
-                            </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
                     ) : (
                       /* Jewelry Option: Old vs New */

@@ -12,6 +12,8 @@ class Buyback extends Model
     protected $fillable = [
         'customer_id',
         'metal_type_id',
+        'material_id',
+        'destination_type',
         'unit_id',
         'weight',
         'buyback_rate',
@@ -19,6 +21,7 @@ class Buyback extends Model
         'labor_deduction',
         'total_refund',
         'buyback_date',
+        'notes',
     ];
 
     protected $casts = [
@@ -43,6 +46,11 @@ class Buyback extends Model
     public function metalType()
     {
         return $this->belongsTo(MetalType::class);
+    }
+
+    public function material()
+    {
+        return $this->belongsTo(Material::class);
     }
 
     public function payments()

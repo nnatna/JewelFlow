@@ -124,6 +124,34 @@ class MaterialController extends Controller
         return response()->json($material);
     }
 
+    /**
+     * Quick restock vault material.
+     */
+    public function quickRestock(Request $request, $id): JsonResponse
+    {
+        $material = Material::findOrFail($id);
+        $validated = $request->validate([
+            'quantity' => 'required|numeric|min:0.001',
+            'notes' => 'nullable|string',
+        ]);
+
+        $qty = (float) $validated['quantity'];
+        $material->increment('stock_qty', $qty);
+        $newStock = (float) $material->stock_qty;
+        $min = (float) ($material->min_stock_level ?? 10);
+        $material->update([
+            'status' => $newStock <= 0 ? 'out_of_stock' : ($newStock <= $min ? 'low_stock' : 'in_stock'),
+        ]);
+
+        $material->load(self::WITH);
+
+        return response()->json([
+            'success' => true,
+            'message' => "Successfully restocked {$qty}g of {$material->name}.",
+            'data' => $material,
+        ]);
+    }
+
     public function destroy($id): JsonResponse
     {
         $material = Material::findOrFail($id);

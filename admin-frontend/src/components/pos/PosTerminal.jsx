@@ -535,15 +535,17 @@ export const PosTerminal = () => {
       const created = await addCustomer({
         name: newCustomerForm.name.trim(),
         phone: newCustomerForm.phone.trim(),
-        email: newCustomerForm.email.trim() || null,
-        address: newCustomerForm.address.trim() || null,
-        tier: 'Standard',
-        discount_rate: 0.0,
+        email: newCustomerForm.email?.trim() || null,
+        address: newCustomerForm.address?.trim() || null,
+        tier: newCustomerForm.tier || 'Standard',
+        discount_rate: newCustomerForm.discount_rate !== undefined ? newCustomerForm.discount_rate : 0.0,
         loyalty_points: 50
       });
 
       setSelectedCustomer(created);
-      setDiscountPercent(created.discount_rate || 0);
+      if (typeof setContextDiscountPercent === 'function') {
+        setContextDiscountPercent(created.discount_rate || 0);
+      }
       setShowAddCustomerModal(false);
       setNewCustomerForm({
         name: '',
@@ -840,19 +842,6 @@ export const PosTerminal = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            {/* Hold Ticket to recall later */}
-            {cart.length > 0 && (
-              <button
-                type="button"
-                onClick={handlePinTicket}
-                className="text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 font-bold px-2.5 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5 transition-all active:scale-95 shadow-2xs"
-                title={isKhmer ? 'ផ្អាកកន្ត្រកដើម្បីបំរើអតិថិជនផ្សេង' : 'Hold ticket to serve another guest'}
-              >
-                <FontAwesomeIcon icon={faBookmark} className="w-3 h-3 text-amber-700" />
-                <span>{isKhmer ? 'ផ្អាកសិន' : 'Hold'}</span>
-              </button>
-            )}
-
             {cart.length > 0 && (
               <button
                 type="button"
@@ -865,76 +854,6 @@ export const PosTerminal = () => {
             )}
           </div>
         </div>
-
-        {/* Held Tickets Tray */}
-        {pinnedTickets.length > 0 && (
-          <div className="shrink-0 p-3 bg-gradient-to-br from-amber-50/90 to-yellow-50/50 border border-amber-200/90 rounded-2xl space-y-2 mt-2.5 shadow-2xs">
-            <div className="flex items-center justify-between text-xs font-bold text-amber-900">
-              <span className="flex items-center gap-1.5">
-                <FontAwesomeIcon icon={faBookmark} className="w-3.5 h-3.5 text-amber-600" />
-                <span>{isKhmer ? 'កន្ត្រកបានផ្អាក' : 'Held Tickets'}</span>
-                <span className="bg-amber-200/80 text-amber-950 px-1.5 py-0.2 rounded-full text-[10px] font-mono">
-                  {pinnedTickets.length}
-                </span>
-              </span>
-            </div>
-            <div className="space-y-1.5 max-h-28 overflow-y-auto pr-0.5" style={{ scrollbarWidth: 'thin' }}>
-              {pinnedTickets.map(pt => (
-                <div
-                  key={pt.id}
-                  className="p-2 bg-white rounded-xl border border-amber-200 flex items-center justify-between text-xs shadow-2xs gap-2 hover:border-amber-300 transition-colors"
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    {/* Overlapping thumbnail images preview */}
-                    <div className="flex -space-x-2 overflow-hidden shrink-0">
-                      {pt.cart.slice(0, 3).map((ci, idx) => (
-                        <img
-                          key={idx}
-                          src={ci.image || fallbackImg}
-                          alt={ci.name}
-                          className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover bg-slate-100"
-                          onError={(e) => { e.target.src = fallbackImg; }}
-                        />
-                      ))}
-                      {pt.cart.length > 3 && (
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-amber-100 text-[9px] font-bold text-amber-800 ring-2 ring-white">
-                          +{pt.cart.length - 3}
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="font-bold text-slate-800 truncate">
-                        {pt.selectedCustomer ? pt.selectedCustomer.name : (isKhmer ? 'ភ្ញៀវទូទៅ' : 'Walk-in Guest')}
-                      </div>
-                      <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
-                        <span>{pt.time}</span>
-                        <span>•</span>
-                        <span className="font-bold text-amber-900">${pt.grandTotal.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleRestoreTicket(pt)}
-                      className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold text-[11px] cursor-pointer shadow-2xs transition-all active:scale-95"
-                    >
-                      {isKhmer ? 'បន្ត' : 'Resume'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeletePinnedTicket(pt)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-colors"
-                      title={isKhmer ? 'លុប' : 'Delete'}
-                    >
-                      <FontAwesomeIcon icon={faTrashCan} className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Customer Selector Card */}
         <div className="shrink-0 my-2.5 bg-slate-50/80 border border-slate-200/80 rounded-2xl p-2.5 sm:p-3 transition-all">

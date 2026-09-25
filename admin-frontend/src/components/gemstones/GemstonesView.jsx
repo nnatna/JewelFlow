@@ -30,8 +30,8 @@ export const GemstonesView = () => {
 
   const paginatedGemstones = filteredGemstones.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const totalVaultValue = gemstones.reduce((acc, g) => acc + (g.carat_weight * g.price_per_carat * g.stock_qty), 0);
-  const totalCarats = gemstones.reduce((acc, g) => acc + (g.carat_weight * g.stock_qty), 0);
+  const totalVaultValue = gemstones.reduce((acc, g) => acc + ((parseFloat(g.carat_weight) || 0) * (parseFloat(g.price_per_carat) || 0) * (parseInt(g.stock_qty, 10) || 0)), 0);
+  const totalCarats = gemstones.reduce((acc, g) => acc + ((parseFloat(g.carat_weight) || 0) * (parseInt(g.stock_qty, 10) || 0)), 0);
 
   return (
     <div className="space-y-6 w-full">

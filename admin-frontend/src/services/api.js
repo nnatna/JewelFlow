@@ -234,6 +234,7 @@ export const apiService = {
   },
   createMaterial: async (data) => (await client.post('/materials', data)).data,
   updateMaterial: async (id, data) => (await client.put(`/materials/${id}`, data)).data,
+  quickRestockMaterial: async (id, quantity, notes = '') => (await client.post(`/materials/${id}/restock`, { quantity, notes })).data,
   deleteMaterial: async (id) => { await client.delete(`/materials/${id}`); },
 
   // 7a. Material Categories
@@ -289,28 +290,6 @@ export const apiService = {
   deleteMadeProduct: async (id) => {
     const res = await client.delete(`/made-products/${id}`);
     return res.data;
-  },
-
-  // 7c. Made Products / Custom Jewelry Orders
-  getMadeProducts: async () => {
-    try {
-      const res = await client.get('/made-products');
-      return Array.isArray(res.data) ? res.data : (res.data?.data || []);
-    } catch (e) {
-      console.error('API getMadeProducts error:', e);
-      return [];
-    }
-  },
-  createMadeProduct: async (data) => (await client.post('/made-products', data)).data,
-  updateMadeProduct: async (id, data) => (await client.put(`/made-products/${id}`, data)).data,
-  deleteMadeProduct: async (id) => {
-    try {
-      const res = await client.delete(`/made-products/${id}`);
-      return res.data;
-    } catch (e) {
-      console.warn('API deleteMadeProduct error:', e.message);
-      return { success: true };
-    }
   },
 
   // 8. Customers
@@ -542,17 +521,23 @@ export const apiService = {
       return data.map(b => ({
         id: b.id,
         buyback_no: `BB-2026-${String(b.id).padStart(4, '0')}`,
+        customer_id: b.customer_id,
         customer_name: b.customer?.name || 'Walk-in Customer',
         customer_phone: b.customer?.phone || 'N/A',
         buyback_date: b.buyback_date ? b.buyback_date.split('T')[0] : 'Today',
+        metal_type_id: b.metal_type_id,
         metal_name: b.metal_type?.name || b.metalType?.name || '24K Gold',
-        gross_weight: parseFloat(b.weight) || 10.0,
-        net_weight: parseFloat(b.weight) * 0.98,
+        material_id: b.material_id,
+        material_name: b.material?.name || null,
+        destination_type: b.destination_type || 'material',
+        gross_weight: parseFloat(b.weight) || 0,
+        net_weight: parseFloat(b.weight) * (1 - (parseFloat(b.deduction_rate) || 0) / 100),
         buy_rate_per_gram: parseFloat(b.buyback_rate) || 80.0,
-        total_amount: parseFloat(b.total_refund) || 750.0,
+        melt_loss_pct: parseFloat(b.deduction_rate) || 0,
+        total_amount: parseFloat(b.total_refund) || 0,
         payment_method: 'Cash',
         status: 'Approved & Paid',
-        notes: 'Assayed and verified by boutique jeweler.'
+        notes: b.notes || 'Assayed and verified by boutique jeweler.'
       }));
     } catch (e) {
       console.error('API getBuybacks error:', e);

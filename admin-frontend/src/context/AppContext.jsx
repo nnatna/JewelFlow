@@ -1060,19 +1060,46 @@ const processBuyback = async (buybackData) => {
     const res = await apiService.createBuyback({
       customer_id: buybackData.customer_id || null,
       metal_type_id: buybackData.metal_type_id || 1,
+      material_id: buybackData.material_id || null,
+      destination_type: buybackData.destination_type || 'material',
       weight: buybackData.gross_weight,
       buyback_rate: buybackData.buy_rate_per_gram,
       deduction_rate: buybackData.melt_loss_pct || 0,
       labor_deduction: buybackData.appraisal_fee || 0,
       total_refund: buybackData.total_amount,
-      buyback_date: newRecord.buyback_date
+      buyback_date: newRecord.buyback_date,
+      notes: buybackData.notes || ''
     });
     if (res && res.id) {
       newRecord.id = res.id;
       newRecord.buyback_no = `BB-2026-${String(res.id).padStart(4, '0')}`;
+      if (res.material_id) newRecord.material_id = res.material_id;
+    }
+    // Refresh materials to ensure all inventory counts and statuses are synchronized
+    try {
+      const freshMaterials = await apiService.getMaterials();
+      if (Array.isArray(freshMaterials) && freshMaterials.length > 0) {
+        setMaterials(freshMaterials);
+      }
+    } catch (matRefreshErr) {
+      console.warn('Failed to refresh materials after buyback:', matRefreshErr);
     }
   } catch (err) {
     console.warn('Backend createBuyback failed, saving locally:', err?.message || err);
+    // Locally adjust material stock taking unit into account
+    if (buybackData.destination_type === 'material' && buybackData.material_id) {
+      const addedGrams = parseFloat(buybackData.net_weight || buybackData.gross_weight || 0);
+      setMaterials(prev => prev.map(m => {
+        if (m.id === buybackData.material_id) {
+          const u = (m.unit || 'g').toLowerCase();
+          const isChi = u === 'chi' || u === 'ជី' || u.includes('chi') || u.includes('ជី');
+          const delta = isChi ? (addedGrams / 3.75) : addedGrams;
+          const newQty = (parseFloat(m.stock_qty) || 0) + delta;
+          return { ...m, stock_qty: Math.round(newQty * 1000) / 1000 };
+        }
+        return m;
+      }));
+    }
   }
   setBuybacks(prev => [newRecord, ...(Array.isArray(prev) ? prev : [])]);
   addNotification(`Buyback voucher ${newRecord.buyback_no} issued for $${Number(newRecord.total_amount || 0).toLocaleString()}`, 'success');
@@ -1086,6 +1113,8 @@ const addCustomer = async (customerData) => {
     phone: customerData.phone?.trim(),
     email: customerData.email?.trim() || null,
     address: customerData.address?.trim() || null,
+    tier: customerData.tier || 'Standard',
+    discount_rate: customerData.discount_rate !== undefined ? customerData.discount_rate : 0,
     loyalty_points: Number(customerData.loyalty_points) || 50
   };
 
@@ -1095,14 +1124,14 @@ const addCustomer = async (customerData) => {
     ...payload,
     total_spent: 0,
     loyalty_points: payload.loyalty_points,
-    tier: customerData.tier || 'Standard',
-    discount_rate: customerData.discount_rate !== undefined ? customerData.discount_rate : 0
+    tier: payload.tier,
+    discount_rate: payload.discount_rate
   };
 
   try {
     const res = await apiService.addCustomer(payload);
     if (res && res.id) {
-      newCust = { ...newCust, id: res.id };
+      newCust = { ...newCust, ...res, id: res.id };
     }
   } catch (e) {
     console.error('Backend addCustomer error:', e);
@@ -1893,6 +1922,30 @@ const deleteRole = async (id) => {
     }
   };
 
+  const quickRestockMaterial = async (id, quantity, notes = '') => {
+    try {
+      const res = await apiService.quickRestockMaterial(id, quantity, notes);
+      const updated = res.data || res;
+      setMaterials(prev => prev.map(m => m.id === id ? { ...m, ...updated } : m));
+      addNotification(`Restocked ${quantity}g of ${updated.name || 'material'}.`, 'success');
+      return updated;
+    } catch (e) {
+      console.error('API quickRestockMaterial error:', e);
+      setMaterials(prev => prev.map(m => {
+        if (m.id === id) {
+          const newStock = (parseFloat(m.stock_qty) || 0) + parseFloat(quantity);
+          return {
+            ...m,
+            stock_qty: newStock,
+            status: newStock > (m.min_stock_level || 10) ? 'in_stock' : (newStock > 0 ? 'low_stock' : 'out_of_stock')
+          };
+        }
+        return m;
+      }));
+      return { success: true };
+    }
+  };
+
   const deleteMaterial = async (id) => {
     try {
       await apiService.deleteMaterial(id);
@@ -1970,6 +2023,7 @@ return (
     setMaterialCategories,
     addMaterial,
     updateMaterial,
+    quickRestockMaterial,
     deleteMaterial,
     addMaterialCategory,
     updateMaterialCategory,

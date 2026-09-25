@@ -23,14 +23,6 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
   const isKhmer = (i18n.language || 'km').startsWith('km');
   const [selectedUnitCode, setSelectedUnitCode] = useState('chi');
 
-  // Filter precious metals / casting materials from materials catalog
-  const metalMaterials = useMemo(() => {
-    if (!materials || materials.length === 0) return [];
-    // Prioritize precious metals, bullion, casting grain, or general materials
-    const metalsOnly = materials.filter(m => m.metal_type_id || m.metal_type || (m.unit === 'g' || m.unit === 'chi' || m.unit === 'damlung'));
-    return metalsOnly.length > 0 ? metalsOnly : materials;
-  }, [materials]);
-
   const [formData, setFormData] = useState({
     name: '',
     code_sku: '',
@@ -44,6 +36,7 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
     labor_cost: 150,
     markup_rate: 15,
     stock_qty: 5,
+    status: 'active',
     image: null,
     description: '',
   });
@@ -51,23 +44,39 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
+    if (!isOpen) return;
     setErrors({});
     if (initialData) {
-      // Find matching material if exists
-      const matchedMat = materials.find(m => 
-        (initialData.material_id && m.id === initialData.material_id) ||
-        (m.metal_type_id && m.metal_type_id === initialData.metal_type_id)
-      );
+      const initialMatId = initialData.material_id || initialData.material?.id || (
+        materials.find(m => Number(m.metal_type_id) === Number(initialData.metal_type_id))?.id
+      ) || (materials[0]?.id ? String(materials[0].id) : '');
+
+      const initialMetalTypeId = initialData.metal_type_id || initialData.material?.metal_type_id || (
+        materials.find(m => String(m.id) === String(initialMatId))?.metal_type_id
+      ) || (metalTypes[0]?.id || 1);
+
       const currentUnitCode = initialData.unitRelation?.code || initialData.unit || 'chi';
       setSelectedUnitCode(currentUnitCode);
+
       setFormData({
-        ...initialData,
-        material_id: matchedMat?.id || initialData.material_id || '',
+        name: initialData.name || '',
+        code_sku: initialData.code_sku || '',
+        barcode: initialData.barcode || '',
+        category_id: initialData.category_id || categories[0]?.id || 1,
+        material_id: initialMatId ? String(initialMatId) : '',
+        metal_type_id: Number(initialMetalTypeId),
         unit_id: initialData.unit_id || (units || []).find(u => u.code === currentUnitCode)?.id || '',
+        net_weight: initialData.net_weight !== undefined ? parseFloat(initialData.net_weight) : 5.0,
+        gross_weight: initialData.gross_weight !== undefined ? parseFloat(initialData.gross_weight) : 5.2,
+        labor_cost: initialData.labor_cost !== undefined ? parseFloat(initialData.labor_cost) : 150,
+        markup_rate: initialData.markup_rate !== undefined ? parseFloat(initialData.markup_rate) : 15,
+        stock_qty: initialData.stock_qty !== undefined ? parseInt(initialData.stock_qty, 10) : 0,
+        status: initialData.status || 'active',
+        image: initialData.image || null,
         description: initialData.description || '',
       });
     } else {
-      const defaultMat = metalMaterials[0] || materials[0] || null;
+      const defaultMat = materials[0] || null;
       const chiUnit = (units || []).find(u => u.code === 'chi');
       setSelectedUnitCode('chi');
       setFormData({
@@ -76,26 +85,26 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
         barcode: '',
         category_id: categories[0]?.id || 1,
         metal_type_id: defaultMat?.metal_type_id || metalTypes[0]?.id || 1,
-        material_id: defaultMat?.id || '',
+        material_id: defaultMat?.id ? String(defaultMat.id) : '',
         unit_id: chiUnit?.id || '',
         net_weight: 5.0,
         gross_weight: 5.2,
         labor_cost: 150,
         markup_rate: 15,
         stock_qty: 0,
+        status: 'active',
         image: null,
         description: '',
       });
     }
-  }, [initialData, isOpen, categories, metalTypes, materials, metalMaterials, units]);
+  }, [isOpen, initialData?.id]);
 
   if (!isOpen) return null;
 
   // Selected Material & Live estimated retail calculation
-  const selectedMaterial = materials.find(m => 
-    (formData.material_id && Number(m.id) === Number(formData.material_id)) ||
-    (m.metal_type_id && Number(m.metal_type_id) === Number(formData.metal_type_id))
-  ) || null;
+  const selectedMaterial = materials.find(m => String(m.id) === String(formData.material_id)) || (
+    materials.find(m => Number(m.metal_type_id) === Number(formData.metal_type_id))
+  ) || materials[0] || null;
 
   const activeUnit = (units || []).find(u => u.code === selectedUnitCode) || {
     code: 'chi',
@@ -144,9 +153,8 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
     setErrors({});
     setIsSubmitting(true);
     try {
-      const selectedMat = materials.find(m => 
-        (formData.material_id && Number(m.id) === Number(formData.material_id)) ||
-        (m.metal_type_id && Number(m.metal_type_id) === Number(formData.metal_type_id))
+      const selectedMat = materials.find(m => String(m.id) === String(formData.material_id)) || (
+        materials.find(m => Number(m.metal_type_id) === Number(formData.metal_type_id))
       ) || materials[0] || null;
 
       const selectedUnitObj = (units || []).find(u => u.code === selectedUnitCode);
@@ -270,7 +278,7 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
                 <div>
                   <div className="flex justify-between items-center mb-1">
                     <label className="block text-slate-700 font-bold">
-                      {t('productModal.metalPurity', 'Metal Karat & Purity')}
+                      {t('productModal.metalPurity', 'Metal Karat & Purity')} <span className="text-rose-500">*</span>
                     </label>
                     {selectedMaterial && (
                       <span className={`text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded border ${
@@ -280,47 +288,39 @@ export const ProductModal = ({ isOpen, onClose, initialData = null }) => {
                             ? 'text-amber-700 bg-amber-50 border-amber-200'
                             : 'text-emerald-700 bg-emerald-50 border-emerald-200'
                       }`}>
-                        {isKhmer ? 'ស្តុកក្នុងឃ្លាំង:' : 'Vault:'} {Number(selectedMaterial.stock_qty || 0).toLocaleString()} {selectedMaterial.unit || 'g'}
+                        {isKhmer ? 'ស្តុក:' : 'Vault:'} {
+                          (selectedMaterial.unit === 'g' || selectedMaterial.unit === 'gram' || selectedMaterial.metal_type_id)
+                            ? `${((Number(selectedMaterial.stock_qty || 0)) / 3.75).toFixed(2)} ជី (${Number(selectedMaterial.stock_qty || 0)}g)`
+                            : `${Number(selectedMaterial.stock_qty || 0)} ${selectedMaterial.unit || 'pcs'}`
+                        }
                       </span>
                     )}
                   </div>
                   <select
-                    value={formData.material_id ? `mat-${formData.material_id}` : `metal-${formData.metal_type_id}`}
+                    required
+                    value={formData.material_id ? String(formData.material_id) : ''}
                     onChange={(e) => {
-                      const val = e.target.value;
-                      if (val.startsWith('mat-')) {
-                        const matId = Number(val.replace('mat-', ''));
-                        const selectedMat = materials.find(m => Number(m.id) === matId);
-                        if (selectedMat) {
-                          setFormData(prev => ({
-                            ...prev,
-                            material_id: selectedMat.id,
-                            metal_type_id: selectedMat.metal_type_id || prev.metal_type_id || 1
-                          }));
-                        }
-                      } else if (val.startsWith('metal-')) {
-                        const typeId = Number(val.replace('metal-', ''));
-                        const matchedMat = materials.find(m => Number(m.metal_type_id) === typeId);
-                        setFormData(prev => ({
-                          ...prev,
-                          material_id: matchedMat ? matchedMat.id : '',
-                          metal_type_id: typeId
-                        }));
-                      }
+                      const selectedId = e.target.value;
+                      const selectedMat = materials.find(m => String(m.id) === String(selectedId));
+                      setFormData(prev => ({
+                        ...prev,
+                        material_id: selectedId,
+                        metal_type_id: selectedMat?.metal_type_id || prev.metal_type_id || 1
+                      }));
                     }}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-medium focus:border-amber-500 focus:bg-white focus:outline-none transition-colors cursor-pointer"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold focus:border-amber-500 focus:bg-white focus:outline-none transition-colors cursor-pointer"
                   >
-                    {metalMaterials.length > 0 ? (
-                      metalMaterials.map(m => (
-                        <option key={`mat-${m.id}`} value={`mat-${m.id}`}>
-                          {m.name} {m.purity ? `(${m.purity}%)` : ''} - {isKhmer ? 'ស្តុក:' : 'Stock:'} {Number(m.stock_qty || 0)} {m.unit || 'g'}
+                    <option value="">{isKhmer ? '-- ជ្រើសរើសវត្ថុធាតុដើម / សម្ភារៈ --' : '-- Select Material / Metal --'}</option>
+                    {materials.map(m => {
+                      const stockDisplay = (m.unit === 'g' || m.unit === 'gram' || m.metal_type_id)
+                        ? `${((Number(m.stock_qty || 0)) / 3.75).toFixed(2)} ជី (${Number(m.stock_qty || 0)}g)`
+                        : `${Number(m.stock_qty || 0)} ${m.unit || 'pcs'}`;
+                      return (
+                        <option key={m.id} value={String(m.id)}>
+                          {m.name} {m.purity ? `(${m.purity})` : ''} — [{isKhmer ? 'ស្តុក' : 'Stock'}: {stockDisplay}]
                         </option>
-                      ))
-                    ) : (
-                      metalTypes.map(m => (
-                        <option key={`metal-${m.id}`} value={`metal-${m.id}`}>{m.name}</option>
-                      ))
-                    )}
+                      );
+                    })}
                   </select>
                 </div>
               </div>

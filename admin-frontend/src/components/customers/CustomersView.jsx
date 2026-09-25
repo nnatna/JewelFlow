@@ -93,7 +93,7 @@ export const CustomersView = () => {
     setActiveTab('pos');
   };
 
-  const totalClientsSpend = customers.reduce((acc, c) => acc + c.total_spent, 0);
+  const totalClientsSpend = customers.reduce((acc, c) => acc + (parseFloat(c.total_spent) || 0), 0);
 
   return (
     <div className="space-y-6 w-full">
@@ -113,7 +113,7 @@ export const CustomersView = () => {
           <div className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-right shadow-xs">
             <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">{t('customers.portfolio', 'Total Customer Portfolio')}</span>
             <span className="text-base font-mono font-bold text-amber-700">
-              ${totalClientsSpend.toLocaleString()}
+              ${totalClientsSpend.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
 
@@ -225,7 +225,7 @@ export const CustomersView = () => {
                       </span>
                     </td>
                     <td className="p-4 text-right font-mono font-bold text-sm text-slate-900 whitespace-nowrap">
-                      ${customer.total_spent.toLocaleString()}
+                      ${(parseFloat(customer.total_spent) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="p-4 text-right whitespace-nowrap">
                       <button

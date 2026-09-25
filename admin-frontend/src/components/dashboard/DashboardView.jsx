@@ -40,9 +40,9 @@ export const DashboardView = () => {
 
   // Computed metrics
   const totalSalesRevenue = sales.reduce((acc, s) => acc + (parseFloat(s.grand_total_usd ?? s.grand_total) || 0), 0);
-  const totalGoldGrams = products.reduce((acc, p) => acc + (p.net_weight * p.stock_qty), 0);
+  const totalGoldGrams = products.reduce((acc, p) => acc + ((parseFloat(p.net_weight) || 0) * (parseInt(p.stock_qty, 10) || 0)), 0);
   const avgTicket = sales.length > 0 ? (totalSalesRevenue / sales.length) : 0;
-  const totalBuybacksAmount = buybacks.reduce((acc, b) => acc + b.total_amount, 0);
+  const totalBuybacksAmount = buybacks.reduce((acc, b) => acc + (parseFloat(b.total_amount) || 0), 0);
 
   const lowStockProducts = products.filter(p => p.stock_qty <= 3);
   const [showLowStockAlert, setShowLowStockAlert] = useState(true);

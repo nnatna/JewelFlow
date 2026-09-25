@@ -49,6 +49,7 @@ export const MadeProductsView = () => {
     materials,
     getMaterialEffectivePrice,
     addPurchase,
+    quickRestockMaterial,
     setActiveTab,
     searchQuery
   } = useApp();
@@ -238,29 +239,37 @@ export const MadeProductsView = () => {
   };
 
   // Helper: Find matching raw material
-  const findMatchingMaterial = (metalTypeId, productId) => {
-    let mat = materials.find(m => 
-      (m.metal_type_id && String(m.metal_type_id) === String(metalTypeId)) ||
-      (m.metal_type?.id && String(m.metal_type.id) === String(metalTypeId))
-    );
-    if (!mat && productId) {
+  const findMatchingMaterial = (materialId, metalTypeId, productId) => {
+    if (materialId) {
+      const mat = materials.find(m => Number(m.id) === Number(materialId));
+      if (mat) return mat;
+    }
+    if (productId) {
       const prod = products.find(p => p.id === Number(productId));
       if (prod && prod.material_id) {
-        mat = materials.find(m => Number(m.id) === Number(prod.material_id));
+        const mat = materials.find(m => Number(m.id) === Number(prod.material_id));
+        if (mat) return mat;
       }
     }
-    return mat || materials[0] || null;
+    if (metalTypeId) {
+      const mat = materials.find(m => 
+        (m.metal_type_id && String(m.metal_type_id) === String(metalTypeId)) ||
+        (m.metal_type?.id && String(m.metal_type.id) === String(metalTypeId))
+      );
+      if (mat) return mat;
+    }
+    return materials[0] || null;
   };
 
-  const checkMaterialStockGuard = (metalTypeId, productId, metalWeightUsedChi, wasteWeightChi, quantity, targetStatus) => {
+  const checkMaterialStockGuard = (materialId, metalTypeId, productId, metalWeightUsed, wasteWeight, quantity, targetStatus, isWeightInGrams = false, orderItem = null) => {
     if (targetStatus !== 'in_progress' && targetStatus !== 'completed') {
       return true;
     }
 
-    const mat = findMatchingMaterial(metalTypeId, productId);
+    const mat = findMatchingMaterial(materialId, metalTypeId, productId);
     const stock = mat ? Number(mat.stock_qty || 0) : 0;
-    const metalGrams = (parseFloat(metalWeightUsedChi) || 0) * 3.75;
-    const wasteGrams = (parseFloat(wasteWeightChi) || 0) * 3.75;
+    const metalGrams = isWeightInGrams ? (parseFloat(metalWeightUsed) || 0) : ((parseFloat(metalWeightUsed) || 0) * 3.75);
+    const wasteGrams = isWeightInGrams ? (parseFloat(wasteWeight) || 0) : ((parseFloat(wasteWeight) || 0) * 3.75);
     const weightNeeded = (metalGrams + wasteGrams) * (parseInt(quantity, 10) || 1);
     const required = weightNeeded > 0 ? weightNeeded : 1;
 
@@ -270,6 +279,7 @@ export const MadeProductsView = () => {
       const metal = metalTypes.find(m => m.id === Number(metalTypeId));
 
       setShortageModalData({
+        orderItem,
         material: mat,
         product: prod,
         metal: metal,
@@ -292,12 +302,15 @@ export const MadeProductsView = () => {
     }
 
     const canProceed = await checkMaterialStockGuard(
+      formData.material_id,
       formData.metal_type_id,
       formData.product_id,
       formData.metal_weight_used,
       formData.waste_weight,
       formData.quantity,
-      formData.status
+      formData.status,
+      false,
+      editingItem
     );
 
     if (!canProceed) {
@@ -337,6 +350,21 @@ export const MadeProductsView = () => {
       refreshAllData(true);
     } catch (err) {
       console.error('Error saving made jewelry order:', err);
+      const data = err?.response?.data;
+      if (data?.error_type === 'material_stock_empty') {
+        const mat = materials.find(m => Number(m.id) === Number(data.material_id)) || materials[0];
+        const curStock = data.current_stock ?? (mat?.stock_qty || 0);
+        const reqStock = data.required_stock ?? 5;
+        setShortageModalData({
+          orderItem: editingItem,
+          material: mat,
+          product: products.find(p => p.id === Number(formData.product_id)),
+          targetStatus: formData.status,
+          currentStock: curStock,
+          requiredStock: reqStock,
+          deficit: Math.max(0, reqStock - curStock) || 10,
+        });
+      }
       const errMsg = err?.response?.data?.message || (isKhmer ? 'មានបញ្ហាក្នុងការរក្សាទុក' : 'Error saving record');
       showToast(errMsg, 'error');
     } finally {
@@ -362,13 +390,16 @@ export const MadeProductsView = () => {
   };
 
   const handleStatusChange = async (item, newStatus) => {
-    const canProceed = await checkMaterialStockGuard(
+    const canProceed = checkMaterialStockGuard(
+      item.material_id || item.material?.id,
       item.metal_type_id || item.metal_type?.id,
       item.product_id || item.product?.id,
       item.metal_weight_used,
       item.waste_weight,
       item.quantity,
-      newStatus
+      newStatus,
+      true,
+      item
     );
 
     if (!canProceed) {
@@ -380,6 +411,21 @@ export const MadeProductsView = () => {
       showToast(isKhmer ? 'បានផ្លាស់ប្ដូរស្ថានភាពរួចរាល់' : `Status changed to ${newStatus}`, 'success');
       refreshAllData(true);
     } catch (err) {
+      const data = err?.response?.data;
+      if (data?.error_type === 'material_stock_empty') {
+        const mat = materials.find(m => Number(m.id) === Number(data.material_id)) || item.material || materials[0];
+        const curStock = data.current_stock ?? (mat?.stock_qty || 0);
+        const reqStock = data.required_stock ?? 5;
+        setShortageModalData({
+          orderItem: item,
+          material: mat,
+          product: item.product,
+          targetStatus: newStatus,
+          currentStock: curStock,
+          requiredStock: reqStock,
+          deficit: Math.max(0, reqStock - curStock) || 10,
+        });
+      }
       const errMsg = err?.response?.data?.message || (isKhmer ? 'មិនអាចប្តូរស្ថានភាពបានទេ' : 'Failed to update status');
       showToast(errMsg, 'error');
     }
@@ -1259,7 +1305,7 @@ export const MadeProductsView = () => {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-3">
+              <div className="pt-3 flex flex-wrap items-center justify-end gap-2.5">
                 <button
                   type="button"
                   onClick={() => setShortageModalData(null)}
@@ -1267,6 +1313,58 @@ export const MadeProductsView = () => {
                 >
                   {isKhmer ? 'បោះបង់' : 'Cancel'}
                 </button>
+
+                {/* Instant Vault Restock Button */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!shortageModalData?.material?.id) return;
+                    const mat = shortageModalData.material;
+                    const def = shortageModalData.deficit || 10;
+                    const restockQty = Math.max(Math.ceil(def + 10), 20);
+                    const targetItem = shortageModalData.orderItem;
+                    const targetStatus = shortageModalData.targetStatus || 'in_progress';
+
+                    try {
+                      await quickRestockMaterial(mat.id, restockQty, `Quick vault top-up for crafting order #${targetItem?.order_no || targetItem?.id || ''}`);
+                      showToast(
+                        isKhmer
+                          ? `បានបញ្ចូលស្តុក ${restockQty}g (${(restockQty / 3.75).toFixed(2)} ជី) នៃ ${mat.name} ជោគជ័យ!`
+                          : `Restocked ${restockQty}g (${(restockQty / 3.75).toFixed(2)} Chi) of ${mat.name} into vault!`,
+                        'success'
+                      );
+
+                      if (targetItem && targetItem.id) {
+                        try {
+                          await updateMadeProductStatus(targetItem.id, targetStatus);
+                          showToast(
+                            isKhmer
+                              ? `ប័ណ្ណការងារ #${targetItem.order_no || targetItem.id} ត្រូវបានកំណត់ជា "${targetStatus === 'in_progress' ? 'កំពុងកែច្នៃ' : 'រួចរាល់'}" ជោគជ័យ!`
+                              : `Order #${targetItem.order_no || targetItem.id} set to ${targetStatus === 'in_progress' ? 'In Progress' : 'Completed'}!`,
+                            'success'
+                          );
+                        } catch (statusErr) {
+                          console.error('Auto status change after restock failed:', statusErr);
+                        }
+                      }
+
+                      setShortageModalData(null);
+                      refreshAllData(true);
+                    } catch (e) {
+                      console.error('Instant restock error:', e);
+                      showToast(isKhmer ? 'បរាជ័យក្នុងការបញ្ចូលស្តុក' : 'Failed to restock material', 'error');
+                    }
+                  }}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <FontAwesomeIcon icon={faRotateRight} className="w-3.5 h-3.5" />
+                  <span>
+                    {isKhmer
+                      ? `⚡ បញ្ចូលស្តុកភ្លាមៗ (+${Math.max(Math.ceil((shortageModalData.deficit || 10) + 10), 20)}g) & ចាប់ផ្ដើម`
+                      : `⚡ Quick Restock (+${Math.max(Math.ceil((shortageModalData.deficit || 10) + 10), 20)}g) & Proceed`}
+                  </span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1277,10 +1375,10 @@ export const MadeProductsView = () => {
                       openPurchaseMaterialModal(mat, Math.max(Math.ceil(def > 0 ? def : 20), 10));
                     }
                   }}
-                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-all flex items-center gap-2 cursor-pointer"
                 >
                   <FontAwesomeIcon icon={faCartPlus} className="w-3.5 h-3.5" />
-                  <span>{isKhmer ? 'បញ្ជាទិញសម្ភារៈពីអ្នកផ្គត់ផ្គង់ (PO)' : 'Buy Materials from Supplier (PO)'}</span>
+                  <span>{isKhmer ? 'បង្កើតប័ណ្ណទិញពីអ្នកផ្គត់ផ្គង់ (PO)' : 'Purchase (PO)'}</span>
                 </button>
               </div>
 

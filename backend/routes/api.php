@@ -75,6 +75,7 @@ Route::apiResource('categories', CategoryController::class);
 
 // Material Categories & Materials Inventory API
 Route::apiResource('material-categories', MaterialCategoryController::class);
+Route::post('/materials/{id}/restock', [MaterialController::class, 'quickRestock']);
 Route::apiResource('materials', MaterialController::class);
 
 // Units API
